@@ -12,7 +12,7 @@ enum Trigger {
 	WHEN_THEYRE_HURT,      # Enemy HP below threshold
 	WHEN_THEYRE_CLOSE,     # Enemy within distance (tiles)
 	WHEN_THEYRE_FAR,       # Enemy beyond distance (tiles)
-	WHEN_THEYRE_IN_COVER,  # Enemy behind cover (not implemented yet, always false)
+	WHEN_THEYRE_IN_COVER,  # Enemy near a pillar (within 48px)
 	WHEN_GADGET_READY,     # Specific module off cooldown
 	WHEN_CLOCK_SAYS,       # Match time exceeds threshold (seconds)
 }
@@ -102,7 +102,21 @@ func _check_trigger(card: BehaviorCard, brott: RefCounted, enemy: RefCounted, ma
 			var dist_tiles: float = brott.position.distance_to(enemy.position) / 32.0
 			return dist_tiles >= float(param)
 		Trigger.WHEN_THEYRE_IN_COVER:
-			return false  # Cover system not implemented yet
+			if enemy == null or not enemy.alive:
+				return false
+			var cover_dist := 48.0
+			var center: float = 8.0 * 32.0
+			var offset: float = 2.5 * 32.0
+			var pillars: Array[Vector2] = [
+				Vector2(center - offset, center - offset),
+				Vector2(center + offset, center - offset),
+				Vector2(center - offset, center + offset),
+				Vector2(center + offset, center + offset),
+			]
+			for p in pillars:
+				if enemy.position.distance_to(p) <= cover_dist:
+					return true
+			return false
 		Trigger.WHEN_GADGET_READY:
 			var mod_name: String = str(param)
 			for i in range(brott.module_types.size()):

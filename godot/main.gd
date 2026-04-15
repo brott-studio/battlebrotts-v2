@@ -2,7 +2,7 @@
 extends Node2D
 
 const ARENA_OFFSET := Vector2(384, 60)  # Center arena in 1280x720
-const TICKS_PER_SEC := 20
+const TICKS_PER_SEC := 10
 
 @onready var arena_renderer: Node2D = $ArenaRenderer
 @onready var speed_label: Label = $UI/SpeedLabel

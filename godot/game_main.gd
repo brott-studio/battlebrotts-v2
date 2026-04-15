@@ -3,7 +3,7 @@
 extends Node2D
 
 const ARENA_OFFSET := Vector2(384, 60)
-const TICKS_PER_SEC := 20
+const TICKS_PER_SEC := 10
 
 var game_flow: GameFlow
 var sim: CombatSim

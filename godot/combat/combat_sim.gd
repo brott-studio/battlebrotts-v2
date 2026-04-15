@@ -1,15 +1,15 @@
 ## Core tick-based combat simulation
-## 20 ticks/sec, deterministic given same RNG seed
+## 10 ticks/sec (Sprint 4: halved from 20 for pacing), deterministic given same RNG seed
 class_name CombatSim
 extends RefCounted
 
-const TICKS_PER_SEC: int = 20
-const TICK_DELTA: float = 1.0 / 20.0
+const TICKS_PER_SEC: int = 10
+const TICK_DELTA: float = 1.0 / 10.0
 const MAX_ENERGY: float = 100.0
-const ENERGY_REGEN_PER_TICK: float = 5.0 / 20.0
+const ENERGY_REGEN_PER_TICK: float = 5.0 / 10.0
 const CRIT_CHANCE: float = 0.05
 const CRIT_MULT: float = 1.5
-const MATCH_TIMEOUT_TICKS: int = 120 * 20
+const MATCH_TIMEOUT_TICKS: int = 120 * 10
 const BOT_HITBOX_RADIUS: float = 12.0
 const TILE_SIZE: float = 32.0
 
@@ -158,7 +158,7 @@ func _tick_modules(b: BrottState) -> void:
 				_on_cooldown_expired(b, mt)
 		
 		if str(mdata["passive_effect"]) == "heal":
-			var heal_per_tick: float = float(mdata["heal_per_sec"]) / 20.0
+			var heal_per_tick: float = float(mdata["heal_per_sec"]) / float(TICKS_PER_SEC)
 			b.hp = minf(b.hp + heal_per_tick, float(b.max_hp))
 
 func _on_cooldown_expired(b: BrottState, mt: ModuleData.ModuleType) -> void:
@@ -179,7 +179,7 @@ func _activate_module(b: BrottState, module_index: int) -> void:
 	if not mdata["activated"]:
 		return
 	
-	var dur_ticks: float = float(mdata.get("duration", 0.0)) * 20.0
+	var dur_ticks: float = float(mdata.get("duration", 0.0)) * float(TICKS_PER_SEC)
 	b.module_active_timers[module_index] = dur_ticks
 	
 	match mt:
@@ -195,7 +195,7 @@ func _activate_module(b: BrottState, module_index: int) -> void:
 
 func _deactivate_module(b: BrottState, module_index: int, mt: ModuleData.ModuleType) -> void:
 	var mdata: Dictionary = ModuleData.get_module(mt)
-	var cd_ticks: float = float(mdata.get("cooldown", 0.0)) * 20.0
+	var cd_ticks: float = float(mdata.get("cooldown", 0.0)) * float(TICKS_PER_SEC)
 	b.module_cooldowns[module_index] = cd_ticks
 	
 	match mt:
@@ -324,7 +324,7 @@ func _fire_weapons(b: BrottState) -> void:
 		
 		b.energy -= float(wd["energy_cost"])
 		var fire_rate: float = float(wd["fire_rate"]) * b.get_fire_rate_multiplier()
-		b.weapon_cooldowns[i] = 20.0 / fire_rate
+		b.weapon_cooldowns[i] = float(TICKS_PER_SEC) / fire_rate
 		
 		var pellets: int = int(wd["pellets"])
 		for _p in range(pellets):

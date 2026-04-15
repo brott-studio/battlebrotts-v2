@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update-data:
@@ -66,14 +67,32 @@ jobs:
               commits: $commits
             }' > data.json
 
-      - name: Commit updated data.json
+      - name: Commit and open PR for data.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data.json
           if git diff --cached --quiet; then
             echo "No changes to data.json"
-          else
-            git commit -m "chore: update dashboard data [skip ci]"
-            git push
+            exit 0
           fi
+          BRANCH="auto/update-dashboard-data"
+          git checkout -B "$BRANCH"
+          git commit -m "chore: update dashboard data"
+          git push --force origin "$BRANCH"
+          # Create or update PR
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --json number -q '.[0].number')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #$EXISTING_PR already exists, force-pushed update"
+          else
+            gh pr create \
+              --title "chore: update dashboard data" \
+              --body "Auto-generated dashboard data update." \
+              --head "$BRANCH" \
+              --base main
+          fi
+          # Auto-merge if possible
+          PR_NUM=${EXISTING_PR:-$(gh pr list --head "$BRANCH" --json number -q '.[0].number')}
+          gh pr merge "$PR_NUM" --auto --squash 2>/dev/null || true

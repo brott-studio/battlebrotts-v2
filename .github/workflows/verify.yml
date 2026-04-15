@@ -1,0 +1,43 @@
+name: Verify
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Playwright Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install @playwright/test serve
+          npx playwright install --with-deps chromium
+
+      - name: Prepare site for testing
+        run: |
+          mkdir -p _site/game
+          cp index.html data.json _site/
+          # If build/ exists (game exported), copy it
+          if [ -d build ] && [ -f build/index.html ]; then
+            cp -r build/* _site/game/
+          else
+            echo '<html><head><title>BattleBrotts</title></head><body>Placeholder</body></html>' > _site/game/index.html
+          fi
+
+      - name: Run tests
+        run: npx playwright test
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: tests/screenshots/
+          retention-days: 7

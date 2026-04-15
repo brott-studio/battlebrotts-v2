@@ -1,0 +1,79 @@
+name: Update Dashboard Data
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    name: Regenerate data.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate data.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get commit count
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+
+          # Get recent 20 commits as JSON
+          COMMITS=$(git log -20 --pretty=format:'{"sha":"%H","message":"%s","date":"%aI"}' | jq -s '.')
+
+          # Get merged PRs from GitHub API
+          PRS=$(gh pr list --repo "${{ github.repository }}" --state merged --limit 100 --json number,title,url,labels,mergedAt)
+          PR_COUNT=$(echo "$PRS" | jq 'length')
+
+          # Group PRs by sprint label
+          SPRINTS=$(echo "$PRS" | jq '
+            [group_by(.labels[]?.name | select(startswith("S")))
+             | .[]
+             | {
+                 name: (.[0].labels[]?.name // "Untagged"),
+                 prs: [.[] | {number, title, url}]
+               }
+            ] // []
+          ' 2>/dev/null || echo '[]')
+
+          # Get current sprint from latest sprint label
+          CURRENT_SPRINT=$(echo "$PRS" | jq -r '
+            [.[].labels[]?.name | select(startswith("S"))] | sort | last // "Sprint 0"
+          ' 2>/dev/null || echo "Sprint 0")
+
+          # Test count (count test() calls in spec files)
+          TEST_COUNT=$(grep -r "test(" tests/ --include="*.spec.*" 2>/dev/null | wc -l || echo 0)
+
+          # Build data.json
+          jq -n \
+            --arg cs "$CURRENT_SPRINT" \
+            --argjson cc "$COMMIT_COUNT" \
+            --argjson pc "$PR_COUNT" \
+            --argjson tc "$TEST_COUNT" \
+            --argjson sprints "$SPRINTS" \
+            --argjson commits "$COMMITS" \
+            '{
+              currentSprint: $cs,
+              commitCount: $cc,
+              prCount: $pc,
+              testCount: $tc,
+              sprints: $sprints,
+              commits: $commits
+            }' > data.json
+
+      - name: Commit updated data.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          if git diff --cached --quiet; then
+            echo "No changes to data.json"
+          else
+            git commit -m "chore: update dashboard data [skip ci]"
+            git push
+          fi

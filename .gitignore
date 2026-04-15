@@ -1,9 +1,19 @@
 # Godot
 .godot/
 *.import
-export_presets.cfg
 build/
+
+# Node
+node_modules/
+
+# Test artifacts
+tests/screenshots/
+tests/results.json
+
+# Site build
+_site/
 
 # OS
 .DS_Store
 Thumbs.db
+test-results/

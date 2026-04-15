@@ -150,30 +150,38 @@ func _execute_action(card: BehaviorCard, brott: RefCounted) -> void:
 static func default_for_chassis(chassis_type: int) -> BrottBrain:
 	var brain := BrottBrain.new()
 	match chassis_type:
-		0:  # Scout — kiting, flee when hurt
-			brain.default_stance = 2  # Kiting
+		0:  # Scout — Hit & Run stance, flee when hurt, afterburner when close, aggressive when enemy weak
+			brain.default_stance = 2  # Hit & Run
 			brain.add_card(BehaviorCard.new(
 				Trigger.WHEN_IM_HURT, 0.3,
-				Action.SWITCH_STANCE, 1  # Defensive
+				Action.SWITCH_STANCE, 1  # Defensive — flee
+			))
+			brain.add_card(BehaviorCard.new(
+				Trigger.WHEN_THEYRE_CLOSE, 3,
+				Action.USE_GADGET, "Afterburner"  # Escape when close
 			))
 			brain.add_card(BehaviorCard.new(
 				Trigger.WHEN_THEYRE_HURT, 0.3,
 				Action.SWITCH_STANCE, 0  # Aggressive — go for the kill
 			))
-		1:  # Brawler — aggressive, switch to defensive when low
-			brain.default_stance = 0  # Aggressive
+		1:  # Brawler — Aggressive stance, shield when hurt, all-fire when close
+			brain.default_stance = 0  # Go Get 'Em!
 			brain.add_card(BehaviorCard.new(
 				Trigger.WHEN_IM_HURT, 0.4,
-				Action.SWITCH_STANCE, 1  # Defensive
+				Action.USE_GADGET, "Shield Projector"  # Shield when hurt
 			))
 			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_IM_HEALTHY, 0.7,
-				Action.SWITCH_STANCE, 0  # Aggressive
+				Trigger.WHEN_THEYRE_CLOSE, 3,
+				Action.WEAPONS, "all_fire"  # All-fire when close
 			))
-		2:  # Fortress — aggressive, hold center
-			brain.default_stance = 0  # Aggressive
+		2:  # Fortress — Play it Safe stance, shield when hurt, aggressive when enemy weak
+			brain.default_stance = 1  # Play it Safe
 			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_THEYRE_FAR, 8,
-				Action.HOLD_CENTER, null
+				Trigger.WHEN_IM_HURT, 0.4,
+				Action.USE_GADGET, "Shield Projector"  # Shield when hurt
+			))
+			brain.add_card(BehaviorCard.new(
+				Trigger.WHEN_THEYRE_HURT, 0.3,
+				Action.SWITCH_STANCE, 0  # Aggressive when enemy weak
 			))
 	return brain

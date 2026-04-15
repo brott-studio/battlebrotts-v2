@@ -186,6 +186,12 @@ func _process(delta: float) -> void:
 	
 	while tick_accumulator >= tick_delta:
 		tick_accumulator -= tick_delta
+		# Check slow-mo from death sequence
+		var time_scale := 1.0
+		if arena_renderer and arena_renderer.has_method("get_time_scale"):
+			time_scale = arena_renderer.get_time_scale()
+		if time_scale < 1.0:
+			tick_accumulator -= tick_delta  # effectively halve tick rate during slow-mo
 		sim.simulate_tick()
 		if arena_renderer and arena_renderer.has_method("tick_visuals"):
 			arena_renderer.tick_visuals()

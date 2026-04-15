@@ -46,6 +46,11 @@ var death_zoom_timer: float = 0.0
 var death_slow_mo_timer: float = 0.0
 var death_debris: Array = []
 
+# Overtime visual state
+var overtime_flash_timer: float = 0.0
+var overtime_banner_alpha: float = 0.0
+var overtime_triggered: bool = false
+
 # Hit flash tracking (max 1 flash per 3 frames)
 var last_flash_frame: Dictionary = {}  # brott -> last flash frame
 var frame_count: int = 0
@@ -356,6 +361,16 @@ func tick_visuals() -> void:
 	if death_slow_mo_timer > 0:
 		death_slow_mo_timer -= 1.0
 	
+	# Update overtime banner
+	if sim.overtime_active and not overtime_triggered:
+		overtime_triggered = true
+		overtime_flash_timer = 60.0  # 1 sec flash
+		overtime_banner_alpha = 1.0
+	if overtime_flash_timer > 0:
+		overtime_flash_timer -= 1.0
+	if overtime_triggered:
+		overtime_banner_alpha = maxf(0.4, overtime_banner_alpha - 0.01)  # fade to persistent 0.4
+
 	# Update brott visual state
 	for b: BrottState in sim.brotts:
 		if b.flash_timer > 0:
@@ -438,6 +453,10 @@ func _draw() -> void:
 	# Match result
 	if sim.match_over:
 		_draw_match_result(draw_offset)
+	
+	# Overtime banner
+	if overtime_triggered:
+		_draw_overtime_banner(draw_offset)
 
 func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 	var pos: Vector2 = b.position + draw_offset
@@ -515,3 +534,16 @@ func _draw_match_result(draw_offset: Vector2) -> void:
 		col = Color.RED
 	var center: Vector2 = draw_offset + Vector2(ARENA_PX / 2.0, ARENA_PX / 2.0)
 	draw_string(ThemeDB.fallback_font, center - Vector2(60, 0), text, HORIZONTAL_ALIGNMENT_CENTER, 120, 32, col)
+
+func _draw_overtime_banner(draw_offset: Vector2) -> void:
+	var center: Vector2 = draw_offset + Vector2(ARENA_PX / 2.0, 40.0)
+	var alpha: float = overtime_banner_alpha
+	# Pulsing effect when flash is active
+	if overtime_flash_timer > 0:
+		alpha = clampf(sin(overtime_flash_timer * 0.3) * 0.5 + 1.0, 0.5, 1.0)
+	var col := Color(1.0, 0.3, 0.1, alpha)
+	# Outline
+	var outline_col := Color(0, 0, 0, alpha * 0.8)
+	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+		draw_string(ThemeDB.fallback_font, center - Vector2(60, 0) + off, "OVERTIME!", HORIZONTAL_ALIGNMENT_CENTER, 120, 20, outline_col)
+	draw_string(ThemeDB.fallback_font, center - Vector2(60, 0), "OVERTIME!", HORIZONTAL_ALIGNMENT_CENTER, 120, 20, col)

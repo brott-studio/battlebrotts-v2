@@ -50,6 +50,13 @@ func _init() -> void:
 	_test_death_sets_death_timer()
 	_test_flash_timer_on_damage()
 	
+	# --- OVERTIME AGGRESSION TESTS ---
+	_test_overtime_ticks_constant()
+	_test_overtime_triggers_at_60s()
+	_test_overtime_forces_aggressive_stance()
+	_test_overtime_speed_boost()
+	_test_no_overtime_before_60s()
+	
 	print("\n=== Results: %d passed, %d failed, %d total ===" % [pass_count, fail_count, test_count])
 	
 	if fail_count > 0:
@@ -320,6 +327,71 @@ func _test_flash_timer_on_damage() -> void:
 	# Flash timer should have been set at some point (3.0 per hit)
 	# We can't check exact value since it decrements, but it proves damage pathway works
 	assert_true(true, "Damage pathway exercised without crash")
+
+# ============= OVERTIME AGGRESSION =============
+
+func _test_overtime_ticks_constant() -> void:
+	print("test_overtime_ticks_constant")
+	assert_eq(CombatSim.OVERTIME_TICKS, 600, "OVERTIME_TICKS = 60 * 10 = 600")
+
+func _test_overtime_triggers_at_60s() -> void:
+	print("test_overtime_triggers_at_60s")
+	var sim := CombatSim.new(42)
+	var b := _make_brott(0, ChassisData.ChassisType.BRAWLER)
+	b.stance = 1  # Defensive
+	b.setup()
+	var enemy := _make_brott(1, ChassisData.ChassisType.BRAWLER)
+	enemy.stance = 1  # Defensive
+	enemy.position = Vector2(12 * 32.0, 8 * 32.0)  # Far apart to avoid kills
+	enemy.setup()
+	sim.add_brott(b)
+	sim.add_brott(enemy)
+	# Simulate to tick 600
+	for _i in range(600):
+		sim.simulate_tick()
+	assert_true(sim.overtime_active, "Overtime active at tick 600")
+
+func _test_overtime_forces_aggressive_stance() -> void:
+	print("test_overtime_forces_aggressive_stance")
+	var sim := CombatSim.new(42)
+	var b := _make_brott(0, ChassisData.ChassisType.SCOUT)
+	b.stance = 2  # Kiting
+	b.setup()
+	var enemy := _make_brott(1, ChassisData.ChassisType.FORTRESS)
+	enemy.stance = 1  # Defensive
+	enemy.position = Vector2(14 * 32.0, 8 * 32.0)
+	enemy.setup()
+	sim.add_brott(b)
+	sim.add_brott(enemy)
+	for _i in range(601):
+		sim.simulate_tick()
+	# Both should be forced to aggressive (0)
+	if b.alive:
+		assert_eq(b.stance, 0, "Player forced to Aggressive in overtime")
+	else:
+		assert_true(true, "Brott died before overtime check — skip")
+	if enemy.alive:
+		assert_eq(enemy.stance, 0, "Enemy forced to Aggressive in overtime")
+	else:
+		assert_true(true, "Enemy died before overtime check — skip")
+
+func _test_overtime_speed_boost() -> void:
+	print("test_overtime_speed_boost")
+	assert_near(CombatSim.OVERTIME_SPEED_MULT, 1.2, 0.001, "Overtime speed multiplier = 1.2")
+
+func _test_no_overtime_before_60s() -> void:
+	print("test_no_overtime_before_60s")
+	var sim := CombatSim.new(42)
+	var b := _make_brott(0, ChassisData.ChassisType.BRAWLER)
+	b.setup()
+	var enemy := _make_brott(1, ChassisData.ChassisType.BRAWLER)
+	enemy.position = Vector2(14 * 32.0, 8 * 32.0)
+	enemy.setup()
+	sim.add_brott(b)
+	sim.add_brott(enemy)
+	for _i in range(599):
+		sim.simulate_tick()
+	assert_true(not sim.overtime_active, "Overtime NOT active at tick 599")
 
 # ============= HELPERS =============
 

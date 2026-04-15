@@ -350,6 +350,7 @@ Example: Any Brott → 20 🔩 repair on win, 50 🔩 on loss, regardless of equ
 - **Win condition**: Reduce all enemy Brotts' HP to 0
 - **Loss condition**: All your Brotts reach 0 HP
 - **Draw condition**: If neither side is eliminated after **120 seconds**, the side with higher total remaining HP% wins. If tied, it's a draw (counts as a loss for progression, but awards 40 🔩).
+- **Overtime Aggression** (60s): If the match timer exceeds 60 seconds, both Brotts enter **Overtime** — their stance is forced to 🔥 "Go Get 'Em!" (overriding BrottBrain), movement speed increases by 20%, and an "OVERTIME!" banner appears on screen. This mechanic prevents stalemates from defensive/kiting builds orbiting outside weapon range and guarantees decisive outcomes. Target: <5% timeout rate.
 - **Target match length**: 30–60 seconds for 1v1, 45–90 seconds for 2v2/3v3. 120 sec timeout prevents stalemate builds.
 
 ---

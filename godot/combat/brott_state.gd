@@ -51,6 +51,7 @@ var stance: int = 0  # 0=aggressive, 1=defensive, 2=kiting, 3=ambush
 # BrottBrain
 var brain: RefCounted = null  # BrottBrain instance
 var _pending_gadget: String = ""  # Set by brain, consumed by combat_sim
+var overtime: bool = false  # Set by CombatSim when overtime triggers
 
 # Target
 var target: BrottState = null

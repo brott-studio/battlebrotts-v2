@@ -10,6 +10,8 @@ const ENERGY_REGEN_PER_TICK: float = 5.0 / 10.0
 const CRIT_CHANCE: float = 0.05
 const CRIT_MULT: float = 1.5
 const MATCH_TIMEOUT_TICKS: int = 90 * 10
+const OVERTIME_TICKS: int = 60 * 10  # 600 ticks = 60s — triggers overtime aggression
+const OVERTIME_SPEED_MULT: float = 1.2  # +20% movement speed in overtime
 const BOT_HITBOX_RADIUS: float = 12.0
 const TILE_SIZE: float = 32.0
 
@@ -19,6 +21,7 @@ var rng: RandomNumberGenerator
 var tick_count: int = 0
 var match_over: bool = false
 var winner_team: int = -1
+var overtime_active: bool = false
 
 signal on_damage(target: BrottState, amount: float, is_crit: bool, pos: Vector2)
 signal on_projectile_spawned(proj: Projectile)
@@ -38,6 +41,14 @@ func simulate_tick() -> void:
 		return
 	tick_count += 1
 	
+	# Check overtime trigger
+	if not overtime_active and tick_count >= OVERTIME_TICKS:
+		overtime_active = true
+		for b in brotts:
+			if b.alive:
+				b.stance = 0  # Force Aggressive
+				b.overtime = true
+
 	for b in brotts:
 		if not b.alive:
 			continue
@@ -85,6 +96,10 @@ func _evaluate_brain(b: BrottState) -> void:
 		if b._pending_gadget != "":
 			_activate_gadget_by_name(b, b._pending_gadget)
 			b._pending_gadget = ""
+	
+	# Overtime: force aggressive stance (overrides BrottBrain)
+	if overtime_active:
+		b.stance = 0
 
 func _find_target(b: BrottState) -> BrottState:
 	var best: BrottState = null
@@ -212,6 +227,8 @@ func _move_brott(b: BrottState) -> void:
 	if b.target == null:
 		return
 	var spd: float = b.get_effective_speed() * TICK_DELTA
+	if overtime_active:
+		spd *= OVERTIME_SPEED_MULT
 	
 	# Check movement override from brain
 	var move_override: String = ""

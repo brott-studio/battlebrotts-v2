@@ -56,20 +56,20 @@ func _run_data_tests() -> void:
 	
 	# Chassis stats (v3 balance)
 	var scout := ChassisData.get_chassis(ChassisData.ChassisType.SCOUT)
-	assert_eq(scout["hp"], 300, "Scout HP = 300")
+	assert_eq(scout["hp"], 200, "Scout HP = 200")
 	assert_near(scout["speed"], 220.0, 0.1, "Scout speed = 220")
 	assert_eq(scout["weapon_slots"], 2, "Scout weapon slots = 2")
 	assert_eq(scout["module_slots"], 3, "Scout module slots = 3")
 	assert_near(scout["dodge_chance"], 0.15, 0.001, "Scout dodge = 15%")
 	
 	var brawler := ChassisData.get_chassis(ChassisData.ChassisType.BRAWLER)
-	assert_eq(brawler["hp"], 450, "Brawler HP = 450")
+	assert_eq(brawler["hp"], 300, "Brawler HP = 300")
 	assert_near(brawler["speed"], 120.0, 0.1, "Brawler speed = 120")
 	assert_eq(brawler["weapon_slots"], 2, "Brawler weapon slots = 2")
 	assert_eq(brawler["module_slots"], 2, "Brawler module slots = 2")
 	
 	var fortress := ChassisData.get_chassis(ChassisData.ChassisType.FORTRESS)
-	assert_eq(fortress["hp"], 540, "Fortress HP = 540")
+	assert_eq(fortress["hp"], 360, "Fortress HP = 360")
 	assert_near(fortress["speed"], 60.0, 0.1, "Fortress speed = 60")
 	assert_eq(fortress["weapon_slots"], 2, "Fortress weapon slots = 2")
 	assert_eq(fortress["module_slots"], 1, "Fortress module slots = 1")

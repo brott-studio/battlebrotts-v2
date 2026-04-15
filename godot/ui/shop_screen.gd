@@ -1,4 +1,4 @@
-## Shop screen — buy weapons, armor, modules with Bolts
+## Shop screen — Sprint 4: shows archetype + description, stats behind toggle
 class_name ShopScreen
 extends Control
 
@@ -6,6 +6,7 @@ signal item_purchased(category: String, type: int)
 signal continue_pressed
 
 var game_state: GameState
+var details_expanded: Dictionary = {}  # track which items have stats expanded
 
 func setup(state: GameState) -> void:
 	game_state = state
@@ -32,7 +33,7 @@ func _build_ui() -> void:
 		var wd := WeaponData.get_weapon(wt)
 		var price: int = GameState.WEAPON_PRICES[wt]
 		var owned: bool = wt in game_state.owned_weapons
-		y_offset = _add_shop_item(wd["name"], price, owned, "weapon", wt, y_offset)
+		y_offset = _add_shop_item_v2(wd, price, owned, "weapon", wt, y_offset)
 	
 	# Armor section
 	y_offset = _add_section("ARMOR", y_offset + 10)
@@ -40,7 +41,7 @@ func _build_ui() -> void:
 		var ad := ArmorData.get_armor(at)
 		var price: int = GameState.ARMOR_PRICES[at]
 		var owned: bool = at in game_state.owned_armor
-		y_offset = _add_shop_item(ad["name"], price, owned, "armor", at, y_offset)
+		y_offset = _add_shop_item_v2(ad, price, owned, "armor", at, y_offset)
 	
 	# Chassis section
 	y_offset = _add_section("CHASSIS", y_offset + 10)
@@ -56,7 +57,7 @@ func _build_ui() -> void:
 		var md := ModuleData.get_module(mt)
 		var price: int = GameState.MODULE_PRICES[mt]
 		var owned: bool = mt in game_state.owned_modules
-		y_offset = _add_shop_item(md["name"], price, owned, "module", mt, y_offset)
+		y_offset = _add_shop_item_v2(md, price, owned, "module", mt, y_offset)
 	
 	# Continue button
 	var btn := Button.new()
@@ -75,6 +76,77 @@ func _add_section(title: String, y: int) -> int:
 	lbl.size = Vector2(300, 30)
 	add_child(lbl)
 	return y + 30
+
+func _add_shop_item_v2(data: Dictionary, price: int, owned: bool, category: String, type: int, y: int) -> int:
+	var item_name: String = data["name"]
+	var archetype: String = data.get("archetype", "")
+	var desc: String = data.get("description", "")
+	var key: String = "%s_%d" % [category, type]
+	
+	# Main row: archetype + name + price/owned
+	var hbox := HBoxContainer.new()
+	hbox.position = Vector2(40, y)
+	hbox.size = Vector2(700, 30)
+	
+	var lbl := Label.new()
+	var display_text: String = ""
+	if owned:
+		display_text = "✅ %s — %s" % [item_name, archetype]
+	elif price == 0:
+		display_text = "%s — %s (Free)" % [item_name, archetype]
+	else:
+		display_text = "%s — %s — %d 🔩" % [item_name, archetype, price]
+	lbl.text = display_text
+	lbl.size = Vector2(400, 30)
+	hbox.add_child(lbl)
+	
+	if not owned:
+		var btn := Button.new()
+		btn.text = "Buy" if price <= game_state.bolts else "Can't afford"
+		btn.disabled = price > game_state.bolts
+		btn.size = Vector2(120, 28)
+		btn.pressed.connect(_on_buy.bind(category, type))
+		hbox.add_child(btn)
+	
+	# Details toggle
+	var det_btn := Button.new()
+	det_btn.text = "📊" if not details_expanded.get(key, false) else "▲"
+	det_btn.size = Vector2(40, 28)
+	det_btn.pressed.connect(func():
+		details_expanded[key] = not details_expanded.get(key, false)
+		_build_ui()
+	)
+	hbox.add_child(det_btn)
+	
+	add_child(hbox)
+	y += 30
+	
+	# Description line
+	if desc != "":
+		var desc_lbl := Label.new()
+		desc_lbl.text = desc
+		desc_lbl.add_theme_font_size_override("font_size", 11)
+		desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		desc_lbl.position = Vector2(60, y)
+		desc_lbl.size = Vector2(600, 20)
+		add_child(desc_lbl)
+		y += 20
+	
+	# Expanded stats
+	if details_expanded.get(key, false):
+		for stat_key in data.keys():
+			if stat_key in ["name", "archetype", "description"]:
+				continue
+			var stat_lbl := Label.new()
+			stat_lbl.text = "  %s: %s" % [stat_key, str(data[stat_key])]
+			stat_lbl.add_theme_font_size_override("font_size", 10)
+			stat_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+			stat_lbl.position = Vector2(70, y)
+			stat_lbl.size = Vector2(500, 16)
+			add_child(stat_lbl)
+			y += 16
+	
+	return y
 
 func _add_shop_item(item_name: String, price: int, owned: bool, category: String, type: int, y: int) -> int:
 	var hbox := HBoxContainer.new()

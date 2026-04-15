@@ -1,4 +1,4 @@
-## Loadout screen — equip chassis, weapons, armor, modules
+## Loadout screen — Sprint 4: archetype + description, stats behind toggle
 class_name LoadoutScreen
 extends Control
 
@@ -6,6 +6,7 @@ signal continue_pressed
 signal back_pressed
 
 var game_state: GameState
+var details_expanded: Dictionary = {}
 
 func setup(state: GameState) -> void:
 	game_state = state
@@ -56,7 +57,8 @@ func _build_ui() -> void:
 		var wd := WeaponData.get_weapon(wt)
 		var equipped := wt in game_state.equipped_weapons
 		var btn := Button.new()
-		btn.text = ("✓ " if equipped else "  ") + "%s (dmg:%d rng:%d wt:%dkg)" % [wd["name"], wd["damage"], wd["range_tiles"], wd["weight"]]
+		btn.text = ("✓ " if equipped else "  ") + "%s — %s" % [wd["name"], wd["archetype"]]
+		btn.tooltip_text = wd["description"]
 		btn.position = Vector2(40, y)
 		btn.size = Vector2(500, 30)
 		btn.pressed.connect(_toggle_weapon.bind(wt))
@@ -77,7 +79,8 @@ func _build_ui() -> void:
 		var ad := ArmorData.get_armor(at)
 		var selected := at == game_state.equipped_armor
 		var btn := Button.new()
-		btn.text = ("▶ " if selected else "  ") + "%s (-%d%% wt:%dkg)" % [ad["name"], int(ad["reduction"] * 100), ad["weight"]]
+		btn.text = ("▶ " if selected else "  ") + "%s — %s" % [ad["name"], ad["archetype"]]
+		btn.tooltip_text = ad["description"]
 		btn.position = Vector2(40, y)
 		btn.size = Vector2(500, 30)
 		btn.pressed.connect(_select_armor.bind(at))
@@ -90,7 +93,8 @@ func _build_ui() -> void:
 		var md := ModuleData.get_module(mt)
 		var equipped := mt in game_state.equipped_modules
 		var btn := Button.new()
-		btn.text = ("✓ " if equipped else "  ") + "%s (wt:%dkg)" % [md["name"], md["weight"]]
+		btn.text = ("✓ " if equipped else "  ") + "%s — %s" % [md["name"], md["archetype"]]
+		btn.tooltip_text = md["description"]
 		btn.position = Vector2(40, y)
 		btn.size = Vector2(500, 30)
 		btn.pressed.connect(_toggle_module.bind(mt))

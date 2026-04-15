@@ -1,4 +1,4 @@
-## Static armor definitions
+## Static armor definitions — Sprint 4: archetypes + descriptions added
 class_name ArmorData
 extends RefCounted
 
@@ -7,24 +7,32 @@ enum ArmorType { NONE, PLATING, REACTIVE_MESH, ABLATIVE_SHELL }
 const ARMORS := {
 	ArmorType.NONE: {
 		"name": "None",
+		"archetype": "",
+		"description": "",
 		"reduction": 0.0,
 		"weight": 0,
 		"special": "",
 	},
 	ArmorType.PLATING: {
 		"name": "Plating",
+		"archetype": "🛡️ Reliable",
+		"description": "Flat damage reduction. No surprises, no downsides. The safe pick.",
 		"reduction": 0.20,
 		"weight": 15,
 		"special": "",
 	},
 	ArmorType.REACTIVE_MESH: {
 		"name": "Reactive Mesh",
+		"archetype": "🪞 Thorns",
+		"description": "Light protection, but attackers take damage too. Punishes rapid-fire weapons.",
 		"reduction": 0.10,
 		"weight": 8,
 		"special": "reflect",   # 5 flat damage back to attacker
 	},
 	ArmorType.ABLATIVE_SHELL: {
 		"name": "Ablative Shell",
+		"archetype": "🧱 Glass Fortress",
+		"description": "Incredible protection — until it isn't. Crumbles when you're on your last legs.",
 		"reduction": 0.40,
 		"weight": 25,
 		"special": "ablative",  # drops to 10% below 30% HP

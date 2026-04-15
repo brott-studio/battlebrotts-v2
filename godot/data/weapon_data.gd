@@ -1,4 +1,4 @@
-## Static weapon definitions — Balance Changes v3 applied
+## Static weapon definitions — Sprint 4: archetypes + descriptions added
 class_name WeaponData
 extends RefCounted
 
@@ -7,6 +7,8 @@ enum WeaponType { MINIGUN, RAILGUN, SHOTGUN, MISSILE_POD, PLASMA_CUTTER, ARC_EMI
 const WEAPONS := {
 	WeaponType.MINIGUN: {
 		"name": "Minigun",
+		"archetype": "🔫 Rapid Fire",
+		"description": "Sprays a stream of bullets — low damage, constant pressure. Death by a thousand cuts.",
 		"damage": 3,
 		"range_tiles": 5,
 		"fire_rate": 6.0, # shots/s
@@ -19,6 +21,8 @@ const WEAPONS := {
 	},
 	WeaponType.RAILGUN: {
 		"name": "Railgun",
+		"archetype": "🎯 Sniper",
+		"description": "One devastating shot from across the arena. Miss and you're waiting.",
 		"damage": 45,
 		"range_tiles": 12,
 		"fire_rate": 0.6,
@@ -31,6 +35,8 @@ const WEAPONS := {
 	},
 	WeaponType.SHOTGUN: {
 		"name": "Shotgun",
+		"archetype": "💥 Shotgun",
+		"description": "Get close, pull the trigger, watch pellets fly. Devastating point-blank, useless at range.",
 		"damage": 6,
 		"range_tiles": 3,
 		"fire_rate": 1.5,
@@ -43,6 +49,8 @@ const WEAPONS := {
 	},
 	WeaponType.MISSILE_POD: {
 		"name": "Missile Pod",
+		"archetype": "🚀 Explosive",
+		"description": "Slow-moving rockets that splash on impact. Great against groups, easy to dodge solo.",
 		"damage": 30,
 		"range_tiles": 8,
 		"fire_rate": 0.8,
@@ -55,6 +63,8 @@ const WEAPONS := {
 	},
 	WeaponType.PLASMA_CUTTER: {
 		"name": "Plasma Cutter",
+		"archetype": "⚡ Melee Blaster",
+		"description": "In-your-face rapid fire beam. Brutal when you can stick to a target.",
 		"damage": 14,
 		"range_tiles": 1.5,
 		"fire_rate": 3.0,
@@ -67,6 +77,8 @@ const WEAPONS := {
 	},
 	WeaponType.ARC_EMITTER: {
 		"name": "Arc Emitter",
+		"archetype": "⛓️ Chain Lightning",
+		"description": "Zaps a target and arcs to their buddy. The anti-group specialist.",
 		"damage": 8,
 		"range_tiles": 4,
 		"fire_rate": 2.0,
@@ -79,6 +91,8 @@ const WEAPONS := {
 	},
 	WeaponType.FLAK_CANNON: {
 		"name": "Flak Cannon",
+		"archetype": "🎆 Mid-Range Burst",
+		"description": "A punchy blast at medium distance. Jack-of-all-trades, master of none.",
 		"damage": 15,
 		"range_tiles": 6,
 		"fire_rate": 1.2,

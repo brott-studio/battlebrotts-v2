@@ -1,4 +1,4 @@
-## Static module definitions
+## Static module definitions — Sprint 4: archetypes + descriptions added
 class_name ModuleData
 extends RefCounted
 
@@ -7,6 +7,8 @@ enum ModuleType { OVERCLOCK, REPAIR_NANITES, SHIELD_PROJECTOR, SENSOR_ARRAY, AFT
 const MODULES := {
 	ModuleType.OVERCLOCK: {
 		"name": "Overclock",
+		"archetype": "⚡ Adrenaline",
+		"description": "Burst of fire rate, then a hangover. Time it right or pay the price.",
 		"weight": 5,
 		"activated": true,
 		"passive_effect": "",
@@ -17,6 +19,8 @@ const MODULES := {
 	},
 	ModuleType.REPAIR_NANITES: {
 		"name": "Repair Nanites",
+		"archetype": "💚 Passive Heal",
+		"description": "Slow, steady regeneration. Wins long fights by outlasting everyone.",
 		"weight": 7,
 		"activated": false,
 		"passive_effect": "heal",
@@ -24,6 +28,8 @@ const MODULES := {
 	},
 	ModuleType.SHIELD_PROJECTOR: {
 		"name": "Shield Projector",
+		"archetype": "🔵 Panic Button",
+		"description": "Pop it when things go south. One-time damage sponge on a long cooldown.",
 		"weight": 10,
 		"activated": true,
 		"passive_effect": "",
@@ -33,6 +39,8 @@ const MODULES := {
 	},
 	ModuleType.SENSOR_ARRAY: {
 		"name": "Sensor Array",
+		"archetype": "👁️ Wallhack",
+		"description": "See farther, see through cover. Knowledge is power.",
 		"weight": 4,
 		"activated": false,
 		"passive_effect": "vision",
@@ -40,6 +48,8 @@ const MODULES := {
 	},
 	ModuleType.AFTERBURNER: {
 		"name": "Afterburner",
+		"archetype": "🏃 Nitro Boost",
+		"description": "2 seconds of blazing speed. Escape, reposition, or close the gap.",
 		"weight": 6,
 		"activated": true,
 		"passive_effect": "",
@@ -49,6 +59,8 @@ const MODULES := {
 	},
 	ModuleType.EMP_CHARGE: {
 		"name": "EMP Charge",
+		"archetype": "🔇 Shutdown",
+		"description": "Turn off their toys for 3 seconds. Devastating against module-heavy builds.",
 		"weight": 9,
 		"activated": true,
 		"passive_effect": "",

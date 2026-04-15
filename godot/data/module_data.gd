@@ -11,7 +11,7 @@ const MODULES := {
 		"activated": true,
 		"passive_effect": "",
 		"duration": 4.0,      # sec active
-		"cooldown": 7.0,      # 4s active + 3s recovery
+		"cooldown": 3.0,      # 3s recovery after 4s active
 		"fire_rate_bonus": 0.30,
 		"fire_rate_penalty": -0.20,  # during cooldown after use
 	},

@@ -69,6 +69,22 @@ func simulate_tick() -> void:
 func _evaluate_brain(b: BrottState) -> void:
 	if b.target == null or not b.target.alive:
 		b.target = _find_target(b)
+	
+	b._pending_gadget = ""
+	
+	if b.brain != null:
+		var match_time_sec: float = float(tick_count) / float(TICKS_PER_SEC)
+		var enemy: BrottState = b.target
+		var fired: bool = b.brain.evaluate(b, enemy, match_time_sec)
+		
+		# Handle target priority from brain
+		if b.brain.target_priority != "nearest":
+			b.target = _find_target_by_priority(b, b.brain.target_priority)
+		
+		# Handle pending gadget activation
+		if b._pending_gadget != "":
+			_activate_gadget_by_name(b, b._pending_gadget)
+			b._pending_gadget = ""
 
 func _find_target(b: BrottState) -> BrottState:
 	var best: BrottState = null
@@ -81,6 +97,43 @@ func _find_target(b: BrottState) -> BrottState:
 			best_dist = d
 			best = other
 	return best
+
+func _find_target_by_priority(b: BrottState, priority: String) -> BrottState:
+	match priority:
+		"weakest":
+			var best: BrottState = null
+			var best_hp: float = INF
+			for other in brotts:
+				if other.team == b.team or not other.alive:
+					continue
+				if other.hp < best_hp:
+					best_hp = other.hp
+					best = other
+			return best
+		"biggest_threat":
+			# Simplified: pick highest max DPS enemy
+			var best: BrottState = null
+			var best_dps: float = -1.0
+			for other in brotts:
+				if other.team == b.team or not other.alive:
+					continue
+				var dps: float = 0.0
+				for wt in other.weapon_types:
+					var wd: Dictionary = WeaponData.get_weapon(wt)
+					dps += float(wd["damage"]) * float(wd["fire_rate"]) * float(wd["pellets"])
+				if dps > best_dps:
+					best_dps = dps
+					best = other
+			return best
+		_:
+			return _find_target(b)
+
+func _activate_gadget_by_name(b: BrottState, gadget_name: String) -> void:
+	for i in range(b.module_types.size()):
+		var mdata: Dictionary = ModuleData.get_module(b.module_types[i])
+		if mdata["name"] == gadget_name:
+			_activate_module(b, i)
+			return
 
 func _regen_energy(b: BrottState) -> void:
 	b.energy = minf(b.energy + ENERGY_REGEN_PER_TICK, MAX_ENERGY)
@@ -101,10 +154,17 @@ func _tick_modules(b: BrottState) -> void:
 		
 		if b.module_cooldowns[i] > 0:
 			b.module_cooldowns[i] -= 1.0
+			if b.module_cooldowns[i] <= 0:
+				_on_cooldown_expired(b, mt)
 		
 		if str(mdata["passive_effect"]) == "heal":
 			var heal_per_tick: float = float(mdata["heal_per_sec"]) / 20.0
 			b.hp = minf(b.hp + heal_per_tick, float(b.max_hp))
+
+func _on_cooldown_expired(b: BrottState, mt: ModuleData.ModuleType) -> void:
+	match mt:
+		ModuleData.ModuleType.OVERCLOCK:
+			b.overclock_recovery = false
 
 func _activate_module(b: BrottState, module_index: int) -> void:
 	if module_index >= b.module_types.size():
@@ -152,31 +212,56 @@ func _move_brott(b: BrottState) -> void:
 	if b.target == null:
 		return
 	var spd: float = b.get_effective_speed() * TICK_DELTA
-	var to_target: Vector2 = b.target.position - b.position
-	var dist: float = to_target.length()
-	var max_weapon_range: float = _get_max_weapon_range_px(b)
 	
-	match b.stance:
-		0:  # Aggressive
-			if dist > max_weapon_range * 0.5:
-				b.position += to_target.normalized() * spd
-		1:  # Defensive
-			if dist < max_weapon_range * 0.8:
-				b.position -= to_target.normalized() * spd
-			elif dist > max_weapon_range:
-				b.position += to_target.normalized() * spd
-		2:  # Kiting
-			var ideal: float = max_weapon_range * 0.7
-			var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-			if dist < ideal * 0.8:
-				b.position -= to_target.normalized() * spd * 0.7
-				b.position += perp * spd * 0.3
-			elif dist > ideal * 1.2:
-				b.position += to_target.normalized() * spd
-			else:
-				b.position += perp * spd
-		3:  # Ambush
-			pass
+	# Check movement override from brain
+	var move_override: String = ""
+	if b.brain != null:
+		move_override = b.brain.movement_override
+	
+	if move_override == "center":
+		var center := Vector2(8.0 * TILE_SIZE, 8.0 * TILE_SIZE)
+		var to_center := center - b.position
+		if to_center.length() > spd:
+			b.position += to_center.normalized() * spd
+		else:
+			b.position = center
+	elif move_override == "cover":
+		# Simplified: move toward nearest pillar
+		var best_pillar := Vector2.ZERO
+		var best_dist := INF
+		for p in _get_pillar_positions():
+			var d := b.position.distance_to(p)
+			if d < best_dist:
+				best_dist = d
+				best_pillar = p
+		if best_dist > 32.0:
+			b.position += (best_pillar - b.position).normalized() * spd
+	else:
+		var to_target: Vector2 = b.target.position - b.position
+		var dist: float = to_target.length()
+		var max_weapon_range: float = _get_max_weapon_range_px(b)
+		
+		match b.stance:
+			0:  # Aggressive
+				if dist > max_weapon_range * 0.5:
+					b.position += to_target.normalized() * spd
+			1:  # Defensive
+				if dist < max_weapon_range * 0.8:
+					b.position -= to_target.normalized() * spd
+				elif dist > max_weapon_range:
+					b.position += to_target.normalized() * spd
+			2:  # Kiting
+				var ideal: float = max_weapon_range * 0.7
+				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+				if dist < ideal * 0.8:
+					b.position -= to_target.normalized() * spd * 0.7
+					b.position += perp * spd * 0.3
+				elif dist > ideal * 1.2:
+					b.position += to_target.normalized() * spd
+				else:
+					b.position += perp * spd
+			3:  # Ambush
+				pass
 	
 	var arena_px: float = 16.0 * TILE_SIZE
 	b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px - BOT_HITBOX_RADIUS)
@@ -210,6 +295,13 @@ func _fire_weapons(b: BrottState) -> void:
 	if b.target == null or not b.target.alive:
 		return
 	
+	# Check weapon mode from brain
+	var wmode: String = "all_fire"
+	if b.brain != null:
+		wmode = b.brain.weapon_mode
+	if wmode == "hold_fire":
+		return
+	
 	for i in range(b.weapon_types.size()):
 		if b.weapon_cooldowns[i] > 0:
 			b.weapon_cooldowns[i] -= 1.0
@@ -224,6 +316,10 @@ func _fire_weapons(b: BrottState) -> void:
 			continue
 		
 		if b.energy < float(wd["energy_cost"]):
+			continue
+		
+		# Conserve mode: only fire if energy > 50%
+		if wmode == "conserve" and b.energy < 50.0:
 			continue
 		
 		b.energy -= float(wd["energy_cost"])

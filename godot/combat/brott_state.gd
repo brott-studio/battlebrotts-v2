@@ -48,6 +48,10 @@ var emp_disabled_timer: float = 0.0
 # Stance
 var stance: int = 0  # 0=aggressive, 1=defensive, 2=kiting, 3=ambush
 
+# BrottBrain
+var brain: RefCounted = null  # BrottBrain instance
+var _pending_gadget: String = ""  # Set by brain, consumed by combat_sim
+
 # Target
 var target: BrottState = null
 

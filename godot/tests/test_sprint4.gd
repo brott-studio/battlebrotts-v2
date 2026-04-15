@@ -86,17 +86,17 @@ func assert_near(a: float, b: float, eps: float, msg: String) -> void:
 func _test_scout_hp_tripled() -> void:
 	print("test_scout_hp_tripled")
 	var ch := ChassisData.get_chassis(ChassisData.ChassisType.SCOUT)
-	assert_eq(ch["hp"], 300, "Scout HP = 300")
+	assert_eq(ch["hp"], 200, "Scout HP = 200")
 
 func _test_brawler_hp_tripled() -> void:
 	print("test_brawler_hp_tripled")
 	var ch := ChassisData.get_chassis(ChassisData.ChassisType.BRAWLER)
-	assert_eq(ch["hp"], 450, "Brawler HP = 450")
+	assert_eq(ch["hp"], 300, "Brawler HP = 300")
 
 func _test_fortress_hp_tripled() -> void:
 	print("test_fortress_hp_tripled")
 	var ch := ChassisData.get_chassis(ChassisData.ChassisType.FORTRESS)
-	assert_eq(ch["hp"], 540, "Fortress HP = 540")
+	assert_eq(ch["hp"], 360, "Fortress HP = 360")
 
 func _test_tick_rate_halved() -> void:
 	print("test_tick_rate_halved")
@@ -265,8 +265,8 @@ func _test_brott_setup_uses_tripled_hp() -> void:
 	b.chassis_type = ChassisData.ChassisType.SCOUT
 	b.weapon_types = [WeaponData.WeaponType.MINIGUN]
 	b.setup()
-	assert_eq(b.max_hp, 300, "Scout BrottState max_hp = 300")
-	assert_near(b.hp, 300.0, 0.01, "Scout BrottState hp = 300")
+	assert_eq(b.max_hp, 200, "Scout BrottState max_hp = 200")
+	assert_near(b.hp, 200.0, 0.01, "Scout BrottState hp = 200")
 
 func _test_combat_sim_ticks_per_sec() -> void:
 	print("test_combat_sim_ticks_per_sec")

@@ -1,4 +1,4 @@
-## Static chassis definitions — Sprint 4: HP doubled for pacing
+## Static chassis definitions — Sprint 4: 1.5x HP for pacing (v3)
 class_name ChassisData
 extends RefCounted
 
@@ -7,7 +7,7 @@ enum ChassisType { SCOUT, BRAWLER, FORTRESS }
 const CHASSIS := {
 	ChassisType.SCOUT: {
 		"name": "Scout",
-		"hp": 200,
+		"hp": 150,
 		"speed": 220.0, # px/s
 		"weight_cap": 30,
 		"weapon_slots": 2,
@@ -17,7 +17,7 @@ const CHASSIS := {
 	},
 	ChassisType.BRAWLER: {
 		"name": "Brawler",
-		"hp": 300,
+		"hp": 225,
 		"speed": 120.0,
 		"weight_cap": 55,
 		"weapon_slots": 2,
@@ -27,7 +27,7 @@ const CHASSIS := {
 	},
 	ChassisType.FORTRESS: {
 		"name": "Fortress",
-		"hp": 360,
+		"hp": 270,
 		"speed": 60.0,
 		"weight_cap": 80,
 		"weapon_slots": 2,

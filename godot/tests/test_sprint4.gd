@@ -10,9 +10,9 @@ func _init() -> void:
 	print("=== BattleBrotts Sprint 4 Test Suite ===\n")
 	
 	# --- PACING TESTS ---
-	_test_scout_hp_tripled()
-	_test_brawler_hp_tripled()
-	_test_fortress_hp_tripled()
+	_test_scout_hp_1_5x()
+	_test_brawler_hp_1_5x()
+	_test_fortress_hp_1_5x()
 	_test_tick_rate_halved()
 	_test_match_timeout_ticks()
 	_test_energy_regen_per_tick()
@@ -83,20 +83,20 @@ func assert_near(a: float, b: float, eps: float, msg: String) -> void:
 
 # ============= PACING =============
 
-func _test_scout_hp_tripled() -> void:
-	print("test_scout_hp_tripled")
+func _test_scout_hp_1_5x() -> void:
+	print("test_scout_hp_1_5x")
 	var ch := ChassisData.get_chassis(ChassisData.ChassisType.SCOUT)
-	assert_eq(ch["hp"], 200, "Scout HP = 200")
+	assert_eq(ch["hp"], 150, "Scout HP = 150 (1.5x base)")
 
-func _test_brawler_hp_tripled() -> void:
-	print("test_brawler_hp_tripled")
+func _test_brawler_hp_1_5x() -> void:
+	print("test_brawler_hp_1_5x")
 	var ch := ChassisData.get_chassis(ChassisData.ChassisType.BRAWLER)
-	assert_eq(ch["hp"], 300, "Brawler HP = 300")
+	assert_eq(ch["hp"], 225, "Brawler HP = 225 (1.5x base)")
 
-func _test_fortress_hp_tripled() -> void:
-	print("test_fortress_hp_tripled")
+func _test_fortress_hp_1_5x() -> void:
+	print("test_fortress_hp_1_5x")
 	var ch := ChassisData.get_chassis(ChassisData.ChassisType.FORTRESS)
-	assert_eq(ch["hp"], 360, "Fortress HP = 360")
+	assert_eq(ch["hp"], 270, "Fortress HP = 270 (1.5x base)")
 
 func _test_tick_rate_halved() -> void:
 	print("test_tick_rate_halved")
@@ -104,7 +104,7 @@ func _test_tick_rate_halved() -> void:
 
 func _test_match_timeout_ticks() -> void:
 	print("test_match_timeout_ticks")
-	assert_eq(CombatSim.MATCH_TIMEOUT_TICKS, 1200, "MATCH_TIMEOUT = 120 * 10 = 1200")
+	assert_eq(CombatSim.MATCH_TIMEOUT_TICKS, 900, "MATCH_TIMEOUT = 90 * 10 = 900")
 
 func _test_energy_regen_per_tick() -> void:
 	print("test_energy_regen_per_tick")
@@ -265,8 +265,8 @@ func _test_brott_setup_uses_tripled_hp() -> void:
 	b.chassis_type = ChassisData.ChassisType.SCOUT
 	b.weapon_types = [WeaponData.WeaponType.MINIGUN]
 	b.setup()
-	assert_eq(b.max_hp, 200, "Scout BrottState max_hp = 200")
-	assert_near(b.hp, 200.0, 0.01, "Scout BrottState hp = 200")
+	assert_eq(b.max_hp, 150, "Scout BrottState max_hp = 150")
+	assert_near(b.hp, 150.0, 0.01, "Scout BrottState hp = 150")
 
 func _test_combat_sim_ticks_per_sec() -> void:
 	print("test_combat_sim_ticks_per_sec")
@@ -276,7 +276,7 @@ func _test_combat_sim_ticks_per_sec() -> void:
 func _test_combat_match_timeout() -> void:
 	print("test_combat_match_timeout")
 	var sim := CombatSim.new(42)
-	assert_eq(sim.MATCH_TIMEOUT_TICKS, 1200, "Match timeout = 1200 ticks")
+	assert_eq(sim.MATCH_TIMEOUT_TICKS, 900, "Match timeout = 900 ticks")
 
 func _test_death_sets_death_timer() -> void:
 	print("test_death_sets_death_timer")

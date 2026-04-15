@@ -9,9 +9,14 @@ var game_flow: GameFlow
 var sim: CombatSim
 var player_brain: BrottBrain
 
+# Preload arena renderer script for proper virtual method registration
+var ArenaRendererScript = preload("res://arena/arena_renderer.gd")
+
 # Screens (created dynamically)
 var current_ui: Control = null
 var arena_renderer: Node2D = null
+# ScrollContainer wrapper for UI screens
+var ui_scroll: ScrollContainer = null
 
 # Arena mode state
 var speed_multiplier: float = 1.0
@@ -31,6 +36,9 @@ func _ready() -> void:
 	_show_main_menu()
 
 func _clear_screen() -> void:
+	if ui_scroll:
+		ui_scroll.queue_free()
+		ui_scroll = null
 	if current_ui:
 		current_ui.queue_free()
 		current_ui = null
@@ -43,12 +51,25 @@ func _clear_screen() -> void:
 			child.queue_free()
 	in_arena = false
 
+func _wrap_in_scroll(screen: Control) -> void:
+	## Wraps a UI screen in a ScrollContainer so content can scroll if it
+	## overflows the viewport. The ScrollContainer is full-viewport sized.
+	ui_scroll = ScrollContainer.new()
+	ui_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ui_scroll.size = get_viewport().get_visible_rect().size
+	ui_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	ui_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	add_child(ui_scroll)
+	ui_scroll.add_child(screen)
+	# Let screen expand vertically to fit content
+	screen.custom_minimum_size.x = ui_scroll.size.x
+	current_ui = screen
+
 func _show_main_menu() -> void:
 	_clear_screen()
 	var menu := MainMenuScreen.new()
 	menu.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(menu)
-	current_ui = menu
+	_wrap_in_scroll(menu)
 	menu.new_game_pressed.connect(_on_new_game)
 
 func _on_new_game() -> void:
@@ -60,8 +81,7 @@ func _show_shop() -> void:
 	_clear_screen()
 	var shop := ShopScreen.new()
 	shop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(shop)
-	current_ui = shop
+	_wrap_in_scroll(shop)
 	shop.setup(game_flow.game_state)
 	shop.continue_pressed.connect(_show_loadout)
 
@@ -69,8 +89,7 @@ func _show_loadout() -> void:
 	_clear_screen()
 	var loadout := LoadoutScreen.new()
 	loadout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(loadout)
-	current_ui = loadout
+	_wrap_in_scroll(loadout)
 	loadout.setup(game_flow.game_state)
 	loadout.continue_pressed.connect(_show_brottbrain)
 	loadout.back_pressed.connect(_show_shop)
@@ -83,8 +102,7 @@ func _show_brottbrain() -> void:
 	_clear_screen()
 	var brain_screen := BrottBrainScreen.new()
 	brain_screen.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(brain_screen)
-	current_ui = brain_screen
+	_wrap_in_scroll(brain_screen)
 	brain_screen.setup(game_flow.game_state, player_brain)
 	brain_screen.continue_pressed.connect(func():
 		player_brain = brain_screen.get_brain()
@@ -96,8 +114,7 @@ func _show_opponent_select() -> void:
 	_clear_screen()
 	var opp_screen := OpponentSelectScreen.new()
 	opp_screen.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(opp_screen)
-	current_ui = opp_screen
+	_wrap_in_scroll(opp_screen)
 	opp_screen.setup(game_flow.game_state)
 	opp_screen.opponent_selected.connect(_start_match)
 	opp_screen.back_pressed.connect(_show_loadout)
@@ -124,10 +141,9 @@ func _start_match(opponent_index: int) -> void:
 	sim.add_brott(enemy_brott)
 	sim.on_match_end.connect(_on_match_end)
 	
-	# Create arena renderer
-	var ArenaRendererScript = load("res://arena/arena_renderer.gd")
-	arena_renderer = Node2D.new()
-	arena_renderer.set_script(ArenaRendererScript)
+	# Create arena renderer using Script.new() so virtual methods (_draw, etc.)
+	# are properly registered — set_script() on bare Node2D can miss virtuals in web export
+	arena_renderer = ArenaRendererScript.new()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
 	
@@ -171,8 +187,7 @@ func _show_result() -> void:
 	_clear_screen()
 	var result := ResultScreen.new()
 	result.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(result)
-	current_ui = result
+	_wrap_in_scroll(result)
 	result.setup(game_flow.game_state, game_flow.last_match_won, game_flow.last_bolts_earned)
 	result.continue_pressed.connect(_show_shop)
 	result.rematch_pressed.connect(func(): _start_match(game_flow.selected_opponent_index))

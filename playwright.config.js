@@ -10,7 +10,7 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'npx serve -l 8080 -s _site',
+    command: 'mkdir -p _site/game && cp index.html data.json _site/ && cp -r build/* _site/game/ 2>/dev/null; npx serve -l 8080 -s _site',
     port: 8080,
     reuseExistingServer: true,
     timeout: 10000,

@@ -73,6 +73,20 @@ var backup_distance: float = 0.0  # tracks straight-line backup to enforce 1-til
 var flash_timer: float = 0.0
 var death_timer: float = 0.0
 
+# S12.4: Charm pass — render-layer only, no gameplay effect
+var idle_timer: float = 0.0  # continuous timer for idle animation
+var last_direction: Vector2 = Vector2.ZERO  # for detecting direction changes
+var was_moving: bool = false  # for detecting standstill→move transition
+var spin_anim_timer: float = 0.0  # Scout 360° spin on direction change
+var smoke_particles: Array = []  # trailing smoke below 25% HP
+var recoil_offset: Vector2 = Vector2.ZERO  # visual recoil from crits
+var module_ring_timer: float = 0.0  # colored ring on module activation
+var module_ring_color: Color = Color.WHITE
+var victory_anim_timer: float = 0.0  # win/loss reaction
+var victory_anim_type: String = ""  # "win", "perfect", "close", "loss"
+var charm_y_offset: float = 0.0  # vertical offset from idle/victory anims
+var charm_rotation: float = 0.0  # rotation from spin anims
+
 func setup() -> void:
 	var ch := ChassisData.get_chassis(chassis_type)
 	max_hp = ch["hp"]

@@ -64,11 +64,21 @@ var frame_count: int = 0
 # Shotgun damage accumulator
 var shotgun_accum: Dictionary = {}  # target_id -> {total, pos, timer, is_crit}
 
+# S12.4: Charm pass state
+var charm_rng := RandomNumberGenerator.new()
+var prev_brott_velocities: Dictionary = {}  # id -> Vector2
+var prev_brott_speeds: Dictionary = {}  # id -> float
+var fortress_micro_shake: Vector2 = Vector2.ZERO
+var fortress_micro_shake_timer: float = 0.0
+var overtime_glow_intensity: float = 0.0  # 0→1 for overtime light glow
+var victory_sparks_spawned: bool = false
+
 func setup(p_sim: CombatSim, p_offset: Vector2) -> void:
 	sim = p_sim
 	arena_offset = p_offset
 	sim.on_damage.connect(_on_damage)
 	sim.on_death.connect(_on_death)
+	charm_rng.seed = 12345  # deterministic for testing
 
 func _get_weapon_shake_class(source: BrottState) -> String:
 	# Determine shake intensity based on weapon type
@@ -205,6 +215,11 @@ func _on_damage(target: BrottState, amount: float, is_crit: bool, hit_pos: Vecto
 		shotgun_accum[target_id]["timer"] = 6.0  # reset timer (100ms at ~60fps)
 	else:
 		_add_damage_text(hit_pos, amount, is_crit)
+
+	# S12.4: Crit received — 2px visual recoil away from attacker
+	if is_crit and source != null and target.alive:
+		var recoil_dir := (target.position - source.position).normalized()
+		target.recoil_offset = recoil_dir * 2.0
 
 func _add_damage_text(hit_pos: Vector2, amount: float, is_crit: bool) -> void:
 	var color: Color = Color.YELLOW if is_crit else Color.WHITE
@@ -390,8 +405,146 @@ func tick_visuals() -> void:
 			b.flash_timer -= 1.0
 		if b.death_timer > 0:
 			b.death_timer -= 1.0
-	
+
+	# S12.4: Charm pass visual tick
+	_tick_charm_anims()
+
 	queue_redraw()
+
+
+## S12.4: Charm pass — tick all personality animations
+func _tick_charm_anims() -> void:
+	var delta := 1.0 / 60.0
+
+	# Overtime glow ramp
+	if sim.overtime_active:
+		overtime_glow_intensity = minf(1.0, overtime_glow_intensity + delta * 0.5)
+
+	# Fortress micro-shake decay
+	if fortress_micro_shake_timer > 0:
+		fortress_micro_shake_timer -= delta
+		if fortress_micro_shake_timer <= 0:
+			fortress_micro_shake = Vector2.ZERO
+
+	for b: BrottState in sim.brotts:
+		if not b.alive:
+			continue
+
+		# Idle timer always ticks
+		b.idle_timer += delta
+
+		# Victory/defeat anim
+		CharmAnims.tick_victory_anim(b, delta)
+
+		# Recoil decay (spring back over ~0.1s)
+		if b.recoil_offset.length() > 0.01:
+			b.recoil_offset = b.recoil_offset.lerp(Vector2.ZERO, delta * 15.0)
+		else:
+			b.recoil_offset = Vector2.ZERO
+
+		# Movement quirks: detect transitions
+		var bid := b.get_instance_id()
+		var cur_vel := b.velocity
+		var cur_speed := b.current_speed
+		var prev_vel: Vector2 = prev_brott_velocities.get(bid, Vector2.ZERO)
+		var prev_speed: float = prev_brott_speeds.get(bid, 0.0)
+		var is_moving := cur_speed > 5.0
+		var was_still := prev_speed <= 5.0
+
+		# Scout: 360° spin on direction change
+		if b.chassis_type == ChassisData.ChassisType.SCOUT:
+			if b.spin_anim_timer > 0:
+				b.spin_anim_timer -= delta
+				var t := 1.0 - (b.spin_anim_timer / 0.25)
+				b.charm_rotation = t * 360.0
+				if b.spin_anim_timer <= 0:
+					b.charm_rotation = 0.0
+			elif is_moving and prev_vel.length() > 5.0:
+				var angle_diff := abs(cur_vel.angle_to(prev_vel))
+				if angle_diff > 0.5:  # ~30° threshold
+					if CharmAnims.should_scout_spin(charm_rng):
+						b.spin_anim_timer = 0.25
+
+		# Brawler: dust puff on standstill→move
+		if b.chassis_type == ChassisData.ChassisType.BRAWLER:
+			if is_moving and was_still:
+				var puffs := CharmAnims.create_dust_puff(b.position)
+				for p in puffs:
+					p["pos"] += arena_offset
+					particles.append(p)
+
+		# Fortress: micro-shake on start/stop, gear particle on decel
+		if b.chassis_type == ChassisData.ChassisType.FORTRESS:
+			if (is_moving and was_still) or (not is_moving and not was_still and prev_speed > 5.0):
+				# start or stop: micro-shake 0.5px, 0.1s
+				fortress_micro_shake = Vector2(randf_range(-0.5, 0.5), randf_range(-0.5, 0.5))
+				fortress_micro_shake_timer = 0.1
+			if cur_speed < prev_speed - 5.0 and cur_speed > 5.0:
+				# decelerating: gear-grinding particle
+				var gp := CharmAnims.create_gear_particle(b.position + arena_offset, cur_vel)
+				particles.append(gp)
+
+		# Combat flavor: smoke trail below 25% HP
+		var hp_pct := b.hp / float(b.max_hp)
+		if hp_pct < 0.25 and hp_pct > 0.0 and frame_count % 4 == 0:
+			var sp := CharmAnims.create_smoke_particle(b.position + arena_offset)
+			particles.append(sp)
+
+		# Combat flavor: module activation ring
+		if b.module_ring_timer > 0:
+			b.module_ring_timer -= delta
+
+		# Detect module activations (active_timer just started)
+		for mi in range(b.module_active_timers.size()):
+			if b.module_active_timers[mi] > 0 and b.module_cooldowns[mi] == 0:
+				# Module just activated — only trigger ring if not already showing
+				if b.module_ring_timer <= 0:
+					b.module_ring_timer = 0.4
+					b.module_ring_color = CharmAnims.get_module_ring_color(b.module_types[mi])
+
+		prev_brott_velocities[bid] = cur_vel
+		prev_brott_speeds[bid] = cur_speed
+
+	# Victory/defeat reactions on match end
+	if sim.match_over and not victory_sparks_spawned:
+		victory_sparks_spawned = true
+		for b: BrottState in sim.brotts:
+			if not b.alive:
+				CharmAnims.start_victory_anim(b, "loss")
+				# Sparks for loss
+				for _i in range(5):
+					var angle := randf() * TAU
+					var speed := randf_range(20.0, 40.0)
+					particles.append({
+						"pos": b.position + arena_offset,
+						"vel": Vector2(cos(angle), sin(angle)) * speed,
+						"lifetime": 20.0,
+						"max_lifetime": 20.0,
+						"color": Color(1.0, 0.8, 0.2, 0.8),
+						"size": 1.5,
+					})
+				continue
+			if b.team == sim.winner_team:
+				var hp_pct := b.hp / float(b.max_hp)
+				if hp_pct >= 1.0:
+					CharmAnims.start_victory_anim(b, "perfect")
+				elif hp_pct < 0.20:
+					CharmAnims.start_victory_anim(b, "close")
+				else:
+					CharmAnims.start_victory_anim(b, "win")
+			else:
+				CharmAnims.start_victory_anim(b, "loss")
+				for _i in range(5):
+					var angle := randf() * TAU
+					var speed := randf_range(20.0, 40.0)
+					particles.append({
+						"pos": b.position + arena_offset,
+						"vel": Vector2(cos(angle), sin(angle)) * speed,
+						"lifetime": 20.0,
+						"max_lifetime": 20.0,
+						"color": Color(1.0, 0.8, 0.2, 0.8),
+						"size": 1.5,
+					})
 
 func _draw() -> void:
 	if sim == null:
@@ -517,6 +670,18 @@ func _draw_danger_zone(draw_offset: Vector2) -> void:
 
 func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 	var pos: Vector2 = b.position + draw_offset
+
+	# S12.4: Apply charm visual offsets (render-layer only)
+	var idle_val := CharmAnims.get_idle_offset(b.chassis_type, b.idle_timer)
+	if CharmAnims.get_idle_is_horizontal(b.chassis_type):
+		pos.x += idle_val  # Brawler: side-to-side
+	else:
+		pos.y += idle_val  # Scout/Fortress: up/down
+	pos.y += b.charm_y_offset  # victory/defeat anim
+	pos += b.recoil_offset  # crit recoil
+	# Fortress micro-shake
+	if b.chassis_type == ChassisData.ChassisType.FORTRESS and fortress_micro_shake_timer > 0:
+		pos += fortress_micro_shake
 	
 	if not b.alive:
 		if b.death_timer > 0:
@@ -572,6 +737,20 @@ func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 	# Shield
 	if b.shield_active:
 		draw_arc(pos, BOT_RADIUS + 4, 0, TAU, 32, COLOR_SHIELD, 2.5)
+
+	# S12.4: Module activation ring
+	if b.module_ring_timer > 0:
+		var ring_alpha := clampf(b.module_ring_timer / 0.4, 0.0, 1.0)
+		var ring_radius := BOT_RADIUS + 6.0 + (1.0 - ring_alpha) * 12.0
+		var ring_col := b.module_ring_color
+		ring_col.a = ring_alpha * 0.7
+		draw_arc(pos, ring_radius, 0, TAU, 32, ring_col, 2.0)
+
+	# S12.4: Overtime glow (all bots' lights glow brighter)
+	if overtime_glow_intensity > 0 and b.alive:
+		var glow_alpha := overtime_glow_intensity * (0.15 + sin(b.idle_timer * 3.0) * 0.05)
+		var glow_col := Color(1.0, 0.9, 0.6, glow_alpha)
+		draw_circle(pos, BOT_RADIUS + 2, glow_col)
 	
 	# Health bar
 	var bar_y: float = pos.y - BOT_RADIUS - 12

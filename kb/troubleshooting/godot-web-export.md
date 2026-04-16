@@ -16,24 +16,28 @@ Godot web exports fail or produce broken builds if the renderer isn't set correc
 
 ## set_script() Fails in Web Exports
 
-**Source:** Sprint 5 (S5-001)
+**Source:** Sprint 5 (S5-001), updated Sprint 7
 
 **Problem:** `Node2D.new()` followed by `set_script(load("res://script.gd"))` does NOT register virtual method overrides (`_draw()`, `_process()`, etc.) in Godot web exports. The node loads but virtual methods never fire — result is a blank/invisible node.
 
-**Fix:** Preload the script and instantiate directly:
+**Fix:** Use scene instantiation — create a `.tscn` scene with the script attached, then preload and instantiate it:
 ```gdscript
 # WRONG (breaks in web export):
 var node = Node2D.new()
 node.set_script(load("res://my_script.gd"))
 
-# RIGHT:
+# ALSO WRONG (Script.new() is unreliable in web exports):
 var MyScript = preload("res://my_script.gd")
 var node = MyScript.new()
+
+# RIGHT — scene instantiation:
+var scene = preload("res://my_node.tscn")
+var node = scene.instantiate()
 ```
 
-**Why:** In web exports, `set_script()` on an already-constructed bare node doesn't re-register virtual method overrides. The node's vtable is fixed at construction time. `preload().new()` constructs with the script already attached, so overrides register correctly.
+**Why:** In web exports, both `set_script()` and `Script.new()` can fail to properly register virtual method overrides. Scene instantiation (`preload().instantiate()`) is the only reliable method because Godot fully constructs the node with its script and overrides during scene loading.
 
-**Rule:** Never use `set_script()` for nodes that rely on virtual methods. Always use `preload().new()`.
+**Rule:** Never use `set_script()` or bare `Script.new()` for nodes that rely on virtual methods in web exports. Always use scene instantiation (`preload("res://scene.tscn").instantiate()`).
 
 ## Also
 - Headless browsers (CI) lack WebGL — Godot stays in loading state. This is expected, not a bug.

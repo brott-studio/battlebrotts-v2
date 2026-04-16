@@ -58,6 +58,12 @@ static func build_opponent_brott(league: String, index: int, game_state: GameSta
 		last_arch = game_state._last_opponent_archetype
 	var template: Dictionary = OpponentLoadouts.pick_opponent_loadout(tier, last_arch)
 	if template.is_empty():
+		push_warning("OpponentLoadouts: empty pool for tier=%d league=%s index=%d; retrying without variety" % [tier, league, index])
+		template = OpponentLoadouts.pick_opponent_loadout(tier, -1)
+	if template.is_empty():
+		push_warning("OpponentLoadouts: still empty after variety skip for tier=%d; falling back to tier 1" % tier)
+		template = OpponentLoadouts.pick_opponent_loadout(1, -1)
+	if template.is_empty():
 		return null
 
 	var b := BrottState.new()

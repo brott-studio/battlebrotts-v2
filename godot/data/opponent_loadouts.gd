@@ -97,4 +97,6 @@ static func pick_opponent_loadout(difficulty_tier: int, last_archetype: int = -1
 		var varied: Array = pool.filter(func(t): return t.archetype != last_archetype)
 		if not varied.is_empty():
 			pool = varied
+	if pool.is_empty():
+		return {}
 	return pool.pick_random()

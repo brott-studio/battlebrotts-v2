@@ -32,11 +32,19 @@ const BOT_HITBOX_RADIUS: float = 12.0
 const TILE_SIZE: float = 32.0
 
 # TCR Combat Rhythm constants (S13.2)
-const TENSION_DURATION_MIN: int = 20  # ticks (2.0s at 10 ticks/sec)
-const TENSION_DURATION_MAX: int = 35  # ticks (3.5s)
-const COMMIT_DURATION: int = 8        # ticks (0.8s)
-const RECOVERY_DURATION: int = 12     # ticks (1.2s)
+# S13.3: Phase durations are now per-chassis (see ChassisData.TCR_TIMINGS).
+# The constants below are baseline fallbacks (Brawler-tuned); callers should
+# prefer ChassisData.get_tcr_timings(chassis_type).
+const TENSION_DURATION_MIN: int = 20  # ticks (2.0s at 10 ticks/sec) — Brawler baseline
+const TENSION_DURATION_MAX: int = 35  # ticks (3.5s) — Brawler baseline
+const COMMIT_DURATION: int = 8        # ticks (0.8s) — Brawler baseline
+const RECOVERY_DURATION: int = 12     # ticks (1.2s) — Brawler baseline
 const COMMIT_SPEED_MULT: float = 1.4
+# S13.3 Lever 1: Absolute commit-speed cap (px/s).
+# Prevents Scout's 220 px/s × 1.4 = 308 px/s commit dash from crossing the entire
+# engagement band in a single 0.8s window. Brawler (168 px/s) and Fortress (84 px/s)
+# are unaffected by the cap; only Scout's commit is clipped to 200 px/s.
+const COMMIT_SPEED_CAP: float = 200.0
 const ORBIT_SPEED_MULT: float = 0.55
 const APPROACH_SPEED_MULT: float = 0.80
 const DISENGAGE_SPEED_MULT: float = 0.90
@@ -68,11 +76,23 @@ var json_log_enabled: bool = false
 var _json_log: Array = []
 var _tick_events: Array = []  # transient: events for current tick
 
-# --- Instrumentation (S11.2) ---
-var shots_fired: Dictionary = {}   # weapon_name -> int
-var shots_hit: Dictionary = {}     # weapon_name -> int
+# --- Instrumentation (S11.2, extended S13.3) ---
+# S13.3: Split per-shot (trigger pull) from per-pellet (individual projectile) metrics.
+#   shots_fired    — one increment per weapon trigger pull (used for hit rate when
+#                    "did ANY pellet land" is the interesting question)
+#   shots_hit      — counts trigger pulls where at least one pellet connected
+#   pellets_fired  — one increment per projectile spawned (spread weapons fire many)
+#   pellets_hit    — one increment per projectile that damaged a target
+# Canonical hit rate for balance is per-pellet: pellets_hit / pellets_fired ≤ 1.0.
+var shots_fired: Dictionary = {}   # weapon_name -> int (trigger pulls)
+var shots_hit: Dictionary = {}     # weapon_name -> int (trigger pulls where ≥1 pellet landed)
+var pellets_fired: Dictionary = {} # weapon_name -> int (individual projectiles spawned)
+var pellets_hit: Dictionary = {}   # weapon_name -> int (individual projectiles that landed)
 var first_engagement_tick: int = -1
 var kill_ticks: Dictionary = {}    # bot_name -> tick when killed
+# S13.3: Shot IDs that have already credited shots_hit (so multiple pellets from one
+# trigger pull only count as one shot_hit). Cleared never — match-scoped set.
+var _shots_hit_ids: Dictionary = {}
 
 signal on_damage(target: BrottState, amount: float, is_crit: bool, pos: Vector2)
 signal on_projectile_spawned(proj: Projectile)
@@ -358,6 +378,17 @@ func _get_engagement_distance(b: BrottState) -> Dictionary:
 
 const COMBAT_EXIT_GRACE_TICKS: int = 20  # 2.0s grace before TCR state resets (S13.2 fix)
 
+func _get_tension_range(b: BrottState) -> Dictionary:
+	## S13.3: Returns {"min": ticks, "max": ticks, "commit": ticks, "recovery": ticks}
+	## per chassis. Falls back to baseline constants if chassis is unknown.
+	var t: Dictionary = ChassisData.get_tcr_timings(b.chassis_type)
+	return {
+		"min": int(t.get("tension_min", TENSION_DURATION_MIN)),
+		"max": int(t.get("tension_max", TENSION_DURATION_MAX)),
+		"commit": int(t.get("commit", COMMIT_DURATION)),
+		"recovery": int(t.get("recovery", RECOVERY_DURATION)),
+	}
+
 func _enter_combat_movement(b: BrottState) -> void:
 	b.in_combat_movement = true
 	b.orbit_direction = 1 if rng.randf() < 0.5 else -1
@@ -370,9 +401,10 @@ func _enter_combat_movement(b: BrottState) -> void:
 			var phase_name: String = ["TENSION", "COMMIT", "RECOVERY"][b.combat_phase]
 			_tick_events.append({"type": "tcr_resume", "bot_id": b.bot_name, "phase": phase_name})
 	else:
-		# Fresh entry — initialize TCR state machine
+		# Fresh entry — initialize TCR state machine (per-chassis timings, S13.3)
+		var tcr: Dictionary = _get_tension_range(b)
 		b.combat_phase = 0  # TENSION
-		b.combat_phase_timer = rng.randi_range(TENSION_DURATION_MIN, TENSION_DURATION_MAX)
+		b.combat_phase_timer = rng.randi_range(tcr["min"], tcr["max"])
 		b.tension_drift_timer = TENSION_DRIFT_INTERVAL
 		if json_log_enabled:
 			_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "TENSION", "duration": b.combat_phase_timer})
@@ -537,27 +569,28 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 	var ideal: float = engage["ideal"]
 	var tolerance: float = engage["tolerance"]
 	
-	# --- TCR State Machine (S13.2) ---
+	# --- TCR State Machine (S13.2; per-chassis durations S13.3) ---
 	b.combat_phase_timer -= 1
+	var tcr: Dictionary = _get_tension_range(b)
 	
 	# Phase transitions
 	if b.combat_phase_timer <= 0:
 		match b.combat_phase:
 			0:  # TENSION -> COMMIT
 				b.combat_phase = 1
-				b.combat_phase_timer = COMMIT_DURATION
+				b.combat_phase_timer = tcr["commit"]
 				b.commit_start_distance = dist
 				if json_log_enabled:
-					_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "COMMIT", "duration": COMMIT_DURATION})
+					_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "COMMIT", "duration": tcr["commit"]})
 			1:  # COMMIT -> RECOVERY
 				b.combat_phase = 2
-				b.combat_phase_timer = RECOVERY_DURATION
+				b.combat_phase_timer = tcr["recovery"]
 				b.backup_distance = 0.0
 				if json_log_enabled:
-					_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "RECOVERY", "duration": RECOVERY_DURATION})
+					_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "RECOVERY", "duration": tcr["recovery"]})
 			2:  # RECOVERY -> TENSION
 				b.combat_phase = 0
-				b.combat_phase_timer = rng.randi_range(TENSION_DURATION_MIN, TENSION_DURATION_MAX)
+				b.combat_phase_timer = rng.randi_range(tcr["min"], tcr["max"])
 				b.tension_drift_timer = TENSION_DRIFT_INTERVAL
 				b.backup_distance = 0.0
 				if json_log_enabled:
@@ -602,8 +635,11 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
 				b.position += perp * drift_offset
 		
-		1:  # COMMIT — dash toward target at 140% base speed
-			var commit_target_speed: float = b.base_speed * COMMIT_SPEED_MULT
+		1:  # COMMIT — dash toward target at 140% base speed (capped at COMMIT_SPEED_CAP px/s, S13.3)
+			# Pre-afterburner/overtime commit target is min(base_speed * 1.4, COMMIT_SPEED_CAP).
+			# Afterburner and overtime multipliers stack on top of the (already capped) commit speed,
+			# preserving the relative feel of those buffs while fixing the Scout teleport case.
+			var commit_target_speed: float = minf(b.base_speed * COMMIT_SPEED_MULT, COMMIT_SPEED_CAP)
 			if b.afterburner_active:
 				commit_target_speed *= 1.80
 			if overtime_active:
@@ -699,6 +735,10 @@ func _fire_weapons(b: BrottState) -> void:
 			first_engagement_tick = tick_count
 		
 		var pellets: int = int(wd["pellets"])
+		# S13.3: Track a per-trigger-pull "did any pellet land" flag via shot_id stored on
+		# projectiles. We use a (bot_name, weapon_name, tick, shot_seq) tuple as the id;
+		# shots_hit increments the first time any pellet from that tuple lands.
+		var shot_id: String = "%s|%s|%d|%d" % [b.bot_name, wname, tick_count, i]
 		for _p in range(pellets):
 			var is_crit: bool = rng.randf() < CRIT_CHANCE
 			var spread_rad: float = deg_to_rad(float(wd["spread_deg"]))
@@ -708,7 +748,10 @@ func _fire_weapons(b: BrottState) -> void:
 			dir = dir.rotated(angle_offset)
 			var target_pos: Vector2 = b.position + dir * range_px
 			
-			var proj: Projectile = Projectile.new(b, target_pos, float(wd["damage"]), is_crit, float(wd["range_tiles"]), int(wd["splash_radius"]), float(wd.get("projectile_speed", 400.0)))
+			var proj: Projectile = Projectile.new(b, target_pos, float(wd["damage"]), is_crit, float(wd["range_tiles"]), int(wd["splash_radius"]), float(wd.get("projectile_speed", 400.0)), wname)
+			proj.shot_id = shot_id
+			# S13.3: per-pellet instrumentation
+			pellets_fired[wname] = pellets_fired.get(wname, 0) + 1
 			projectiles.append(proj)
 			on_projectile_spawned.emit(proj)
 
@@ -754,7 +797,7 @@ func _update_projectiles() -> void:
 					hit_someone = true
 					break
 				
-				_apply_damage(b, proj.damage, proj.is_crit, proj.source, proj.pos)
+				_apply_damage(b, proj.damage, proj.is_crit, proj.source, proj.pos, proj)
 				
 				if proj.splash_radius > 0:
 					var splash_px: float = float(proj.splash_radius) * TILE_SIZE
@@ -762,7 +805,7 @@ func _update_projectiles() -> void:
 						if not other.alive or other == b or other.team == proj.source.team:
 							continue
 						if other.position.distance_to(proj.pos) <= splash_px:
-							_apply_damage(other, proj.damage * 0.5, false, proj.source, other.position)
+							_apply_damage(other, proj.damage * 0.5, false, proj.source, other.position, null)
 				
 				proj.alive = false
 				to_remove.append(i)
@@ -781,7 +824,7 @@ func _update_projectiles() -> void:
 	for j in range(to_remove.size() - 1, -1, -1):
 		projectiles.remove_at(to_remove[j])
 
-func _apply_damage(target: BrottState, base_dmg: float, is_crit: bool, source: BrottState, hit_pos: Vector2) -> void:
+func _apply_damage(target: BrottState, base_dmg: float, is_crit: bool, source: BrottState, hit_pos: Vector2, proj: Projectile = null) -> void:
 	var reduction: float = target.get_armor_reduction()
 	var crit_mult: float = CRIT_MULT if is_crit else 1.0
 	var overtime_mult: float = 1.0
@@ -805,13 +848,21 @@ func _apply_damage(target: BrottState, base_dmg: float, is_crit: bool, source: B
 		if json_log_enabled:
 			_tick_events.append({"type": "damage_dealt", "target_id": target.bot_name, "amount": effective, "is_crit": is_crit})
 		on_damage.emit(target, effective, is_crit, hit_pos)
-		# Instrumentation: track shots hit (by source weapon)
-		if source != null:
-			for wt_idx in range(source.weapon_types.size()):
-				var wd_instr: Dictionary = WeaponData.get_weapon(source.weapon_types[wt_idx])
-				var wn: String = str(wd_instr.get("name", str(source.weapon_types[wt_idx])))
-				shots_hit[wn] = shots_hit.get(wn, 0) + 1
-				break  # attribute to first weapon (projectile doesn't track index)
+		# --- Instrumentation (S11.2, fixed S13.3) ---
+		# Credit the projectile's source weapon (not just the first weapon on the bot),
+		# and only count pellet-level hits here. Shots-level hits are credited once per
+		# trigger-pull via shot_id below. Splash damage (proj=null) is not counted as a
+		# direct hit — it's collateral on other bots, not a projectile landing.
+		if proj != null:
+			var wn: String = proj.source_weapon_name
+			if wn == "" and source != null and source.weapon_types.size() > 0:
+				var wd_fb: Dictionary = WeaponData.get_weapon(source.weapon_types[0])
+				wn = str(wd_fb.get("name", ""))
+			if wn != "":
+				pellets_hit[wn] = pellets_hit.get(wn, 0) + 1
+				if proj.shot_id != "" and not _shots_hit_ids.has(proj.shot_id):
+					_shots_hit_ids[proj.shot_id] = true
+					shots_hit[wn] = shots_hit.get(wn, 0) + 1
 	
 	var armor_data: Dictionary = ArmorData.get_armor(target.armor_type)
 	if str(armor_data["special"]) == "reflect" and source.alive:
@@ -873,7 +924,21 @@ func get_arena_boundary_tiles() -> float:
 ## --- Instrumentation API (S11.2) ---
 
 func get_hit_rates() -> Dictionary:
-	## Returns {weapon_name: hit_rate_float} for each weapon that fired
+	## S13.3: Canonical hit rate is per-pellet (pellets_hit / pellets_fired).
+	## A trigger-pull with a shotgun that fires 5 pellets and lands 1 has:
+	##   per-shot hit rate  = 1/1 = 100% (did the shot connect? yes)
+	##   per-pellet hit rate = 1/5 = 20%  (how many individual projectiles landed?)
+	## The per-pellet number is what's used for balance and can never exceed 100%.
+	var result: Dictionary = {}
+	for wname in pellets_fired:
+		var fired: int = pellets_fired[wname]
+		var hit: int = pellets_hit.get(wname, 0)
+		result[wname] = float(hit) / float(fired) if fired > 0 else 0.0
+	return result
+
+func get_per_shot_hit_rates() -> Dictionary:
+	## S13.3: Per-trigger-pull hit rate (did ANY pellet from that shot land?).
+	## Returns {weapon_name: rate_float}. Always ≤ 1.0.
 	var result: Dictionary = {}
 	for wname in shots_fired:
 		var fired: int = shots_fired[wname]
@@ -896,7 +961,12 @@ func get_regression_summary() -> Dictionary:
 		"winner_team": winner_team,
 		"ticks": tick_count,
 		"duration_sec": float(tick_count) / float(TICKS_PER_SEC),
-		"hit_rates": get_hit_rates(),
+		"hit_rates": get_hit_rates(),           # per-pellet (canonical)
+		"per_shot_hit_rates": get_per_shot_hit_rates(),  # S13.3: per-trigger-pull
+		"shots_fired": shots_fired.duplicate(),
+		"shots_hit": shots_hit.duplicate(),
+		"pellets_fired": pellets_fired.duplicate(),
+		"pellets_hit": pellets_hit.duplicate(),
 		"ttk": get_ttk_seconds(),
 		"overtime": overtime_active,
 		"sudden_death": sudden_death_active,

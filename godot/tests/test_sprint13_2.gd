@@ -141,12 +141,16 @@ func test_orbit_speed_multiplier() -> void:
 	sim.add_brott(b0)
 	sim.add_brott(b1)
 	
-	# Run until in combat movement and in TENSION
+	# Run until in combat movement and in TENSION with speed stabilized.
+	# S13.3: Fortress now has shorter TENSION (15-25 ticks), so we wait for
+	# the bot to have been in TENSION for ≥5 ticks so speed has ramped to target.
+	var fortress_tcr: Dictionary = ChassisData.get_tcr_timings(ChassisData.ChassisType.FORTRESS)
+	var settle_threshold: int = int(fortress_tcr["tension_min"]) - 5
 	for _t in range(500):
 		if sim.match_over:
 			break
 		sim.simulate_tick()
-		if b0.in_combat_movement and b0.combat_phase == 0 and b0.combat_phase_timer < (CombatSim.TENSION_DURATION_MIN - 2):
+		if b0.in_combat_movement and b0.combat_phase == 0 and b0.combat_phase_timer < settle_threshold:
 			# In TENSION and has been for a couple ticks (speed stabilized)
 			break
 	

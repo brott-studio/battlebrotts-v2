@@ -31,9 +31,14 @@ Average loop iteration: 3–5 minutes.
 
 | Chassis | HP | Speed (px/s) | Weight Cap | Weapon Slots | Module Slots | Passive |
 |---|---|---|---|---|---|---|
-| **Scout** | 100 | 220 | 30 kg | 2 | 3 | 15% dodge chance |
+| **Scout** | 110 | 220 | 30 kg | 2 | 3 | 15% dodge chance |
 | **Brawler** | 150 | 120 | 55 kg | 2 | 2 | — |
-| **Fortress** | 180 | 60 | 80 kg | 2 | 1 | — |
+| **Fortress** | 220 | 60 | 80 kg | 2 | 1 | — |
+
+> **Note (S13.3):** The combat engine applies a 1.5× pacing multiplier to HP
+> values on load (see `godot/data/chassis_data.gd`) — effective in-engine HP
+> is Scout 165 / Brawler 225 / Fortress 330. GDD values above are the design
+> spec; engine values are tuned for match-length pacing.
 
 Base chassis weight is excluded from the weight budget — only equipped items count against capacity.
 
@@ -209,6 +214,24 @@ crit_multiplier = 1.5× (if crit) or 1.0× (if not)
 **Hit calculation for spread weapons:**
 Each pellet/bullet has a random angle offset within ±(spread/2). If the offset ray intersects the target's hitbox (circle, radius = 12 px), it hits.
 
+### 5.2.1 Hit Rate Instrumentation
+
+Because spread weapons fire multiple projectiles per trigger pull, balance reports
+track two hit-rate metrics that must never be conflated:
+
+| Metric | Numerator | Denominator | Cap | Use |
+|---|---|---|---|---|
+| **Per-pellet** (canonical) | `pellets_hit` | `pellets_fired` | ≤ 100% | Balance tuning, comparable across all weapons |
+| **Per-shot** | `shots_hit` | `shots_fired` | ≤ 100% | "Did any projectile from that trigger pull connect?" (narrative stat, not balance) |
+
+- Single-projectile weapons (Plasma Cutter, Minigun, Railgun, Missile Pod, Flak
+  Cannon, Arc Emitter) have identical per-shot and per-pellet rates.
+- Shotgun (5 pellets per trigger) is the current spread weapon; both metrics differ.
+- Prior to S13.3 the engine conflated the two, producing reported hit rates >100%
+  for shotguns (Specc KB finding #3). As of S13.3 both numerators are deduplicated
+  via shot IDs: multiple pellets from one trigger pull credit `shots_hit` exactly
+  once, while each individual pellet that lands credits `pellets_hit`.
+
 ### 5.3 Movement & Targeting
 
 - **Pathfinding**: A* on the tile grid (32×32 px tiles). Recalculated every 5 ticks (2×/sec).
@@ -225,22 +248,38 @@ When a Brott has line of sight to its target and is within weapon range, it ente
 
 **Approach Phase:** Pre-engagement movement (before reaching weapon range) uses 80% of base speed.
 
-**TCR State Machine:** Each bot cycles through three phases:
+**Commit speed cap (S13.3):** The COMMIT phase target speed is
+`min(base_speed × 1.4, 200 px/s)`. The absolute cap (200 px/s) prevents Scout's
+commit dash (220 × 1.4 = 308 px/s) from crossing the entire engagement band in
+a single 0.8s window. Brawler (168 px/s) and Fortress (84 px/s) are unaffected
+by the cap. Afterburner and overtime multipliers stack on top of the capped value.
 
-1. **TENSION** (2.0–3.5s randomized):
+**TCR State Machine (per-chassis timings, S13.3):** Each chassis has its own
+combat rhythm. Phase durations below; all other TCR semantics are identical
+across chassis.
+
+| Chassis | TENSION | COMMIT | RECOVERY | Fantasy |
+|---|---|---|---|---|
+| **Scout** | 2.5–4.0s | 0.6s | 1.5s | Slippery, cautious, commits briefly |
+| **Brawler** | 2.0–3.5s | 0.8s | 1.2s | Well-rounded baseline |
+| **Fortress** | 1.5–2.5s | 1.2s | 0.9s | Relentless — short windups, long commits, quick reset |
+
+**TCR phase semantics (common to all chassis):**
+
+1. **TENSION** (duration per chassis — see table above):
    - Orbits at 55% base speed
    - Weapons fire normally
    - Small lateral drifts ±0.3 tiles perpendicular every 1.0s
    - When timer expires → COMMIT
 
-2. **COMMIT** (0.8s):
-   - Dashes toward target at 140% base speed
+2. **COMMIT** (duration per chassis):
+   - Dashes toward target at `min(base_speed × 1.4, 200 px/s)` (S13.3 commit cap)
    - Closes to `ideal_engagement_distance - 1.5 tiles` (minimum 0.5 tiles from target)
    - Straight line — no orbit
    - Weapons fire at normal rate (spread weapons land more at close range)
    - When timer expires → RECOVERY
 
-3. **RECOVERY** (1.2s):
+3. **RECOVERY** (duration per chassis):
    - Retreats away from target at 90% base speed
    - Weapons still fire (retreating fire)
    - Cannot re-enter COMMIT during recovery
@@ -540,3 +579,24 @@ The core feelings we're targeting:
 | Fortress HP | 210 | 180 | 72.9% WR — further nerf to survivability to bring Fortress in line with target 45-55%. |
 | Minigun Cost | Free (starter) | 50 🔩 | Price-gate Minigun so it's not the default weapon for every build. Creates meaningful early-game choice. |
 | Plasma Cutter Damage | 12 | 14 | Make Plasma Cutter a more viable starter alternative now that Minigun costs bolts. |
+
+## Balance Changes v4 (S13.3 Chassis Balance Pass)
+
+*Applied in Sprint 13.3 based on Gizmo's post-TCR analysis. S13.2 TCR worked in mirrors but cross-chassis matchups were catastrophic (Scout vs Fortress 100-0, Brawler vs Fortress 100-0). Four numeric levers, no architectural changes.*
+
+| Lever | Change | Rationale |
+|---|---|---|
+| **Commit speed cap** | `min(base × 1.4, 200 px/s)` | Scout's 308 px/s commit dash crossed the entire engagement band in a single 0.8s window. Cap clips only Scout's commit (to 200 px/s), leaving Brawler/Fortress unaffected, preserving chassis identity. Biggest single lever. |
+| **Per-chassis TCR** | Scout: 2.5–4.0/0.6/1.5s · Brawler: 2.0–3.5/0.8/1.2s (baseline) · Fortress: 1.5–2.5/1.2/0.9s | Distinct combat rhythm per chassis creates counterplay. Fortress's longer COMMIT (1.2s at 84 px/s = 101 px) finally covers meaningful ground per cycle; short TENSION means more time dealing damage, less time orbiting. |
+| **Scout HP** | 100 → 110 (spec) · 150 → 165 (engine) | Scout mirror matches were ending in ~10s. +10% HP pushes mirror TTK toward the 15–20s band without eroding Scout's glass-cannon identity. |
+| **Fortress HP** | 180 → 220 (spec) · 270 → 330 (engine) | Mobility gap remains even after commit cap. HP buff partially compensates; Fortress should be a wall. |
+| **Brawler HP** | 150 → 150 (spec) · 225 → 225 (engine) | Untouched \u2014 baseline chassis. |
+| **Pellet instrumentation** | Split `shots_*` (per-trigger) from `pellets_*` (per-projectile) | Pre-S13.3 engine conflated the two, producing shotgun hit rates >100% (Specc KB finding #3). Canonical balance metric is now per-pellet; per-shot is retained as a "did any pellet land?" narrative stat. |
+
+> **Engine HP note:** GDD §3.1 specifies design HP (110/150/220); the engine
+> stores those values \u00d7 1.5 as a pacing multiplier dating from Sprint 4
+> (`[S4-005] Pacing v3`). Both numbers above are shown for clarity. Tests and
+> reports use the engine values.
+
+**S13.3 results (N=100 per matchup, default loadouts, no armor, no modules):**
+See PR description for the 6-matchup table.

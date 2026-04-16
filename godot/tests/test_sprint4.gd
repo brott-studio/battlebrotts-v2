@@ -226,7 +226,7 @@ func _test_railgun_archetype() -> void:
 func _test_plating_archetype() -> void:
 	print("test_plating_archetype")
 	var ad := ArmorData.get_armor(ArmorData.ArmorType.PLATING)
-	assert_eq(ad["archetype"], "🛡️ Reliable", "Plating archetype = Reliable")
+	assert_eq(ad["archetype"], "Light", "Plating archetype = Light")
 
 func _test_overclock_archetype() -> void:
 	print("test_overclock_archetype")

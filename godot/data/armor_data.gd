@@ -15,7 +15,7 @@ const ARMORS := {
 	},
 	ArmorType.PLATING: {
 		"name": "Plating",
-		"archetype": "🛡️ Reliable",
+		"archetype": "Light",
 		"description": "Flat damage reduction. No surprises, no downsides. The safe pick.",
 		"reduction": 0.20,
 		"weight": 15,
@@ -23,7 +23,7 @@ const ARMORS := {
 	},
 	ArmorType.REACTIVE_MESH: {
 		"name": "Reactive Mesh",
-		"archetype": "🪞 Thorns",
+		"archetype": "Adaptive",
 		"description": "Light protection, but attackers take damage too. Punishes rapid-fire weapons.",
 		"reduction": 0.10,
 		"weight": 8,
@@ -31,7 +31,7 @@ const ARMORS := {
 	},
 	ArmorType.ABLATIVE_SHELL: {
 		"name": "Ablative Shell",
-		"archetype": "🧱 Glass Fortress",
+		"archetype": "Heavy",
 		"description": "Incredible protection — until it isn't. Crumbles when you're on your last legs.",
 		"reduction": 0.40,
 		"weight": 25,

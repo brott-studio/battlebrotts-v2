@@ -487,6 +487,34 @@ Example: Any Brott → 20 🔩 repair on win, 50 🔩 on loss, regardless of equ
 ### Combat Log
 The combat log is **optional and collapsible** — tucked away by default to keep the focus on the visual action. Available for players who want to analyze tick-by-tick details.
 
+### Shop Card Grid (S13.4)
+
+The shop is a **card grid**, not a text list. Cards are 200x240 px, arranged 3-wide on desktop and 2-wide on mobile (viewport <= 720 px wide). Each card shows:
+
+- **Art tile** (120x120) — category-colored placeholder with monogram glyph (see Placeholder Art Palette below)
+- **Name** (16pt bold)
+- **Archetype tag** (11pt muted, e.g. `Sniper • Weapon`, `Light • Armor`)
+- **Price** (18pt, bottom-right) — default color if affordable, red if unaffordable, `✓ Owned` in green if owned
+
+Tap/click a card to expand an **inline stats panel** below that row (not a modal). The buy button lives inside the expanded panel, not on the card. Only one card is expanded at a time. Owned items render at 50% opacity with a green ✓ badge overlay but remain tappable so players can inspect stats.
+
+**Section order:** WEAPONS → ARMOR → CHASSIS → MODULES (weapons first because weapons are what players shop for after a fight). The bolts counter is top-right of the shop header at 36pt.
+
+Implementation note: the grid uses VBox-of-HBox rows rather than a GridContainer to keep reflow-on-expand deterministic (Ett flagged GridContainer as flaky for mid-grid full-width inserts).
+
+### Placeholder Art Palette (S13.4)
+
+Until commissioned art lands, item cards use category-colored tiles with a letter monogram (first letter of the last word of the item name — disambiguates "Plasma Cutter" vs "Plating"). The palette is intentional — color coding per category has meaning even after real art is in, so the palette carries forward as the card background or accent.
+
+| Category | Fill | Border | Glyph |
+|---|---|---|---|
+| Weapon | `#8B2E2E` (rust red) | `#D4A84A` gold | 48pt cream (`#F4E4BC`) |
+| Armor | `#2E5A8B` (steel blue) | `#8FAECB` light steel | same |
+| Chassis | `#4A4A4A` (gunmetal) | `#A0A0A0` silver | same |
+| Module | `#2E6B4A` (industrial green) | `#7BCA9E` mint | same |
+
+The placeholder scheme is *intentionally* chunky — playtesters should read these as "not final art", not mistake them for shipped visuals. Animations, SFX, and real art swap-in are deferred to S13.5.
+
 ---
 
 ## 11. Key Metrics for Playtest Lead
@@ -600,3 +628,9 @@ The core feelings we're targeting:
 
 **S13.3 results (N=100 per matchup, default loadouts, no armor, no modules):**
 See PR description for the 6-matchup table.
+
+### S13.4 — No balance changes (UI-only)
+
+Sprint 13.4 is a **UI-only pivot** to the Shop Card Grid (see §10 Art Direction → Shop Card Grid). No chassis, weapon, armor, or module numbers were touched. The only data change is `ArmorData.archetype` values normalized to `Light` / `Adaptive` / `Heavy` for consistent card-tag display — this is a naming change, not a balance change.
+
+The next balance pass is **S14 Fortress Loadout Pass**, which will address residual cross-chassis gaps at the loadout level (Fortress long-range identity, Scout-vs-Brawler asymmetry, mirror TTM floor). See design handoff in `docs/design/sprint13.4-shop-card-grid.md` §6.

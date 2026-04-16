@@ -129,7 +129,7 @@ Each Brott has exactly one active Stance at any time. Stances define default mov
 
 | Stance | Friendly Name | Movement Behavior | Engagement Behavior |
 |---|---|---|---|
-| **Aggressive** | 🔥 "Go Get 'Em!" | Move directly toward nearest enemy. Close to within shortest weapon range. | Fire all weapons as soon as in range. Prioritize DPS uptime. |
+| **Aggressive** | 🔥 "Go Get 'Em!" | Move toward nearest enemy. Enter combat movement at 65% of shortest weapon range (orbit + juke). | Fire all weapons as soon as in range. Prioritize DPS uptime. |
 | **Defensive** | 🛡️ "Play it Safe" | Retreat to nearest cover. If no cover, maintain max weapon range from enemy. | Fire only when enemy is within 80% of max range. Prefer cover over optimal firing position. |
 | **Kiting** | 💨 "Hit & Run" | Maintain distance between 60–80% of max weapon range. Circle-strafe clockwise. | Fire while moving. Disengage if enemy closes within 40% of max range. |
 | **Ambush** | 🕳️ "Lie in Wait" | Move to nearest cover and hold position. Do not move unless condition triggers. | Fire only when enemy enters 50% of max range (point-blank alpha strike). |
@@ -218,6 +218,26 @@ Each pellet/bullet has a random angle offset within ±(spread/2). If the offset 
   - `Biggest Threat` — highest DPS output in last 40 ticks
 - **Collision**: Brotts cannot overlap. Brotts colliding with walls or each other slide along the surface.
 - **Circle-strafe** (💨 "Hit & Run" stance): Brott moves perpendicular to the line between itself and its target, maintaining range band.
+
+### 5.3.1 Combat Movement
+
+When a Brott has line of sight to its target and is within weapon range, it enters **combat movement**. The Brott orbits its target at its stance's ideal engagement distance (65% of shortest weapon range for Aggressive, 85% of longest for Defensive, 70% of longest for Kiting), periodically juking laterally, forward, or backward. This creates dynamic, watchable fights where positioning matters.
+
+**Orbit:** The Brott moves perpendicular to the vector between itself and its target at 70% of base move speed. Direction (clockwise or counter-clockwise) is randomized at the start of each engagement and flips when the Brott hits a wall or arena boundary.
+
+**Juking:** Every 1.5–3.0 seconds (randomized), the Brott performs a 0.4-second burst at 120% base move speed. Juke type: 60% lateral (flip orbit direction), 30% close (toward target by 1 tile), 10% retreat (away by 1 tile).
+
+**Engagement distance tolerance bands:**
+| Stance | Ideal Distance | Tolerance |
+|---|---|---|
+| Aggressive | shortest_weapon_range × 0.65 | ±0.5 tiles |
+| Defensive | longest_weapon_range × 0.85 | ±1.0 tiles |
+| Kiting | longest_weapon_range × 0.70 | ±1.0 tiles |
+| Ambush | N/A (hold position) | N/A |
+
+If the Brott is farther than ideal + tolerance, it approaches. If closer than ideal − tolerance, it backs away (transitioning into orbit, never retreating in a straight line for more than 1 tile). If within the tolerance band, it orbits.
+
+**Separation force:** If two Brotts' centers are within 1.0 tile (32 px), a repulsion force pushes them apart at 60% of their base move speed. This is a physics-level safety net to prevent Brotts from getting stuck overlapping.
 
 ### 5.4 Line of Sight & Range
 

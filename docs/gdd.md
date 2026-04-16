@@ -221,11 +221,31 @@ Each pellet/bullet has a random angle offset within ±(spread/2). If the offset 
 
 ### 5.3.1 Combat Movement
 
-When a Brott has line of sight to its target and is within weapon range, it enters **combat movement**. The Brott orbits its target at its stance's ideal engagement distance (65% of shortest weapon range for Aggressive, 85% of longest for Defensive, 70% of longest for Kiting), periodically juking laterally, forward, or backward. This creates dynamic, watchable fights where positioning matters.
+When a Brott has line of sight to its target and is within weapon range, it enters **combat movement** using the **Tension→Commit→Recovery (TCR)** cycle. This creates a structured combat rhythm where bots circle, dash in, and retreat — producing dynamic, watchable fights.
 
-**Orbit:** The Brott moves perpendicular to the vector between itself and its target at 70% of base move speed. Direction (clockwise or counter-clockwise) is randomized at the start of each engagement and flips when the Brott hits a wall or arena boundary.
+**Approach Phase:** Pre-engagement movement (before reaching weapon range) uses 80% of base speed.
 
-**Juking:** Every 1.5–3.0 seconds (randomized), the Brott performs a 0.4-second burst at 120% base move speed. Juke type: 60% lateral (flip orbit direction), 30% close (toward target by 1 tile), 10% retreat (away by 1 tile).
+**TCR State Machine:** Each bot cycles through three phases:
+
+1. **TENSION** (2.0–3.5s randomized):
+   - Orbits at 55% base speed
+   - Weapons fire normally
+   - Small lateral drifts ±0.3 tiles perpendicular every 1.0s
+   - When timer expires → COMMIT
+
+2. **COMMIT** (0.8s):
+   - Dashes toward target at 140% base speed
+   - Closes to `ideal_engagement_distance - 1.5 tiles` (minimum 0.5 tiles from target)
+   - Straight line — no orbit
+   - Weapons fire at normal rate (spread weapons land more at close range)
+   - When timer expires → RECOVERY
+
+3. **RECOVERY** (1.2s):
+   - Retreats away from target at 90% base speed
+   - Weapons still fire (retreating fire)
+   - Cannot re-enter COMMIT during recovery
+   - Respects backup_distance cap (max 1 tile retreat before lateral movement)
+   - When timer expires → TENSION
 
 **Engagement distance tolerance bands:**
 | Stance | Ideal Distance | Tolerance |
@@ -235,9 +255,9 @@ When a Brott has line of sight to its target and is within weapon range, it ente
 | Kiting | longest_weapon_range × 0.70 | ±1.0 tiles |
 | Ambush | N/A (hold position) | N/A |
 
-If the Brott is farther than ideal + tolerance, it approaches. If closer than ideal − tolerance, it backs away (transitioning into orbit, never retreating in a straight line for more than 1 tile). If within the tolerance band, it orbits.
+During TENSION: if farther than ideal + tolerance, approaches; if closer than ideal − tolerance, backs away (max 1 tile straight line, then lateral); if within band, orbits.
 
-**Separation force:** If two Brotts' centers are within 1.0 tile (32 px), a repulsion force pushes them apart at 60% of their base move speed. This is a physics-level safety net to prevent Brotts from getting stuck overlapping.
+**Separation force:** If two Brotts' centers are within 1.0 tile (32 px), a repulsion force pushes them apart at 60% of their base move speed.
 
 ### 5.4 Line of Sight & Range
 

@@ -64,10 +64,16 @@ var target: BrottState = null
 # Combat movement state
 var in_combat_movement: bool = false
 var orbit_direction: int = 1  # 1 = CW, -1 = CCW
-var juke_timer: float = 0.0  # ticks until next juke
-var juke_active_timer: float = 0.0  # ticks remaining in current juke
-var juke_type: String = ""  # "lateral", "toward", "away"
+var juke_timer: float = 0.0  # ticks until next juke (legacy, kept for compat)
+var juke_active_timer: float = 0.0  # ticks remaining in current juke (legacy)
+var juke_type: String = ""  # "lateral", "toward", "away" (legacy)
 var backup_distance: float = 0.0  # tracks straight-line backup to enforce 1-tile max
+
+# TCR (Tension→Commit→Recovery) combat rhythm state (S13.2)
+var combat_phase: int = 0  # 0=TENSION, 1=COMMIT, 2=RECOVERY
+var combat_phase_timer: int = 0  # ticks remaining in current phase
+var tension_drift_timer: int = 0  # ticks until next lateral drift
+var commit_start_distance: float = 0.0  # distance to target when commit began
 
 # Visual state
 var flash_timer: float = 0.0

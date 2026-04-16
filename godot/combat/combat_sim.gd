@@ -31,6 +31,18 @@ const ARENA_TILES: int = 16
 const BOT_HITBOX_RADIUS: float = 12.0
 const TILE_SIZE: float = 32.0
 
+# TCR Combat Rhythm constants (S13.2)
+const TENSION_DURATION_MIN: int = 20  # ticks (2.0s at 10 ticks/sec)
+const TENSION_DURATION_MAX: int = 35  # ticks (3.5s)
+const COMMIT_DURATION: int = 8        # ticks (0.8s)
+const RECOVERY_DURATION: int = 12     # ticks (1.2s)
+const COMMIT_SPEED_MULT: float = 1.4
+const ORBIT_SPEED_MULT: float = 0.55
+const APPROACH_SPEED_MULT: float = 0.80
+const DISENGAGE_SPEED_MULT: float = 0.90
+const TENSION_DRIFT_INTERVAL: int = 10  # ticks (1.0s)
+const TENSION_DRIFT_AMOUNT: float = 0.3  # tiles
+
 var brotts: Array[BrottState] = []
 var projectiles: Array[Projectile] = []
 var rng: RandomNumberGenerator
@@ -347,15 +359,19 @@ func _get_engagement_distance(b: BrottState) -> Dictionary:
 func _enter_combat_movement(b: BrottState) -> void:
 	b.in_combat_movement = true
 	b.orbit_direction = 1 if rng.randf() < 0.5 else -1
-	b.juke_timer = float(rng.randf_range(1.5, 3.0)) * float(TICKS_PER_SEC)
-	b.juke_active_timer = 0.0
 	b.backup_distance = 0.0
+	# Initialize TCR state machine
+	b.combat_phase = 0  # TENSION
+	b.combat_phase_timer = rng.randi_range(TENSION_DURATION_MIN, TENSION_DURATION_MAX)
+	b.tension_drift_timer = TENSION_DRIFT_INTERVAL
+	if json_log_enabled:
+		_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "TENSION", "duration": b.combat_phase_timer})
 
 func _exit_combat_movement(b: BrottState) -> void:
 	b.in_combat_movement = false
-	b.juke_active_timer = 0.0
-	b.juke_timer = 0.0
 	b.backup_distance = 0.0
+	b.combat_phase = 0
+	b.combat_phase_timer = 0
 
 func _move_brott(b: BrottState) -> void:
 	if b.target == null:
@@ -425,27 +441,32 @@ func _move_brott(b: BrottState) -> void:
 		if b.in_combat_movement and b.stance != 3:
 			_do_combat_movement(b, spd)
 		else:
+			# Pre-engagement: apply approach speed multiplier (S13.2)
+			var approach_target_speed: float = target_speed * APPROACH_SPEED_MULT
+			if wants_to_move:
+				b.accelerate_toward_speed(approach_target_speed, TICK_DELTA)
+			var approach_spd: float = b.current_speed * TICK_DELTA
 			# Stance-based pathfinding (pre-engagement or ambush)
 			match b.stance:
 				0:  # Aggressive — close to engagement distance
 					var engage: Dictionary = _get_engagement_distance(b)
 					if dist > engage["ideal"] + engage["tolerance"]:
-						b.position += to_target.normalized() * spd
+						b.position += to_target.normalized() * approach_spd
 				1:  # Defensive
 					if dist < max_weapon_range * 0.8:
-						b.position -= to_target.normalized() * spd
+						b.position -= to_target.normalized() * approach_spd
 					elif dist > max_weapon_range:
-						b.position += to_target.normalized() * spd
+						b.position += to_target.normalized() * approach_spd
 				2:  # Kiting
 					var ideal: float = max_weapon_range * 0.7
 					var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
 					if dist < ideal * 0.8:
-						b.position -= to_target.normalized() * spd * 0.7
-						b.position += perp * spd * 0.3
+						b.position -= to_target.normalized() * approach_spd * 0.7
+						b.position += perp * approach_spd * 0.3
 					elif dist > ideal * 1.2:
-						b.position += to_target.normalized() * spd
+						b.position += to_target.normalized() * approach_spd
 					else:
-						b.position += perp * spd
+						b.position += perp * approach_spd
 				3:  # Ambush
 					pass
 	
@@ -497,75 +518,105 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 	var ideal: float = engage["ideal"]
 	var tolerance: float = engage["tolerance"]
 	
-	# Juke active — juke bursts at 120% base speed subject to accel
-	if b.juke_active_timer > 0:
-		b.juke_active_timer -= 1.0
-		var juke_target_speed: float = b.base_speed * 1.2
-		if b.afterburner_active:
-			juke_target_speed *= 1.80
-		if overtime_active:
-			juke_target_speed *= OVERTIME_SPEED_MULT
-		b.accelerate_toward_speed(juke_target_speed, TICK_DELTA)
-		var juke_spd: float = b.current_speed * TICK_DELTA
-		match b.juke_type:
-			"lateral":
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				b.position += perp * float(b.orbit_direction) * juke_spd
-			"toward":
-				if dist > TILE_SIZE * 0.5:
-					b.position += to_target.normalized() * juke_spd
-			"away":
+	# --- TCR State Machine (S13.2) ---
+	b.combat_phase_timer -= 1
+	
+	# Phase transitions
+	if b.combat_phase_timer <= 0:
+		match b.combat_phase:
+			0:  # TENSION -> COMMIT
+				b.combat_phase = 1
+				b.combat_phase_timer = COMMIT_DURATION
+				b.commit_start_distance = dist
+				if json_log_enabled:
+					_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "COMMIT", "duration": COMMIT_DURATION})
+			1:  # COMMIT -> RECOVERY
+				b.combat_phase = 2
+				b.combat_phase_timer = RECOVERY_DURATION
+				b.backup_distance = 0.0
+				if json_log_enabled:
+					_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "RECOVERY", "duration": RECOVERY_DURATION})
+			2:  # RECOVERY -> TENSION
+				b.combat_phase = 0
+				b.combat_phase_timer = rng.randi_range(TENSION_DURATION_MIN, TENSION_DURATION_MAX)
+				b.tension_drift_timer = TENSION_DRIFT_INTERVAL
+				b.backup_distance = 0.0
+				if json_log_enabled:
+					_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "TENSION", "duration": b.combat_phase_timer})
+	
+	match b.combat_phase:
+		0:  # TENSION — orbit at 55% base speed with small lateral drifts
+			var orbit_target_speed: float = b.base_speed * ORBIT_SPEED_MULT
+			if b.afterburner_active:
+				orbit_target_speed *= 1.80
+			if overtime_active:
+				orbit_target_speed *= OVERTIME_SPEED_MULT
+			b.accelerate_toward_speed(orbit_target_speed, TICK_DELTA)
+			var orbit_spd: float = b.current_speed * TICK_DELTA
+			
+			# Lateral drift every 1.0s
+			b.tension_drift_timer -= 1
+			var drift_offset: float = 0.0
+			if b.tension_drift_timer <= 0:
+				b.tension_drift_timer = TENSION_DRIFT_INTERVAL
+				drift_offset = TENSION_DRIFT_AMOUNT * TILE_SIZE * (1.0 if rng.randf() < 0.5 else -1.0)
+			
+			if dist > ideal + tolerance:
+				b.position += to_target.normalized() * orbit_spd
+				b.backup_distance = 0.0
+			elif dist < ideal - tolerance:
 				if b.backup_distance < TILE_SIZE:
-					var step: float = minf(juke_spd, TILE_SIZE - b.backup_distance)
+					var step: float = minf(orbit_spd, TILE_SIZE - b.backup_distance)
 					b.position -= to_target.normalized() * step
 					b.backup_distance += step
-					if b.backup_distance >= TILE_SIZE:
-						b.juke_active_timer = 0.0  # End juke early — cap reached
-		if b.juke_active_timer <= 0:
-			if b.juke_type == "lateral":
-				b.orbit_direction *= -1
-			b.juke_timer = float(rng.randf_range(1.5, 3.0)) * float(TICKS_PER_SEC)
-		return
-	
-	# Juke trigger
-	b.juke_timer -= 1.0
-	if b.juke_timer <= 0:
-		b.juke_active_timer = 4.0  # 4 ticks = 0.4s at 10 ticks/sec
-		var roll: float = rng.randf()
-		if roll < 0.6:
-			b.juke_type = "lateral"
-			b.orbit_direction *= -1
-		elif roll < 0.9:
-			b.juke_type = "toward"
-		else:
-			b.juke_type = "away"
-		return
-	
-	# Normal combat movement — orbit at 70% base speed subject to accel
-	var orbit_target_speed: float = b.base_speed * 0.7
-	if b.afterburner_active:
-		orbit_target_speed *= 1.80
-	if overtime_active:
-		orbit_target_speed *= OVERTIME_SPEED_MULT
-	b.accelerate_toward_speed(orbit_target_speed, TICK_DELTA)
-	var orbit_spd: float = b.current_speed * TICK_DELTA
-	
-	if dist > ideal + tolerance:
-		b.position += to_target.normalized() * base_spd
-		b.backup_distance = 0.0
-	elif dist < ideal - tolerance:
-		if b.backup_distance < TILE_SIZE:
-			var step: float = minf(base_spd, TILE_SIZE - b.backup_distance)
-			b.position -= to_target.normalized() * step
-			b.backup_distance += step
-		else:
-			var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-			b.position += perp * float(b.orbit_direction) * orbit_spd
-			b.backup_distance = 0.0
-	else:
-		var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-		b.position += perp * float(b.orbit_direction) * orbit_spd
-		b.backup_distance = 0.0
+				else:
+					var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+					b.position += perp * float(b.orbit_direction) * orbit_spd
+					b.backup_distance = 0.0
+			else:
+				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+				b.position += perp * float(b.orbit_direction) * orbit_spd
+				b.backup_distance = 0.0
+			
+			# Apply drift perpendicular nudge
+			if drift_offset != 0.0:
+				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+				b.position += perp * drift_offset
+		
+		1:  # COMMIT — dash toward target at 140% base speed
+			var commit_target_speed: float = b.base_speed * COMMIT_SPEED_MULT
+			if b.afterburner_active:
+				commit_target_speed *= 1.80
+			if overtime_active:
+				commit_target_speed *= OVERTIME_SPEED_MULT
+			b.accelerate_toward_speed(commit_target_speed, TICK_DELTA)
+			var commit_spd: float = b.current_speed * TICK_DELTA
+			
+			# Dash toward target, but don't get closer than 0.5 tiles
+			var min_dist: float = 0.5 * TILE_SIZE
+			var commit_target_dist: float = maxf(ideal - 1.5 * TILE_SIZE, min_dist)
+			if dist > commit_target_dist:
+				b.position += to_target.normalized() * commit_spd
+		
+		2:  # RECOVERY — retreat back toward ideal engagement distance
+			var recovery_target_speed: float = b.base_speed * DISENGAGE_SPEED_MULT
+			if b.afterburner_active:
+				recovery_target_speed *= 1.80
+			if overtime_active:
+				recovery_target_speed *= OVERTIME_SPEED_MULT
+			b.accelerate_toward_speed(recovery_target_speed, TICK_DELTA)
+			var recovery_spd: float = b.current_speed * TICK_DELTA
+			
+			# Move away from target back toward ideal distance
+			# Respect backup_distance cap (max 1 tile retreat before lateral)
+			if dist < ideal and b.backup_distance < TILE_SIZE:
+				var step: float = minf(recovery_spd, TILE_SIZE - b.backup_distance)
+				b.position -= to_target.normalized() * step
+				b.backup_distance += step
+			else:
+				# Lateral movement once backup cap reached
+				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+				b.position += perp * float(b.orbit_direction) * recovery_spd
 
 func _get_max_weapon_range_px(b: BrottState) -> float:
 	var max_r: float = 0.0
@@ -861,6 +912,7 @@ func _append_tick_log() -> void:
 			"stance": b.stance,
 			"target_id": b.target.bot_name if b.target else "",
 			"facing_angle": b.facing_angle,
+			"combat_phase": ["TENSION", "COMMIT", "RECOVERY"][b.combat_phase] if b.in_combat_movement else "NONE",
 		})
 	_json_log.append({
 		"tick": tick_count,

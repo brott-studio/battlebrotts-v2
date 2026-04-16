@@ -9,8 +9,9 @@ var game_flow: GameFlow
 var sim: CombatSim
 var player_brain: BrottBrain
 
-# Preload arena renderer script for proper virtual method registration
-var ArenaRendererScript = preload("res://arena/arena_renderer.gd")
+# Preload arena renderer SCENE (not script!) so _draw() virtual is properly
+# registered in web/HTML5 export. Script.new() can miss virtual methods.
+var ArenaRendererScene = preload("res://arena/arena_renderer.tscn")
 
 # Screens (created dynamically)
 var current_ui: Control = null
@@ -141,9 +142,9 @@ func _start_match(opponent_index: int) -> void:
 	sim.add_brott(enemy_brott)
 	sim.on_match_end.connect(_on_match_end)
 	
-	# Create arena renderer using Script.new() so virtual methods (_draw, etc.)
-	# are properly registered — set_script() on bare Node2D can miss virtuals in web export
-	arena_renderer = ArenaRendererScript.new()
+	# Instantiate from scene so _draw() virtual is properly registered in web export
+	# (Script.new() and set_script() both fail to register _draw in HTML5 builds)
+	arena_renderer = ArenaRendererScene.instantiate()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
 	

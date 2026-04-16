@@ -17,3 +17,5 @@ _site/
 .DS_Store
 Thumbs.db
 test-results/
+tools/screenshots/
+tools/state_log.json

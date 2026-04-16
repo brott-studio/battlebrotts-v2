@@ -9,7 +9,7 @@ const MAX_ENERGY: float = 100.0
 const ENERGY_REGEN_PER_TICK: float = 5.0 / 10.0
 const CRIT_CHANCE: float = 0.05
 const CRIT_MULT: float = 1.5
-const MATCH_TIMEOUT_TICKS: int = 90 * 10
+const MATCH_TIMEOUT_TICKS: int = 100 * 10  # Legacy: matches 1v1 default
 
 # Per-mode overtime thresholds (ticks)
 const OVERTIME_TICKS_1V1: int = 45 * 10   # 450 ticks = 45s

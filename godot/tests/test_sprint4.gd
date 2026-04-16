@@ -129,7 +129,7 @@ func _test_tick_rate_halved() -> void:
 
 func _test_match_timeout_ticks() -> void:
 	print("test_match_timeout_ticks")
-	assert_eq(CombatSim.MATCH_TIMEOUT_TICKS, 900, "MATCH_TIMEOUT = 90 * 10 = 900")
+	assert_eq(CombatSim.MATCH_TIMEOUT_TICKS, 1000, "MATCH_TIMEOUT = 100 * 10 = 1000")
 
 func _test_energy_regen_per_tick() -> void:
 	print("test_energy_regen_per_tick")
@@ -301,7 +301,7 @@ func _test_combat_sim_ticks_per_sec() -> void:
 func _test_combat_match_timeout() -> void:
 	print("test_combat_match_timeout")
 	var sim := CombatSim.new(42)
-	assert_eq(sim.MATCH_TIMEOUT_TICKS, 900, "Match timeout = 900 ticks")
+	assert_eq(sim.MATCH_TIMEOUT_TICKS, 1000, "Match timeout = 1000 ticks")
 
 func _test_death_sets_death_timer() -> void:
 	print("test_death_sets_death_timer")

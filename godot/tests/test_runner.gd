@@ -212,11 +212,11 @@ func _run_combat_tests() -> void:
 	sim2.add_brott(b1)
 	sim2.add_brott(b2)
 	
-	# Fast forward to timeout (90s * 10 ticks/sec = 900 ticks)
-	for i in 900:
+	# Fast forward to timeout (100s * 10 ticks/sec = 1000 ticks)
+	for i in 1000:
 		sim2.simulate_tick()
 	assert_true(sim2.match_over, "Match ends at timeout")
-	assert_eq(sim2.tick_count, 900, "Tick count = 900 at timeout")
+	assert_eq(sim2.tick_count, 1000, "Tick count = 1000 at timeout")
 	
 	# Test brott death
 	var sim3 := CombatSim.new(3)

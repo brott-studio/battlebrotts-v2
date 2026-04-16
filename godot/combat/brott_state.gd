@@ -74,6 +74,7 @@ var combat_phase: int = 0  # 0=TENSION, 1=COMMIT, 2=RECOVERY
 var combat_phase_timer: int = 0  # ticks remaining in current phase
 var tension_drift_timer: int = 0  # ticks until next lateral drift
 var commit_start_distance: float = 0.0  # distance to target when commit began
+var combat_exit_grace_timer: float = 0.0  # ticks remaining before TCR state resets (S13.2 fix)
 
 # Visual state
 var flash_timer: float = 0.0

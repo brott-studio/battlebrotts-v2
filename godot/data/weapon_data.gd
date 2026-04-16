@@ -1,4 +1,5 @@
 ## Static weapon definitions — Sprint 4: archetypes + descriptions added
+## S13.2: per-weapon projectile_speed + spread tuning, swept collision
 class_name WeaponData
 extends RefCounted
 
@@ -18,6 +19,7 @@ const WEAPONS := {
 		"pellets": 1,
 		"splash_radius": 0,
 		"chain_targets": 0,
+		"projectile_speed": 200.0,
 	},
 	WeaponType.RAILGUN: {
 		"name": "Railgun",
@@ -32,6 +34,7 @@ const WEAPONS := {
 		"pellets": 1,
 		"splash_radius": 0,
 		"chain_targets": 0,
+		"projectile_speed": 500.0,
 	},
 	WeaponType.SHOTGUN: {
 		"name": "Shotgun",
@@ -46,6 +49,7 @@ const WEAPONS := {
 		"pellets": 5,
 		"splash_radius": 0,
 		"chain_targets": 0,
+		"projectile_speed": 250.0,
 	},
 	WeaponType.MISSILE_POD: {
 		"name": "Missile Pod",
@@ -60,6 +64,7 @@ const WEAPONS := {
 		"pellets": 1,
 		"splash_radius": 1, # tiles
 		"chain_targets": 0,
+		"projectile_speed": 200.0,
 	},
 	WeaponType.PLASMA_CUTTER: {
 		"name": "Plasma Cutter",
@@ -74,6 +79,7 @@ const WEAPONS := {
 		"pellets": 1,
 		"splash_radius": 0,
 		"chain_targets": 0,
+		"projectile_speed": 300.0,
 	},
 	WeaponType.ARC_EMITTER: {
 		"name": "Arc Emitter",
@@ -88,6 +94,7 @@ const WEAPONS := {
 		"pellets": 1,
 		"splash_radius": 0,
 		"chain_targets": 1,
+		"projectile_speed": 250.0,
 	},
 	WeaponType.FLAK_CANNON: {
 		"name": "Flak Cannon",
@@ -102,6 +109,7 @@ const WEAPONS := {
 		"pellets": 1,
 		"splash_radius": 0,
 		"chain_targets": 0,
+		"projectile_speed": 220.0,
 	},
 }
 

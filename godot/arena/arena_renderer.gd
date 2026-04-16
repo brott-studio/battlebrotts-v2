@@ -263,7 +263,7 @@ func _on_death(brott: BrottState) -> void:
 	for _i in range(randi_range(20, 30)):
 		var angle := randf() * TAU
 		var speed := randf_range(80.0, 150.0)
-		var col := [Color.ORANGE, Color.GRAY, Color.WHITE][randi() % 3]
+		var col: Color = [Color.ORANGE, Color.GRAY, Color.WHITE][randi() % 3]
 		particles.append({
 			"pos": brott.position + arena_offset,
 			"vel": Vector2(cos(angle), sin(angle)) * speed,

@@ -1,0 +1,12 @@
+[
+  {"action": "screenshot", "file": "01-main-menu.png"},
+  {"action": "navigate", "screen": "shop"},
+  {"action": "screenshot", "file": "02-shop.png"},
+  {"action": "navigate", "screen": "loadout"},
+  {"action": "screenshot", "file": "03-loadout.png"},
+  {"action": "navigate", "screen": "arena"},
+  {"action": "wait", "ticks": 200},
+  {"action": "screenshot", "file": "04-arena-mid-battle.png"},
+  {"action": "wait", "ticks": 500},
+  {"action": "screenshot", "file": "05-arena-late-battle.png"}
+]

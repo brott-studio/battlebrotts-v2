@@ -31,6 +31,12 @@ var overtime_active: bool = false
 var sudden_death_active: bool = false
 var arena_boundary_tiles: float = 8.0  # half-size in tiles from center (starts at 8 = full 16x16)
 
+# --- Instrumentation (S11.2) ---
+var shots_fired: Dictionary = {}   # weapon_name -> int
+var shots_hit: Dictionary = {}     # weapon_name -> int
+var first_engagement_tick: int = -1
+var kill_ticks: Dictionary = {}    # bot_name -> tick when killed
+
 signal on_damage(target: BrottState, amount: float, is_crit: bool, pos: Vector2)
 signal on_projectile_spawned(proj: Projectile)
 signal on_death(brott: BrottState)
@@ -434,7 +440,12 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 				if dist > TILE_SIZE * 0.5:
 					b.position += to_target.normalized() * juke_spd
 			"away":
-				b.position -= to_target.normalized() * juke_spd
+				if b.backup_distance < TILE_SIZE:
+					var step: float = minf(juke_spd, TILE_SIZE - b.backup_distance)
+					b.position -= to_target.normalized() * step
+					b.backup_distance += step
+					if b.backup_distance >= TILE_SIZE:
+						b.juke_active_timer = 0.0  # End juke early — cap reached
 		if b.juke_active_timer <= 0:
 			if b.juke_type == "lateral":
 				b.orbit_direction *= -1
@@ -530,6 +541,12 @@ func _fire_weapons(b: BrottState) -> void:
 		var fire_rate: float = float(wd["fire_rate"]) * b.get_fire_rate_multiplier()
 		b.weapon_cooldowns[i] = float(TICKS_PER_SEC) / fire_rate
 		
+		# Instrumentation: track shots fired
+		var wname: String = str(wd.get("name", str(wt)))
+		shots_fired[wname] = shots_fired.get(wname, 0) + 1
+		if first_engagement_tick < 0:
+			first_engagement_tick = tick_count
+		
 		var pellets: int = int(wd["pellets"])
 		for _p in range(pellets):
 			var is_crit: bool = rng.randf() < CRIT_CHANCE
@@ -610,6 +627,13 @@ func _apply_damage(target: BrottState, base_dmg: float, is_crit: bool, source: B
 		target.hp -= effective
 		target.flash_timer = 3.0
 		on_damage.emit(target, effective, is_crit, hit_pos)
+		# Instrumentation: track shots hit (by source weapon)
+		if source != null:
+			for wt_idx in range(source.weapon_types.size()):
+				var wd_instr: Dictionary = WeaponData.get_weapon(source.weapon_types[wt_idx])
+				var wn: String = str(wd_instr.get("name", str(source.weapon_types[wt_idx])))
+				shots_hit[wn] = shots_hit.get(wn, 0) + 1
+				break  # attribute to first weapon (projectile doesn't track index)
 	
 	var armor_data: Dictionary = ArmorData.get_armor(target.armor_type)
 	if str(armor_data["special"]) == "reflect" and source.alive:
@@ -624,6 +648,9 @@ func _kill_brott(b: BrottState) -> void:
 	b.alive = false
 	b.hp = 0.0
 	b.death_timer = 20.0
+	# Instrumentation: record kill tick
+	if not kill_ticks.has(b.bot_name):
+		kill_ticks[b.bot_name] = tick_count
 	on_death.emit(b)
 
 func _check_match_end() -> void:
@@ -662,6 +689,67 @@ func _check_match_end() -> void:
 
 func get_arena_boundary_tiles() -> float:
 	return arena_boundary_tiles
+
+## --- Instrumentation API (S11.2) ---
+
+func get_hit_rates() -> Dictionary:
+	## Returns {weapon_name: hit_rate_float} for each weapon that fired
+	var result: Dictionary = {}
+	for wname in shots_fired:
+		var fired: int = shots_fired[wname]
+		var hit: int = shots_hit.get(wname, 0)
+		result[wname] = float(hit) / float(fired) if fired > 0 else 0.0
+	return result
+
+func get_ttk_seconds() -> Dictionary:
+	## Returns {bot_name: ttk_seconds} for each bot that died
+	var result: Dictionary = {}
+	var engage_tick: int = first_engagement_tick if first_engagement_tick >= 0 else 0
+	for bname in kill_ticks:
+		var death_tick: int = kill_ticks[bname]
+		result[bname] = float(death_tick - engage_tick) / float(TICKS_PER_SEC)
+	return result
+
+func get_regression_summary() -> Dictionary:
+	## Returns summary stats for regression comparison
+	return {
+		"winner_team": winner_team,
+		"ticks": tick_count,
+		"duration_sec": float(tick_count) / float(TICKS_PER_SEC),
+		"hit_rates": get_hit_rates(),
+		"ttk": get_ttk_seconds(),
+		"overtime": overtime_active,
+		"sudden_death": sudden_death_active,
+	}
+
+static func batch_regression_summary(results: Array[Dictionary]) -> Dictionary:
+	## Aggregate multiple sim summaries into a regression baseline
+	var wins: Dictionary = {}
+	var ttk_list: Array[float] = []
+	var hit_rate_sums: Dictionary = {}
+	var hit_rate_counts: Dictionary = {}
+	for r in results:
+		var w: int = r["winner_team"]
+		wins[w] = wins.get(w, 0) + 1
+		for bname in r["ttk"]:
+			ttk_list.append(r["ttk"][bname])
+		for wname in r["hit_rates"]:
+			hit_rate_sums[wname] = hit_rate_sums.get(wname, 0.0) + r["hit_rates"][wname]
+			hit_rate_counts[wname] = hit_rate_counts.get(wname, 0) + 1
+	var avg_hit_rates: Dictionary = {}
+	for wname in hit_rate_sums:
+		avg_hit_rates[wname] = hit_rate_sums[wname] / float(hit_rate_counts[wname])
+	var avg_ttk: float = 0.0
+	if ttk_list.size() > 0:
+		for t in ttk_list:
+			avg_ttk += t
+		avg_ttk /= float(ttk_list.size())
+	return {
+		"total_sims": results.size(),
+		"win_rates": wins,
+		"avg_ttk_sec": avg_ttk,
+		"avg_hit_rates": avg_hit_rates,
+	}
 
 func _team_hp_pct(team: int) -> float:
 	var total_hp: float = 0.0

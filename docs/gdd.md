@@ -181,11 +181,11 @@ Each Brott has exactly one active Stance at any time. Stances define default mov
 
 ### 5.1 Tick System
 
-- Simulation runs at **20 ticks/sec** (50 ms per tick).
+- Simulation runs at **10 ticks/sec** (100 ms per tick).
 - Each tick, in order:
   1. **BrottBrain evaluation** — check Behavior Cards top-to-bottom, fire first match
-  2. **Energy regen** — +0.25 energy this tick (5/sec)
-  3. **Module tick** — cooldown timers decrement, passive effects apply (e.g., Repair Nanites: +0.15 HP/tick)
+  2. **Energy regen** — +0.5 energy this tick (5/sec)
+  3. **Module tick** — cooldown timers decrement, passive effects apply (e.g., Repair Nanites: +0.3 HP/tick)
   4. **Movement** — Brott moves according to Stance/override at its speed
   5. **Weapon fire** — each weapon checks fire rate timer, fires if ready and target in range/LoS
   6. **Projectile update** — projectiles advance, hit detection resolved
@@ -211,11 +211,11 @@ Each pellet/bullet has a random angle offset within ±(spread/2). If the offset 
 
 ### 5.3 Movement & Targeting
 
-- **Pathfinding**: A* on the tile grid (32×32 px tiles). Recalculated every 10 ticks (2×/sec).
+- **Pathfinding**: A* on the tile grid (32×32 px tiles). Recalculated every 5 ticks (2×/sec).
 - **Default target selection**: Nearest enemy (Euclidean distance). Overridable via 🎯 "Pick a Target":
   - `Nearest` — closest by distance
   - `Weakest` — lowest current HP
-  - `Biggest Threat` — highest DPS output in last 40 ticks
+  - `Biggest Threat` — highest DPS output in last 20 ticks
 - **Collision**: Brotts cannot overlap. Brotts colliding with walls or each other slide along the surface.
 - **Circle-strafe** (💨 "Hit & Run" stance): Brott moves perpendicular to the line between itself and its target, maintaining range band.
 
@@ -369,9 +369,16 @@ Example: Any Brott → 20 🔩 repair on win, 50 🔩 on loss, regardless of equ
 - **3v3** — Platinum and Champion leagues (player deploys 3 Brotts vs 3 enemy Brotts)
 - **Win condition**: Reduce all enemy Brotts' HP to 0
 - **Loss condition**: All your Brotts reach 0 HP
-- **Draw condition**: If neither side is eliminated after **120 seconds**, the side with higher total remaining HP% wins. If tied, it's a draw (counts as a loss for progression, but awards 40 🔩).
-- **Overtime Aggression** (60s): If the match timer exceeds 60 seconds, both Brotts enter **Overtime** — their stance is forced to 🔥 "Go Get 'Em!" (overriding BrottBrain), movement speed increases by 20%, all weapons deal **1.5× damage**, the arena boundary starts **shrinking at 0.5 tiles/second** toward center, and an "OVERTIME!" banner appears on screen. Bots outside the shrinking boundary take **10 damage/second** (ignores armor, like lava). By 80 seconds the arena is effectively zero — bots MUST fight. A red danger zone overlay and pulsing border visualize the shrinking safe area. At **75 seconds**, **Sudden Death** escalation kicks in: damage amplification increases to **2× damage** and a "SUDDEN DEATH!" banner with red flash replaces the overtime banner. This multi-stage mechanic prevents stalemates from defensive/kiting builds and guarantees decisive outcomes within 15-30 seconds of overtime. Target: <5% timeout rate.
-- **Target match length**: 30–60 seconds for 1v1, 45–90 seconds for 2v2/3v3. 120 sec timeout prevents stalemate builds.
+- **Draw condition**: If neither side is eliminated after the **match timeout** (1v1: 100s, team: 120s), the side with higher total remaining HP% wins. If tied, it's a draw (counts as a loss for progression, but awards 40 🔩).
+- **Overtime Aggression**: When the match timer exceeds the overtime threshold, all Brotts enter **Overtime** — their stance is forced to 🔥 "Go Get 'Em!" (overriding BrottBrain), movement speed increases by 20%, all weapons deal **1.5× damage**, the arena boundary starts **shrinking at 0.5 tiles/second** toward center, and an "OVERTIME!" banner appears on screen. Bots outside the shrinking boundary take **10 damage/second** (ignores armor, like lava). A red danger zone overlay and pulsing border visualize the shrinking safe area. At the **Sudden Death** threshold, damage amplification increases to **2× damage** and a "SUDDEN DEATH!" banner with red flash replaces the overtime banner. This multi-stage mechanic prevents stalemates from defensive/kiting builds and guarantees decisive outcomes within 15-30 seconds of overtime. Target: <5% timeout rate.
+
+  | Mode | Overtime | Sudden Death | Match Timeout |
+  |------|----------|--------------|---------------|
+  | **1v1** | 45s | 60s | 100s |
+  | **Team (2v2/3v3)** | 60s | 75s | 120s |
+
+  *Note: 1v1 uses tighter timings to keep solo matches snappy. Team matches get more time due to multiple Brotts on each side. By ~20s after overtime starts, the arena is effectively zero — Brotts MUST fight.*
+- **Target match length**: 30–60 seconds for 1v1, 45–90 seconds for 2v2/3v3. Match timeout prevents stalemate builds.
 
 ---
 
@@ -434,11 +441,11 @@ The combat log is **optional and collapsible** — tucked away by default to kee
 - **Stance usage**: All 4 stances should appear in winning strategies
 
 ### Feel Metrics
-- **Match length distribution**: Target bell curve centered at 45s (1v1), hard cap 120s
+- **Match length distribution**: Target bell curve centered at 45s (1v1), hard cap 100s (1v1) / 120s (team)
 - **Pacing**: At least 1 significant event (stance switch, module activation, HP threshold crossed) every 5 seconds
 - **Build diversity across leagues**: % of unique loadouts in player wins per league
 - **Comeback rate**: % of matches where the Brott that took first damage wins — target ~35%
-- **Stalemate rate**: % of matches hitting 120s timeout — target <5%
+- **Stalemate rate**: % of matches hitting timeout (100s 1v1 / 120s team) — target <5%
 
 ### Simulation Tests
 - Run 10,000 combat simulations per balance pass

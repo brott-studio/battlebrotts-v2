@@ -1,14 +1,405 @@
 {
-  "currentSprint": "Sprint 0 — Infrastructure",
-  "commitCount": 1,
-  "prCount": 0,
-  "testCount": 2,
-  "sprints": [],
+  "currentSprint": "Sprint 0",
+  "commitCount": 61,
+  "prCount": 58,
+  "testCount": 16,
+  "sprints": [
+    {
+      "name": "Untagged",
+      "prs": [
+        {
+          "number": 59,
+          "title": "[S13.3-AUDIT] KB entry — edit-tool unicode mismatch loop",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/59"
+        },
+        {
+          "number": 58,
+          "title": "[S13.3] feat: chassis balance pass — commit cap, per-chassis TCR, HP bumps, pellet metrics",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/58"
+        },
+        {
+          "number": 57,
+          "title": "[S13.2-AUDIT] KB entries — mirror-test blind spot + tick-rate collision coupling",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/57"
+        },
+        {
+          "number": 56,
+          "title": "[S13.2-FIX] fix: TCR cross-chassis engagement + hit rate tuning",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/56"
+        },
+        {
+          "number": 55,
+          "title": "[S13.2] feat: combat rhythm — Tension→Commit→Recovery cycle",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/55"
+        },
+        {
+          "number": 54,
+          "title": "[S13.1] docs: fix GDD drift — tick rate, overtime, match timeout",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/54"
+        },
+        {
+          "number": 53,
+          "title": "feat(kb): [S12-AUDIT] KB entry — test fixture coupling to gameplay constants",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/53"
+        },
+        {
+          "number": 52,
+          "title": "[S12.5] feat: JSON match logging for combat engine",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/52"
+        },
+        {
+          "number": 51,
+          "title": "[S12.4] feat: charm pass — idle anims, movement quirks, victory/defeat, combat flavor",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/51"
+        },
+        {
+          "number": 50,
+          "title": "[S12.3] feat: visual loadout bot preview + in-game equipment sprites",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/50"
+        },
+        {
+          "number": 49,
+          "title": "[S12.2] feat: loadout UI equipped state + weight budget bar",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/49"
+        },
+        {
+          "number": 48,
+          "title": "[S12.1] feat: movement physics + plasma cutter range + overtime tuning",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/48"
+        },
+        {
+          "number": 47,
+          "title": "kb: fun evaluation spike sprint findings",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/47"
+        },
+        {
+          "number": 46,
+          "title": "[S11.2] fix: cap away juke retreat + add combat instrumentation",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/46"
+        },
+        {
+          "number": 45,
+          "title": "feat(kb): [S11.1-AUDIT] KB entry — juke bypass movement caps",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/45"
+        },
+        {
+          "number": 44,
+          "title": "[S11.1] feat: combat movement system (orbit + juke + engagement distance)",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/44"
+        },
+        {
+          "number": 43,
+          "title": "[S10.1] fix: bot separation, battle sim tests, varied stances, shop scroll",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/43"
+        },
+        {
+          "number": 42,
+          "title": "Sprint 9.2 Verification: Battle View Tests + Full Sprint Gates",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/42"
+        },
+        {
+          "number": 41,
+          "title": "[S9.2-002/003] KB review gate + dashboard smoke fix",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/41"
+        },
+        {
+          "number": 40,
+          "title": "[S9.1-002] Verification: URL param routing + battle view",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/40"
+        },
+        {
+          "number": 39,
+          "title": "[S9.1-001] URL parameter routing for Playwright screen navigation",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/39"
+        },
+        {
+          "number": 38,
+          "title": "feat(kb): [S8.2-AUDIT] KB entry — Godot CI visual verification via Playwright",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/38"
+        },
+        {
+          "number": 37,
+          "title": "[S9-001] Fix CI/CD + require status checks",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/37"
+        },
+        {
+          "number": 36,
+          "title": "feat(kb): [S8-AUDIT] KB entries — Godot CI import + hub-and-spoke orchestration",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/36"
+        },
+        {
+          "number": 35,
+          "title": "[S8-002] Sprint 8 verification",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/35"
+        },
+        {
+          "number": 34,
+          "title": "[S8-001] Fix stale test failures + CI reliability",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/34"
+        },
+        {
+          "number": 33,
+          "title": "[S7-002] Sprint 7 verification",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/33"
+        },
+        {
+          "number": 32,
+          "title": "feat(kb): [S7-AUDIT] KB entry — GDScript max/min return Variant",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/32"
+        },
+        {
+          "number": 31,
+          "title": "[S7-001] Bug fixes — brottbrain type error, KB cleanup, test fixes",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/31"
+        },
+        {
+          "number": 30,
+          "title": "feat(kb): [S6-AUDIT] KB entry — headless Godot cannot verify visual bugs",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/30"
+        },
+        {
+          "number": 29,
+          "title": "[S6-002] Sprint 6 verification",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/29"
+        },
+        {
+          "number": 28,
+          "title": "[S6-001] Game testing harness + battle view fix",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/28"
+        },
+        {
+          "number": 27,
+          "title": "[S5-AUDIT] KB entries from Sprint 5 audit",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/27"
+        },
+        {
+          "number": 26,
+          "title": "[S5-002] Sprint 5 visual verification",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/26"
+        },
+        {
+          "number": 25,
+          "title": "[S5-001] Fix blank battle view + UI viewport overflow",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/25"
+        },
+        {
+          "number": 24,
+          "title": "[S4-009] Fix Verify CI — update Playwright tests for current game",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/24"
+        },
+        {
+          "number": 23,
+          "title": "[S4-008] Shrinking arena in overtime — force engagement",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/23"
+        },
+        {
+          "number": 22,
+          "title": "[S4-007] Stronger overtime — damage amp + sudden death",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/22"
+        },
+        {
+          "number": 21,
+          "title": "[S4-006] Add overtime aggression — fix 27% timeout rate",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/21"
+        },
+        {
+          "number": 20,
+          "title": "[S4-005] Pacing v3 — 1.5x HP, 90s timeout",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/20"
+        },
+        {
+          "number": 19,
+          "title": "[S4-004] Fix pacing — reduce HP from 3x to 2x (matches were 70s, target 20-40s)",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/19"
+        },
+        {
+          "number": 18,
+          "title": "[S4-003] Sprint 4 verification",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/18"
+        },
+        {
+          "number": 17,
+          "title": "[S4-AUDIT] KB entries from Sprint 4 audit",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/17"
+        },
+        {
+          "number": 16,
+          "title": "[S4-002] Implement pacing, item clarity, BrottBrain UX, juice",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/16"
+        },
+        {
+          "number": 15,
+          "title": "[S4-001] Sprint 4 design — pacing, items, BrottBrain UX",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/15"
+        },
+        {
+          "number": 14,
+          "title": "[S3-AUDIT] KB entries from Sprint 3 audit",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/14"
+        },
+        {
+          "number": 13,
+          "title": "[S3-002] Sprint 3 verification — playtest readiness check",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/13"
+        },
+        {
+          "number": 12,
+          "title": "[S3-001] Wire full UI flow into main scene for web export",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/12"
+        },
+        {
+          "number": 11,
+          "title": "[S2-AUDIT] KB entries from Sprint 2 audit",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/11"
+        },
+        {
+          "number": 10,
+          "title": "[S2-002] Sprint 2 verification",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/10"
+        },
+        {
+          "number": 9,
+          "title": "[S2-001] BrottBrain + game UI flow + economy + progression",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/9"
+        },
+        {
+          "number": 8,
+          "title": "[S1-AUDIT] KB entries from Sprint 1 audit",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/8"
+        },
+        {
+          "number": 7,
+          "title": "[S1-002] Sprint 1 verification report",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/7"
+        },
+        {
+          "number": 6,
+          "title": "[S1-001] Core combat simulation with visual arena",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/6"
+        },
+        {
+          "number": 4,
+          "title": "[S0.1-001] Fix Sprint 0 infrastructure issues",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/4"
+        },
+        {
+          "number": 3,
+          "title": "[S0-AUDIT] KB entries from Sprint 0 audit",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/3"
+        },
+        {
+          "number": 2,
+          "title": "[S0-002] Verification pipeline dry run",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/2"
+        },
+        {
+          "number": 1,
+          "title": "[S0-001] Infrastructure setup — Playwright, Godot, CI/CD, dashboard",
+          "url": "https://github.com/brott-studio/battlebrotts-v2/pull/1"
+        }
+      ]
+    }
+  ],
   "commits": [
     {
-      "sha": "085c5d1",
-      "message": "Initial commit: BattleBrotts v2 — GDD + project structure",
-      "date": "2025-04-15T00:00:00Z"
+      "sha": "f362b39c844c3711a9af9ac59d9d7e2ef780e850",
+      "message": "[S13.3-AUDIT] KB entry — edit-tool unicode mismatch loop (#59)",
+      "date": "2026-04-16T14:46:18-04:00"
+    },
+    {
+      "sha": "626f73a6ba1cd5eb162a756fdb0d56e389a6d9a5",
+      "message": "[S13.2-AUDIT] KB: mirror-test blind spot + tick-rate collision coupling (#57)",
+      "date": "2026-04-16T14:37:50-04:00"
+    },
+    {
+      "sha": "84f28b0668f1781998a3c60ba378eaf3549ac9c3",
+      "message": "[S13.3] feat: chassis balance pass — commit cap, per-chassis TCR, HP bumps, pellet metrics (#58)",
+      "date": "2026-04-16T14:34:20-04:00"
+    },
+    {
+      "sha": "7fc9e9cab7aed3324eee7996337d12f74fddbad3",
+      "message": "[S13.3] design: chassis balance pass (post-TCR)",
+      "date": "2026-04-16T18:16:14Z"
+    },
+    {
+      "sha": "75814bbea9c39237f386967c391652861864e745",
+      "message": "[S13.2-FIX] fix: TCR cross-chassis engagement + hit rate tuning (#56)",
+      "date": "2026-04-16T14:01:47-04:00"
+    },
+    {
+      "sha": "04ed92a40b8104afcf0996f00939ee286a73b409",
+      "message": "[S13.2] feat: combat rhythm — Tension→Commit→Recovery cycle (#55)",
+      "date": "2026-04-16T13:39:13-04:00"
+    },
+    {
+      "sha": "d7d4d736e8619e5e15bbabfa6bfecb2e8d6e296b",
+      "message": "[S13.1] docs: fix GDD drift — tick rate, overtime, match timeout (#54)",
+      "date": "2026-04-16T13:30:11-04:00"
+    },
+    {
+      "sha": "1260012a925f18f6f7e48fff9a7b8d120a911f93",
+      "message": "feat(kb): [S12-AUDIT] KB entry — test fixture coupling to gameplay constants",
+      "date": "2026-04-16T16:19:16Z"
+    },
+    {
+      "sha": "9b180e2eb9ffe1e08432adcdba3ea086c4081278",
+      "message": "[S12.5] feat: JSON match logging for combat engine (#52)",
+      "date": "2026-04-16T12:14:13-04:00"
+    },
+    {
+      "sha": "c1bafa0ec09b4a54951cf24ec067da6b4b900274",
+      "message": "[S12.4] feat: charm pass — idle anims, movement quirks, victory/defeat, combat flavor (#51)",
+      "date": "2026-04-16T12:06:04-04:00"
+    },
+    {
+      "sha": "107795f51be97184a4b40f0acdddcd1a97809824",
+      "message": "[S12.3] feat: visual loadout bot preview + in-game equipment sprites (#50)",
+      "date": "2026-04-16T11:42:51-04:00"
+    },
+    {
+      "sha": "f7dcb51ece66b4b6625d9cab95026f616a057d96",
+      "message": "[S12.2] feat: loadout UI equipped state + weight budget bar (#49)",
+      "date": "2026-04-16T11:29:54-04:00"
+    },
+    {
+      "sha": "7df29d48d935453888ddc5efb7f4c09cd6dfa899",
+      "message": "fix: timeout test HP + sprint10 rng_seed test (#48)",
+      "date": "2026-04-16T11:19:41-04:00"
+    },
+    {
+      "sha": "932c62508b982223e4670259dadfc0dbe580e91a",
+      "message": "feat(kb): [S11.1-AUDIT] KB entry — juke bypass movement caps (#45)",
+      "date": "2026-04-16T11:02:32-04:00"
+    },
+    {
+      "sha": "c421dae5e5f014010c8366136c9c3ec6decd66ef",
+      "message": "kb: fun evaluation spike sprint findings (#47)",
+      "date": "2026-04-16T11:00:17-04:00"
+    },
+    {
+      "sha": "d94ef73dbaa4d6ed6e60220637e576166c03ecc0",
+      "message": "[S11.2] fix: cap away juke retreat + add combat instrumentation (#46)",
+      "date": "2026-04-16T09:16:05-04:00"
+    },
+    {
+      "sha": "4c5cca34e461815392865df811489aa0a1c63212",
+      "message": "[S11.1] feat: combat movement system (orbit + juke + engagement distance) (#44)",
+      "date": "2026-04-16T09:01:57-04:00"
+    },
+    {
+      "sha": "4b2337c74c5443511cbee982684cad13585b1cd3",
+      "message": "GDD: Add Section 5.3.1 Combat Movement system (stalemate fix)",
+      "date": "2026-04-16T12:53:26Z"
+    },
+    {
+      "sha": "af10ed21c8c8148972269caa9db800596d22ead5",
+      "message": "[S10.1] fix: bot separation, battle sim tests, varied stances, shop scroll",
+      "date": "2026-04-16T08:33:01-04:00"
+    },
+    {
+      "sha": "118e49a9624102ec0c0309315f4ef293a25450ec",
+      "message": "Sprint 9.2 Verification: Battle View Tests + Full Sprint Gates (#42)",
+      "date": "2026-04-15T23:55:26-04:00"
     }
   ]
 }

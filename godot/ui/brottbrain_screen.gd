@@ -136,7 +136,7 @@ func _build_ui() -> void:
 	add_child(move_down)
 	
 	# Available cards tray
-	var tray_y := max(y + 15, 380)
+	var tray_y: int = maxi(y + 15, 380)
 	var tray_hdr := Label.new()
 	tray_hdr.text = "── Available Cards ──"
 	tray_hdr.add_theme_font_size_override("font_size", 14)

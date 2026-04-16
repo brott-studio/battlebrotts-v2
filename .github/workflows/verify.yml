@@ -22,7 +22,10 @@ jobs:
         run: godot --headless --path godot/ --import 2>&1 || true
 
       - name: Run Godot tests
-        run: godot --headless --path godot/ --script res://tests/test_runner.gd
+        run: |
+          godot --headless --path godot/ --script res://tests/test_runner.gd
+          godot --headless --path godot/ --script res://tests/test_sprint13_2.gd
+          godot --headless --path godot/ --script res://tests/test_sprint13_3.gd
 
   playwright:
     name: Playwright Smoke Tests

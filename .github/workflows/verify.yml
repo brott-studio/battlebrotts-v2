@@ -26,6 +26,8 @@ jobs:
           godot --headless --path godot/ --script res://tests/test_runner.gd
           godot --headless --path godot/ --script res://tests/test_sprint13_2.gd
           godot --headless --path godot/ --script res://tests/test_sprint13_3.gd
+          godot --headless --path godot/ --script res://tests/test_sprint13_4.gd
+          godot --headless --path godot/ --script res://tests/test_sprint13_5.gd
 
   playwright:
     name: Playwright Smoke Tests

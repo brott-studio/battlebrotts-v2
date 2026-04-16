@@ -533,6 +533,15 @@ func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 	
 	var base_col: Color = COLOR_PLAYER if b.team == 0 else COLOR_ENEMY
 	
+	# S12.3: Armor slightly modifies bot outline color in-game
+	match b.armor_type:
+		ArmorData.ArmorType.PLATING:
+			base_col = base_col.lerp(Color(0.6, 0.6, 0.7), 0.15)
+		ArmorData.ArmorType.REACTIVE_MESH:
+			base_col = base_col.lerp(Color(0.3, 1.0, 0.5), 0.12)
+		ArmorData.ArmorType.ABLATIVE_SHELL:
+			base_col = base_col.lerp(Color(0.6, 0.4, 0.25), 0.18)
+	
 	# Hit flash: 80% white blend for 2 frames
 	if b.flash_timer > 0:
 		base_col = base_col.lerp(Color.WHITE, 0.8)
@@ -556,6 +565,9 @@ func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 			draw_colored_polygon(pts, base_col)
 		ChassisData.ChassisType.FORTRESS:
 			draw_rect(Rect2(pos - Vector2(BOT_RADIUS, BOT_RADIUS), Vector2(BOT_RADIUS * 2, BOT_RADIUS * 2)), base_col)
+	
+	# S12.3: Draw weapon silhouettes on in-game sprite (24×24 scale)
+	_draw_ingame_weapons(b, pos)
 	
 	# Shield
 	if b.shield_active:
@@ -614,3 +626,43 @@ func _draw_sudden_death_banner(draw_offset: Vector2) -> void:
 	for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
 		draw_string(ThemeDB.fallback_font, center - Vector2(80, 0) + off, "SUDDEN DEATH!", HORIZONTAL_ALIGNMENT_CENTER, 160, 24, outline_col)
 	draw_string(ThemeDB.fallback_font, center - Vector2(80, 0), "SUDDEN DEATH!", HORIZONTAL_ALIGNMENT_CENTER, 160, 24, col)
+
+## S12.3: Draw simplified weapon silhouettes on in-game 24×24 bot sprites
+func _draw_ingame_weapons(b: BrottState, pos: Vector2) -> void:
+	var weapon_col := Color(0.75, 0.75, 0.75, 0.85)
+	for i in range(b.weapon_types.size()):
+		if i >= 2:
+			break
+		var wt: WeaponData.WeaponType = b.weapon_types[i]
+		var side := 1.0 if i == 0 else -1.0  # right / left
+		var mount := pos + Vector2(BOT_RADIUS * side, 0)
+		
+		match wt:
+			WeaponData.WeaponType.MINIGUN:
+				# Small barrel cluster
+				for j in range(2):
+					draw_rect(Rect2(mount + Vector2(0, (j - 0.5) * 3 - 1), Vector2(5.0 * side, 2)), weapon_col)
+			WeaponData.WeaponType.RAILGUN:
+				# Long thin barrel
+				draw_rect(Rect2(mount + Vector2(0, -1), Vector2(8.0 * side, 2)), weapon_col)
+			WeaponData.WeaponType.SHOTGUN:
+				# Wide short barrel
+				draw_rect(Rect2(mount + Vector2(0, -2), Vector2(4.0 * side, 4)), weapon_col)
+			WeaponData.WeaponType.MISSILE_POD:
+				# Small pod cluster (2 tubes)
+				draw_rect(Rect2(mount + Vector2(0, -2), Vector2(3.0 * side, 2)), weapon_col)
+				draw_rect(Rect2(mount + Vector2(0, 1), Vector2(3.0 * side, 2)), weapon_col)
+			WeaponData.WeaponType.PLASMA_CUTTER:
+				# Small blade
+				var pts := PackedVector2Array([
+					mount,
+					mount + Vector2(6.0 * side, -1.5),
+					mount + Vector2(6.0 * side, 1.5),
+				])
+				draw_colored_polygon(pts, Color(0.7, 0.3, 0.8, 0.85))
+			WeaponData.WeaponType.ARC_EMITTER:
+				# Small coil dot
+				draw_circle(mount + Vector2(3.0 * side, 0), 2.5, Color(0.3, 0.5, 1.0, 0.85))
+			WeaponData.WeaponType.FLAK_CANNON:
+				# Wide short barrel
+				draw_rect(Rect2(mount + Vector2(0, -2.5), Vector2(3.0 * side, 5)), weapon_col)

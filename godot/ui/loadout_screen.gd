@@ -25,6 +25,10 @@ var _weight_label: Label
 var _weight_flash_timer: float = 0.0
 var _is_overweight: bool = false
 var _equip_button: Button
+var _bot_preview: BotPreview  # S12.3: Visual bot preview
+var _prev_weapons: Array[int] = []
+var _prev_armor: int = 0
+var _prev_modules: Array[int] = []
 
 func setup(state: GameState) -> void:
 	game_state = state
@@ -45,6 +49,25 @@ func _build_ui() -> void:
 	header.position = Vector2(20, 10)
 	header.size = Vector2(600, 40)
 	add_child(header)
+
+	# S12.3: Bot preview (96×96) — right side of header area
+	_bot_preview = BotPreview.new()
+	_bot_preview.position = Vector2(620, 10)
+	_bot_preview.size = Vector2(96, 96)
+	var typed_weapons: Array[int] = []
+	for w in game_state.equipped_weapons:
+		typed_weapons.append(w)
+	var typed_modules: Array[int] = []
+	for m in game_state.equipped_modules:
+		typed_modules.append(m)
+	_bot_preview.update_loadout(game_state.equipped_chassis, typed_weapons, game_state.equipped_armor, typed_modules)
+	add_child(_bot_preview)
+
+	# S12.3: Detect equip/unequip changes and trigger animations
+	_trigger_loadout_anims(typed_weapons, game_state.equipped_armor, typed_modules)
+	_prev_weapons = typed_weapons.duplicate()
+	_prev_armor = game_state.equipped_armor
+	_prev_modules = typed_modules.duplicate()
 
 	# Weight budget bar (S12.2)
 	_build_weight_bar(validation, ch)
@@ -326,3 +349,39 @@ func _toggle_module(mt: int) -> void:
 	else:
 		game_state.equipped_modules.append(mt)
 	_build_ui()
+
+## S12.3: Detect loadout changes and trigger equip/unequip animations on bot preview
+func _trigger_loadout_anims(new_weapons: Array[int], new_armor: int, new_modules: Array[int]) -> void:
+	if _bot_preview == null:
+		return
+
+	# Weapon changes
+	for i in range(new_weapons.size()):
+		if i >= _prev_weapons.size() or new_weapons[i] != _prev_weapons[i]:
+			var wd := WeaponData.get_weapon(new_weapons[i])
+			if wd["weight"] > 12:
+				_bot_preview.play_equip_anim_heavy("weapon_%d" % i)
+			else:
+				_bot_preview.play_equip_anim("weapon_%d" % i)
+	for i in range(_prev_weapons.size()):
+		if i >= new_weapons.size():
+			_bot_preview.play_unequip_anim("weapon_%d" % i)
+
+	# Armor changes
+	if new_armor != _prev_armor:
+		if new_armor != ArmorData.ArmorType.NONE:
+			var ad := ArmorData.get_armor(new_armor)
+			if ad["weight"] > 12:
+				_bot_preview.play_equip_anim_heavy("armor")
+			else:
+				_bot_preview.play_equip_anim("armor")
+		else:
+			_bot_preview.play_unequip_anim("armor")
+
+	# Module changes
+	for i in range(new_modules.size()):
+		if i >= _prev_modules.size() or new_modules[i] != _prev_modules[i]:
+			_bot_preview.play_equip_anim("module_%d" % i)
+	for i in range(_prev_modules.size()):
+		if i >= new_modules.size():
+			_bot_preview.play_unequip_anim("module_%d" % i)

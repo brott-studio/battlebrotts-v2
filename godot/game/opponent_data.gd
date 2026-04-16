@@ -30,7 +30,7 @@ static func get_league_opponents(league: String) -> Array:
 					"weapons": [WeaponData.WeaponType.PLASMA_CUTTER],
 					"armor": ArmorData.ArmorType.PLATING,
 					"modules": [],
-					"stance": 0,
+					"stance": 1,  # Defensive
 					"brain": null,
 				},
 				{
@@ -40,7 +40,7 @@ static func get_league_opponents(league: String) -> Array:
 					"weapons": [WeaponData.WeaponType.PLASMA_CUTTER, WeaponData.WeaponType.SHOTGUN],
 					"armor": ArmorData.ArmorType.NONE,
 					"modules": [],
-					"stance": 0,
+					"stance": 2,  # Kiting
 					"brain": null,
 				},
 			]

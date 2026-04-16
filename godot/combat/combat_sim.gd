@@ -315,6 +315,20 @@ func _move_brott(b: BrottState) -> void:
 			3:  # Ambush
 				pass
 	
+	# Bot-bot separation force — prevent overlapping
+	var min_sep: float = BOT_HITBOX_RADIUS * 2.5  # 30px minimum separation
+	for other in brotts:
+		if other == b or not other.alive:
+			continue
+		var sep: Vector2 = b.position - other.position
+		var sep_dist: float = sep.length()
+		if sep_dist < min_sep and sep_dist > 0.01:
+			var push: float = (min_sep - sep_dist) * 0.5
+			b.position += sep.normalized() * push
+		elif sep_dist <= 0.01:
+			# Perfectly overlapping — push in arbitrary direction
+			b.position += Vector2(BOT_HITBOX_RADIUS, 0)
+	
 	var arena_px: float = 16.0 * TILE_SIZE
 	b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px - BOT_HITBOX_RADIUS)
 	b.position.y = clampf(b.position.y, BOT_HITBOX_RADIUS, arena_px - BOT_HITBOX_RADIUS)

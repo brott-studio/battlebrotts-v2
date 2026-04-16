@@ -14,6 +14,7 @@ func _init() -> void:
 	_run_combat_tests()
 	_run_module_tests()
 	_run_movement_tests()
+	_run_sprint10_tests()
 	
 	print("\n=== Results: %d passed, %d failed, %d total ===" % [pass_count, fail_count, test_count])
 	
@@ -371,3 +372,27 @@ func _make_brott(team: int, chassis: ChassisData.ChassisType) -> BrottState:
 	b.position = Vector2(128, 128)
 	b.setup()
 	return b
+
+func _run_sprint10_tests() -> void:
+	print("\n--- Sprint 10 Tests ---")
+	# Stalemate detection: 300-tick sim, bots should move
+	var sim := CombatSim.new()
+	sim.rng_seed = 42
+	var bd := {"name": "TestBot", "hp": 100, "max_hp": 100, "armor_dr": 0, "speed": 3.0,
+		"weapons": [{"type": "plasma_cutter", "damage": 10, "cooldown": 5, "range": 80.0, "projectile_speed": 200.0}],
+		"stance": 0, "team": 0, "modules": [], "chassis": "standard"}
+	var bd2 := bd.duplicate(true)
+	bd2["team"] = 1
+	sim.setup([bd], [bd2])
+	var positions: Array[Vector2] = []
+	for tick in range(300):
+		sim.tick()
+		if tick % 50 == 0 and sim.brotts.size() > 0 and sim.brotts[0].alive:
+			positions.append(sim.brotts[0].position)
+	var moved := false
+	if positions.size() >= 2:
+		for i in range(1, positions.size()):
+			if positions[i].distance_to(positions[0]) > 1.0:
+				moved = true
+				break
+	assert_true(moved, "Sprint10: Bots moved during 300-tick sim")

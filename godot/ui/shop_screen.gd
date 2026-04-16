@@ -7,6 +7,7 @@ signal continue_pressed
 
 var game_state: GameState
 var details_expanded: Dictionary = {}  # track which items have stats expanded
+var _item_container: Control  # scroll content container for shop items
 
 func setup(state: GameState) -> void:
 	game_state = state
@@ -25,7 +26,18 @@ func _build_ui() -> void:
 	header.size = Vector2(600, 40)
 	add_child(header)
 	
-	var y_offset := 60
+	# ScrollContainer for shop items
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(0, 60)
+	scroll.size = Vector2(1280, 580)  # Leave room for header and continue button
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(scroll)
+	
+	var scroll_content := Control.new()
+	scroll.add_child(scroll_content)
+	_item_container = scroll_content
+	
+	var y_offset := 0
 	
 	# Weapons section
 	y_offset = _add_section("WEAPONS", y_offset)
@@ -59,6 +71,9 @@ func _build_ui() -> void:
 		var owned: bool = mt in game_state.owned_modules
 		y_offset = _add_shop_item_v2(md, price, owned, "module", mt, y_offset)
 	
+	# Set scroll content height so ScrollContainer knows the full extent
+	scroll_content.custom_minimum_size.y = y_offset
+	
 	# Continue button
 	var btn := Button.new()
 	btn.text = "Continue →"
@@ -74,7 +89,7 @@ func _add_section(title: String, y: int) -> int:
 	lbl.add_theme_font_size_override("font_size", 18)
 	lbl.position = Vector2(20, y)
 	lbl.size = Vector2(300, 30)
-	add_child(lbl)
+	_item_container.add_child(lbl)
 	return y + 30
 
 func _add_shop_item_v2(data: Dictionary, price: int, owned: bool, category: String, type: int, y: int) -> int:
@@ -118,7 +133,7 @@ func _add_shop_item_v2(data: Dictionary, price: int, owned: bool, category: Stri
 	)
 	hbox.add_child(det_btn)
 	
-	add_child(hbox)
+	_item_container.add_child(hbox)
 	y += 30
 	
 	# Description line
@@ -129,7 +144,7 @@ func _add_shop_item_v2(data: Dictionary, price: int, owned: bool, category: Stri
 		desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		desc_lbl.position = Vector2(60, y)
 		desc_lbl.size = Vector2(600, 20)
-		add_child(desc_lbl)
+		_item_container.add_child(desc_lbl)
 		y += 20
 	
 	# Expanded stats
@@ -143,7 +158,7 @@ func _add_shop_item_v2(data: Dictionary, price: int, owned: bool, category: Stri
 			stat_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 			stat_lbl.position = Vector2(70, y)
 			stat_lbl.size = Vector2(500, 16)
-			add_child(stat_lbl)
+			_item_container.add_child(stat_lbl)
 			y += 16
 	
 	return y
@@ -171,7 +186,7 @@ func _add_shop_item(item_name: String, price: int, owned: bool, category: String
 		btn.pressed.connect(_on_buy.bind(category, type))
 		hbox.add_child(btn)
 	
-	add_child(hbox)
+	_item_container.add_child(hbox)
 	return y + 30
 
 func _on_buy(category: String, type: int) -> void:

@@ -1,201 +1,449 @@
-## Shop screen — Sprint 4: shows archetype + description, stats behind toggle
+## Shop Screen — Sprint 13.4: card grid MVP (pivot from balance → shop visual)
+##
+## Card grid layout per Gizmo's spec (docs/design/sprint13.4-shop-card-grid.md):
+## - 3 cols at viewport width >= 1024, else 2 cols.
+## - Cards 200x240 with placeholder art tile (category-colored), name, archetype tag, price.
+## - Tap-to-expand inline stats panel below the row (not modal). Buy button lives in the panel.
+## - Sections WEAPONS -> ARMOR -> CHASSIS -> MODULES.
+## - Owned: 50% opacity + green check. Unaffordable: red price. continue_pressed unchanged.
+##
+## Implementation uses VBox-of-HBox rows (not GridContainer) so we can insert a
+## full-width ExpandPanel between rows deterministically — Ett flagged the
+## GridContainer reflow as flaky for mid-grid inserts.
 class_name ShopScreen
 extends Control
 
 signal item_purchased(category: String, type: int)
 signal continue_pressed
 
+# Palette (see design doc §5)
+const COLOR_CREAM := Color("#F4E4BC")
+const COLOR_MUTED := Color("#A0A0A0")
+const COLOR_UNAFFORDABLE := Color("#D04040")
+const COLOR_OWNED_GREEN := Color("#6FCF6F")
+
+const CAT_COLORS := {
+	"weapon":  { "fill": Color("#8B2E2E"), "border": Color("#D4A84A") },
+	"armor":   { "fill": Color("#2E5A8B"), "border": Color("#8FAECB") },
+	"chassis": { "fill": Color("#4A4A4A"), "border": Color("#A0A0A0") },
+	"module":  { "fill": Color("#2E6B4A"), "border": Color("#7BCA9E") },
+}
+
+const CARD_W := 200
+const CARD_H := 240
+const ART_H := 120
+const GUTTER := 16
+const DESKTOP_MIN_W := 1024
+
 var game_state: GameState
-var details_expanded: Dictionary = {}  # track which items have stats expanded
-var _item_container: Control  # scroll content container for shop items
+var _content_vbox: VBoxContainer
+var _expanded_key: String = ""
+var _forced_width: int = -1  # test hook; -1 = use viewport width
+
+# --- Public API (kept backwards-compatible) ---
 
 func setup(state: GameState) -> void:
 	game_state = state
 	_build_ui()
 
+func setup_for_viewport(state: GameState, viewport_w: int) -> void:
+	## Test hook: force a specific viewport width for deterministic layout checks.
+	game_state = state
+	_forced_width = viewport_w
+	_build_ui()
+
+# --- UI construction ---
+
 func _build_ui() -> void:
-	# Clear children
+	# Remove children immediately (queue_free is deferred and leaves stale
+	# nodes visible to the tree between rebuilds — breaks tests and can
+	# briefly show two expanded panels during rapid taps).
 	for c in get_children():
+		remove_child(c)
 		c.queue_free()
-	
-	# Title + Bolts
-	var header := Label.new()
-	header.text = "🔩 SHOP — %d Bolts" % game_state.bolts
-	header.add_theme_font_size_override("font_size", 28)
-	header.position = Vector2(20, 10)
-	header.size = Vector2(600, 40)
+
+	var viewport_w := _resolve_width()
+	var cols := 3 if viewport_w >= DESKTOP_MIN_W else 2
+
+	# --- Header (bolts counter top-right, title top-left) ---
+	var header := Control.new()
+	header.name = "Header"
+	header.custom_minimum_size = Vector2(viewport_w, 60)
+	header.position = Vector2(0, 0)
 	add_child(header)
-	
-	# ScrollContainer for shop items
+
+	var title := Label.new()
+	title.text = "SHOP"
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", COLOR_CREAM)
+	title.position = Vector2(20, 10)
+	header.add_child(title)
+
+	var bolts := Label.new()
+	bolts.name = "BoltsCounter"
+	bolts.text = "%d 🔩" % game_state.bolts
+	bolts.add_theme_font_size_override("font_size", 36)
+	bolts.add_theme_color_override("font_color", COLOR_CREAM)
+	bolts.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	bolts.size = Vector2(300, 50)
+	bolts.position = Vector2(viewport_w - 320, 5)
+	header.add_child(bolts)
+
+	# --- Scroll area for cards ---
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(0, 60)
-	scroll.size = Vector2(1280, 580)  # Leave room for header and continue button
+	scroll.name = "ScrollArea"
+	scroll.position = Vector2(0, 70)
+	scroll.custom_minimum_size = Vector2(viewport_w, 600)
+	scroll.size = Vector2(viewport_w, 600)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
-	
-	var scroll_content := Control.new()
-	scroll.add_child(scroll_content)
-	_item_container = scroll_content
-	
-	var y_offset := 0
-	
-	# Weapons section
-	y_offset = _add_section("WEAPONS", y_offset)
-	for wt in GameState.WEAPON_PRICES.keys():
-		var wd := WeaponData.get_weapon(wt)
-		var price: int = GameState.WEAPON_PRICES[wt]
-		var owned: bool = wt in game_state.owned_weapons
-		y_offset = _add_shop_item_v2(wd, price, owned, "weapon", wt, y_offset)
-	
-	# Armor section
-	y_offset = _add_section("ARMOR", y_offset + 10)
-	for at in GameState.ARMOR_PRICES.keys():
-		var ad := ArmorData.get_armor(at)
-		var price: int = GameState.ARMOR_PRICES[at]
-		var owned: bool = at in game_state.owned_armor
-		y_offset = _add_shop_item_v2(ad, price, owned, "armor", at, y_offset)
-	
-	# Chassis section
-	y_offset = _add_section("CHASSIS", y_offset + 10)
-	for ct in GameState.CHASSIS_PRICES.keys():
-		var cd := ChassisData.get_chassis(ct)
-		var price: int = GameState.CHASSIS_PRICES[ct]
-		var owned: bool = ct in game_state.owned_chassis
-		y_offset = _add_shop_item(cd["name"], price, owned, "chassis", ct, y_offset)
-	
-	# Modules section
-	y_offset = _add_section("MODULES", y_offset + 10)
-	for mt in GameState.MODULE_PRICES.keys():
-		var md := ModuleData.get_module(mt)
-		var price: int = GameState.MODULE_PRICES[mt]
-		var owned: bool = mt in game_state.owned_modules
-		y_offset = _add_shop_item_v2(md, price, owned, "module", mt, y_offset)
-	
-	# Set scroll content height so ScrollContainer knows the full extent
-	scroll_content.custom_minimum_size.y = y_offset
-	
-	# Continue button
+
+	_content_vbox = VBoxContainer.new()
+	_content_vbox.name = "Content"
+	_content_vbox.add_theme_constant_override("separation", 12)
+	_content_vbox.custom_minimum_size = Vector2(viewport_w, 0)
+	scroll.add_child(_content_vbox)
+
+	# --- Sections in spec order ---
+	_build_section("WEAPONS", "weapon", GameState.WEAPON_PRICES, cols, func(t): return WeaponData.get_weapon(t), game_state.owned_weapons)
+	_build_section("ARMOR",   "armor",  GameState.ARMOR_PRICES,  cols, func(t): return ArmorData.get_armor(t),  game_state.owned_armor)
+	_build_section("CHASSIS", "chassis",GameState.CHASSIS_PRICES,cols, func(t): return ChassisData.get_chassis(t), game_state.owned_chassis)
+	_build_section("MODULES", "module", GameState.MODULE_PRICES, cols, func(t): return ModuleData.get_module(t), game_state.owned_modules)
+
+	# --- Continue button ---
 	var btn := Button.new()
+	btn.name = "ContinueButton"
 	btn.text = "Continue →"
-	btn.position = Vector2(1050, 650)
+	btn.position = Vector2(viewport_w - 220, 680)
 	btn.size = Vector2(200, 50)
 	btn.add_theme_font_size_override("font_size", 18)
 	btn.pressed.connect(func(): continue_pressed.emit())
 	add_child(btn)
 
-func _add_section(title: String, y: int) -> int:
+func _resolve_width() -> int:
+	if _forced_width > 0:
+		return _forced_width
+	var vp := get_viewport()
+	if vp != null:
+		var sz := vp.get_visible_rect().size
+		if sz.x > 0:
+			return int(sz.x)
+	return 1280  # sensible default for headless/startup
+
+func _build_section(title: String, category: String, prices: Dictionary, cols: int, data_fn: Callable, owned: Array) -> void:
+	# Section container
+	var section := VBoxContainer.new()
+	section.name = "Section_%s" % title
+	section.add_theme_constant_override("separation", 8)
+
+	# Section header
 	var lbl := Label.new()
 	lbl.text = "— %s —" % title
 	lbl.add_theme_font_size_override("font_size", 18)
-	lbl.position = Vector2(20, y)
-	lbl.size = Vector2(300, 30)
-	_item_container.add_child(lbl)
-	return y + 30
+	lbl.add_theme_color_override("font_color", COLOR_CREAM)
+	section.add_child(lbl)
 
-func _add_shop_item_v2(data: Dictionary, price: int, owned: bool, category: String, type: int, y: int) -> int:
-	var item_name: String = data["name"]
-	var archetype: String = data.get("archetype", "")
-	var desc: String = data.get("description", "")
-	var key: String = "%s_%d" % [category, type]
-	
-	# Main row: archetype + name + price/owned
-	var hbox := HBoxContainer.new()
-	hbox.position = Vector2(40, y)
-	hbox.size = Vector2(700, 30)
-	
-	var lbl := Label.new()
-	var display_text: String = ""
-	if owned:
-		display_text = "✅ %s — %s" % [item_name, archetype]
-	elif price == 0:
-		display_text = "%s — %s (Free)" % [item_name, archetype]
-	else:
-		display_text = "%s — %s — %d 🔩" % [item_name, archetype, price]
-	lbl.text = display_text
-	lbl.size = Vector2(400, 30)
-	hbox.add_child(lbl)
-	
-	if not owned:
-		var btn := Button.new()
-		btn.text = "Buy" if price <= game_state.bolts else "Can't afford"
-		btn.disabled = price > game_state.bolts
-		btn.size = Vector2(120, 28)
-		btn.pressed.connect(_on_buy.bind(category, type))
-		hbox.add_child(btn)
-	
-	# Details toggle
-	var det_btn := Button.new()
-	det_btn.text = "📊" if not details_expanded.get(key, false) else "▲"
-	det_btn.size = Vector2(40, 28)
-	det_btn.pressed.connect(func():
-		details_expanded[key] = not details_expanded.get(key, false)
-		_build_ui()
-	)
-	hbox.add_child(det_btn)
-	
-	_item_container.add_child(hbox)
-	y += 30
-	
-	# Description line
-	if desc != "":
-		var desc_lbl := Label.new()
-		desc_lbl.text = desc
-		desc_lbl.add_theme_font_size_override("font_size", 11)
-		desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-		desc_lbl.position = Vector2(60, y)
-		desc_lbl.size = Vector2(600, 20)
-		_item_container.add_child(desc_lbl)
-		y += 20
-	
-	# Expanded stats
-	if details_expanded.get(key, false):
-		for stat_key in data.keys():
-			if stat_key in ["name", "archetype", "description"]:
-				continue
-			var stat_lbl := Label.new()
-			stat_lbl.text = "  %s: %s" % [stat_key, str(data[stat_key])]
-			stat_lbl.add_theme_font_size_override("font_size", 10)
-			stat_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-			stat_lbl.position = Vector2(70, y)
-			stat_lbl.size = Vector2(500, 16)
-			_item_container.add_child(stat_lbl)
-			y += 16
-	
-	return y
+	# Collect items for this section
+	var items: Array = []
+	for t in prices.keys():
+		var d: Dictionary = data_fn.call(t)
+		items.append({
+			"category": category,
+			"type": int(t),
+			"data": d,
+			"price": int(prices[t]),
+			"owned": t in owned,
+			"name": String(d.get("name", "???")),
+			"archetype": String(d.get("archetype", "")),
+		})
 
-func _add_shop_item(item_name: String, price: int, owned: bool, category: String, type: int, y: int) -> int:
-	var hbox := HBoxContainer.new()
-	hbox.position = Vector2(40, y)
-	hbox.size = Vector2(500, 30)
-	
-	var lbl := Label.new()
-	if owned:
-		lbl.text = "✅ %s" % item_name
-	elif price == 0:
-		lbl.text = "%s (Free)" % item_name
+	# Rows of `cols` cards
+	var row_index := 0
+	var i := 0
+	while i < items.size():
+		var row_items: Array = items.slice(i, min(i + cols, items.size()))
+		var row := HBoxContainer.new()
+		row.name = "Row_%s_%d" % [title, row_index]
+		row.add_theme_constant_override("separation", GUTTER)
+		for it in row_items:
+			row.add_child(_build_card(it))
+		section.add_child(row)
+
+		# Expand panel goes BELOW this row if any of its cards is the expanded one
+		for it in row_items:
+			var key := _key_for(it)
+			if key == _expanded_key:
+				section.add_child(_build_expand_panel(it))
+				break
+
+		i += cols
+		row_index += 1
+
+	_content_vbox.add_child(section)
+
+func _key_for(it: Dictionary) -> String:
+	return "%s_%d" % [String(it["category"]), int(it["type"])]
+
+# --- Card ---
+
+func _build_card(it: Dictionary) -> Control:
+	var category := String(it["category"])
+	var item_name := String(it["name"])
+	var archetype := String(it["archetype"])
+	var price := int(it["price"])
+	var owned := bool(it["owned"])
+	var key := _key_for(it)
+
+	var card := Button.new()  # Button to get built-in click handling
+	card.name = "Card_%s" % key
+	card.flat = true
+	card.toggle_mode = false
+	card.custom_minimum_size = Vector2(CARD_W, CARD_H)
+	card.size = Vector2(CARD_W, CARD_H)
+	card.set_meta("category", category)
+	card.set_meta("type", int(it["type"]))
+	card.set_meta("price", price)
+	card.set_meta("owned", owned)
+	card.set_meta("name", item_name)
+
+	# Background panel
+	var bg := ColorRect.new()
+	bg.name = "Bg"
+	bg.color = Color(0.12, 0.12, 0.14)
+	bg.position = Vector2.ZERO
+	bg.size = Vector2(CARD_W, CARD_H)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(bg)
+
+	# Art tile (placeholder: category fill + border + monogram)
+	var art := Panel.new()
+	art.name = "Art"
+	art.position = Vector2(0, 0)
+	art.size = Vector2(CARD_W, ART_H)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = CAT_COLORS[category]["fill"]
+	sb.border_color = CAT_COLORS[category]["border"]
+	sb.set_border_width_all(3)
+	art.add_theme_stylebox_override("panel", sb)
+	card.add_child(art)
+
+	# Monogram: first letter of the last word of the name (spec §7: multi-word items)
+	var glyph := _monogram(item_name)
+	var mono := Label.new()
+	mono.name = "Monogram"
+	mono.text = glyph
+	mono.add_theme_font_size_override("font_size", 48)
+	mono.add_theme_color_override("font_color", COLOR_CREAM)
+	mono.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mono.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mono.position = Vector2(0, 0)
+	mono.size = Vector2(CARD_W, ART_H)
+	mono.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(mono)
+
+	# Name
+	var name_lbl := Label.new()
+	name_lbl.name = "Name"
+	name_lbl.text = item_name
+	name_lbl.add_theme_font_size_override("font_size", 16)
+	name_lbl.add_theme_color_override("font_color", COLOR_CREAM)
+	name_lbl.position = Vector2(10, ART_H + 10)
+	name_lbl.size = Vector2(CARD_W - 20, 22)
+	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(name_lbl)
+
+	# Archetype tag: "{archetype} • {Category}" (Category capitalized)
+	var tag := Label.new()
+	tag.name = "Tag"
+	var arch_str := archetype
+	if arch_str == "":
+		arch_str = _category_display(category)
+		tag.text = arch_str
 	else:
-		lbl.text = "%s — %d 🔩" % [item_name, price]
-	lbl.size = Vector2(300, 30)
-	hbox.add_child(lbl)
-	
-	if not owned:
-		var btn := Button.new()
-		btn.text = "Buy" if price <= game_state.bolts else "Can't afford"
-		btn.disabled = price > game_state.bolts
-		btn.size = Vector2(120, 28)
-		btn.pressed.connect(_on_buy.bind(category, type))
-		hbox.add_child(btn)
-	
-	_item_container.add_child(hbox)
-	return y + 30
+		tag.text = "%s • %s" % [arch_str, _category_display(category)]
+	tag.add_theme_font_size_override("font_size", 11)
+	tag.add_theme_color_override("font_color", COLOR_MUTED)
+	tag.position = Vector2(10, ART_H + 34)
+	tag.size = Vector2(CARD_W - 20, 16)
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(tag)
+
+	# Price (bottom-right)
+	var price_lbl := Label.new()
+	price_lbl.name = "Price"
+	if owned:
+		price_lbl.text = "✓ Owned"
+		price_lbl.add_theme_color_override("font_color", COLOR_OWNED_GREEN)
+	elif price == 0:
+		price_lbl.text = "Free"
+		price_lbl.add_theme_color_override("font_color", COLOR_CREAM)
+	else:
+		price_lbl.text = "%d 🔩" % price
+		if price > game_state.bolts:
+			price_lbl.add_theme_color_override("font_color", COLOR_UNAFFORDABLE)
+		else:
+			price_lbl.add_theme_color_override("font_color", COLOR_CREAM)
+	price_lbl.add_theme_font_size_override("font_size", 18)
+	price_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	price_lbl.position = Vector2(10, CARD_H - 32)
+	price_lbl.size = Vector2(CARD_W - 20, 22)
+	price_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(price_lbl)
+
+	# Owned badge overlay (green check top-right of art)
+	if owned:
+		var badge := Label.new()
+		badge.name = "OwnedBadge"
+		badge.text = "✓"
+		badge.add_theme_font_size_override("font_size", 28)
+		badge.add_theme_color_override("font_color", COLOR_OWNED_GREEN)
+		badge.position = Vector2(CARD_W - 34, 6)
+		badge.size = Vector2(28, 28)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(badge)
+		card.modulate = Color(1, 1, 1, 0.5)
+
+	# Tap handler — capture the full dict
+	card.pressed.connect(_toggle_expand.bind(it))
+	return card
+
+func _monogram(item_name: String) -> String:
+	# Use first letter of the last word so "Plasma Cutter" -> "C" vs "Plating" -> "P".
+	var parts := item_name.strip_edges().split(" ", false)
+	if parts.size() == 0:
+		return "?"
+	var last: String = String(parts[parts.size() - 1])
+	if last.length() == 0:
+		return "?"
+	return last.substr(0, 1).to_upper()
+
+func _category_display(category: String) -> String:
+	match category:
+		"weapon": return "Weapon"
+		"armor": return "Armor"
+		"chassis": return "Chassis"
+		"module": return "Module"
+	return category.capitalize()
+
+# --- Expand panel ---
+
+func _toggle_expand(it: Dictionary) -> void:
+	var key := _key_for(it)
+	if _expanded_key == key:
+		_expanded_key = ""
+	else:
+		_expanded_key = key
+	_build_ui()
+
+func _build_expand_panel(it: Dictionary) -> Control:
+	var category := String(it["category"])
+	var item_name := String(it["name"])
+	var data: Dictionary = it["data"]
+	var price := int(it["price"])
+	var owned := bool(it["owned"])
+
+	var panel := PanelContainer.new()
+	panel.name = "ExpandPanel_%s" % _key_for(it)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.08, 0.1)
+	sb.border_color = CAT_COLORS[category]["border"]
+	sb.set_border_width_all(2)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", sb)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	panel.add_child(v)
+
+	# Top row: title + collapse
+	var top := HBoxContainer.new()
+	var title_lbl := Label.new()
+	title_lbl.text = item_name.to_upper()
+	title_lbl.add_theme_font_size_override("font_size", 20)
+	title_lbl.add_theme_color_override("font_color", COLOR_CREAM)
+	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(title_lbl)
+
+	var close_btn := Button.new()
+	close_btn.name = "CollapseButton"
+	close_btn.text = "✕"
+	close_btn.custom_minimum_size = Vector2(32, 32)
+	close_btn.pressed.connect(_toggle_expand.bind(it))
+	top.add_child(close_btn)
+	v.add_child(top)
+
+	# Subtitle: archetype + category
+	var arch := String(it["archetype"])
+	var sub := Label.new()
+	if arch != "":
+		sub.text = "%s • %s" % [arch, _category_display(category)]
+	else:
+		sub.text = _category_display(category)
+	sub.add_theme_font_size_override("font_size", 12)
+	sub.add_theme_color_override("font_color", COLOR_MUTED)
+	v.add_child(sub)
+
+	# Stats grid (2 cols)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 24)
+	for k in data.keys():
+		if String(k) in ["name", "archetype", "description"]:
+			continue
+		var s := Label.new()
+		s.text = "%s: %s" % [str(k), str(data[k])]
+		s.add_theme_font_size_override("font_size", 12)
+		s.add_theme_color_override("font_color", COLOR_CREAM)
+		grid.add_child(s)
+	v.add_child(grid)
+
+	# Description
+	var desc_text: String = String(data.get("description", ""))
+	if desc_text != "":
+		var desc := Label.new()
+		desc.text = desc_text
+		desc.add_theme_font_size_override("font_size", 11)
+		desc.add_theme_color_override("font_color", COLOR_MUTED)
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc.custom_minimum_size.x = 600
+		v.add_child(desc)
+
+	# Buy row
+	var buy_row := HBoxContainer.new()
+	buy_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var buy := Button.new()
+	buy.name = "BuyButton"
+	if owned:
+		buy.text = "✓ Owned"
+		buy.disabled = true
+	elif price > game_state.bolts:
+		buy.text = "Need %d more 🔩" % (price - game_state.bolts)
+		buy.disabled = true
+	else:
+		buy.text = "BUY — %d 🔩" % price if price > 0 else "TAKE (Free)"
+		buy.pressed.connect(_on_buy.bind(category, int(it["type"])))
+	buy.custom_minimum_size = Vector2(240, 40)
+	buy.add_theme_font_size_override("font_size", 16)
+	buy_row.add_child(buy)
+	v.add_child(buy_row)
+
+	return panel
+
+# --- Buy ---
 
 func _on_buy(category: String, type: int) -> void:
 	var success := false
 	match category:
-		"weapon": success = game_state.buy_weapon(type)
-		"armor": success = game_state.buy_armor(type)
+		"weapon":  success = game_state.buy_weapon(type)
+		"armor":   success = game_state.buy_armor(type)
 		"chassis": success = game_state.buy_chassis(type)
-		"module": success = game_state.buy_module(type)
+		"module":  success = game_state.buy_module(type)
 	if success:
 		item_purchased.emit(category, type)
-		_build_ui()  # Rebuild to reflect changes
+		# Collapse panel after successful buy
+		_expanded_key = ""
+		_build_ui()

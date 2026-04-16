@@ -40,6 +40,14 @@ func _ready() -> void:
 		if screen_param == "battle":
 			_start_demo_match()
 			return
+		if screen_param == "shop":
+			# S13.4: route ?screen=shop for shop card grid screenshot tests.
+			game_flow.new_game()
+			var bolts_param = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('bolts')")
+			if typeof(bolts_param) == TYPE_STRING and String(bolts_param).is_valid_int():
+				game_flow.game_state.bolts = int(bolts_param)
+			_show_shop()
+			return
 	# Default: show main menu (also handles ?screen=menu and ?screen=dashboard)
 	_show_main_menu()
 

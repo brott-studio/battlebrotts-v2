@@ -34,6 +34,13 @@ var enemy_brott: BrottState
 
 func _ready() -> void:
 	game_flow = GameFlow.new()
+	# URL parameter routing for web builds (enables Playwright screen tests)
+	if OS.has_feature("web"):
+		var screen_param = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('screen')")
+		if screen_param == "battle":
+			_start_demo_match()
+			return
+	# Default: show main menu (also handles ?screen=menu and ?screen=dashboard)
 	_show_main_menu()
 
 func _clear_screen() -> void:
@@ -119,6 +126,53 @@ func _show_opponent_select() -> void:
 	opp_screen.setup(game_flow.game_state)
 	opp_screen.opponent_selected.connect(_start_match)
 	opp_screen.back_pressed.connect(_show_loadout)
+
+func _start_demo_match() -> void:
+	## Start a hardcoded demo match for URL-param routing (?screen=battle).
+	## Uses the same brotts as main.gd's _setup_match() for consistency.
+	_clear_screen()
+	
+	# Player: Brawler with Shotgun + Minigun, Plating, Repair Nanites + Overclock
+	player_brott = BrottState.new()
+	player_brott.team = 0
+	player_brott.bot_name = "Player Bot"
+	player_brott.chassis_type = ChassisData.ChassisType.BRAWLER
+	player_brott.weapon_types = [WeaponData.WeaponType.SHOTGUN, WeaponData.WeaponType.MINIGUN]
+	player_brott.armor_type = ArmorData.ArmorType.PLATING
+	player_brott.module_types = [ModuleData.ModuleType.REPAIR_NANITES, ModuleData.ModuleType.OVERCLOCK]
+	player_brott.stance = 0
+	player_brott.position = Vector2(4 * 32.0, 8 * 32.0)
+	player_brott.setup()
+	
+	# Enemy: Scout with Railgun + Plasma Cutter, Reactive Mesh
+	enemy_brott = BrottState.new()
+	enemy_brott.team = 1
+	enemy_brott.bot_name = "Enemy Bot"
+	enemy_brott.chassis_type = ChassisData.ChassisType.SCOUT
+	enemy_brott.weapon_types = [WeaponData.WeaponType.RAILGUN, WeaponData.WeaponType.PLASMA_CUTTER]
+	enemy_brott.armor_type = ArmorData.ArmorType.REACTIVE_MESH
+	enemy_brott.module_types = [ModuleData.ModuleType.AFTERBURNER, ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.SENSOR_ARRAY]
+	enemy_brott.stance = 2
+	enemy_brott.position = Vector2(12 * 32.0, 8 * 32.0)
+	enemy_brott.setup()
+	
+	# Create sim
+	sim = CombatSim.new(42)  # deterministic seed
+	sim.add_brott(player_brott)
+	sim.add_brott(enemy_brott)
+	sim.on_match_end.connect(_on_match_end)
+	
+	# Instantiate arena renderer from scene (KB: no set_script/Script.new in web)
+	arena_renderer = ArenaRendererScene.instantiate()
+	add_child(arena_renderer)
+	arena_renderer.setup(sim, ARENA_OFFSET)
+	
+	# Create HUD
+	_create_arena_hud()
+	
+	in_arena = true
+	speed_multiplier = 1.0
+	tick_accumulator = 0.0
 
 func _start_match(opponent_index: int) -> void:
 	_clear_screen()

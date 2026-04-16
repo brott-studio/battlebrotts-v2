@@ -37,7 +37,7 @@ const TRICKS := [
 		"id": "toll_goblin",
 		"brottbrain_text": "Goblin wants a toll. Tiny little guy. Could take him.",
 		"prompt": "Pay up or scuffle?",
-		"choice_a": {"label": "Hand something over", "effect_type": EffectType.ITEM_LOSE, "effect_value": "random_weak", "effect_type_2": EffectType.BOLTS_DELTA, "effect_value_2": 5, "flavor_line": "Goblin nods. Tosses you 5 bolts for 'cooperation'."},
+		"choice_a": {"label": "Hand something over", "effect_type": EffectType.ITEM_LOSE, "effect_value": "random_weak", "effect_type_2": EffectType.BOLTS_DELTA, "effect_value_2": 5, "flavor_line": "Goblin grunts, lets you pass. You find 5 bolts he dropped."},
 		"choice_b": {"label": "Bribe him", "effect_type": EffectType.BOLTS_DELTA, "effect_value": -10, "flavor_line": "10 bolts poorer. He didn't even say thanks."},
 	},
 	{

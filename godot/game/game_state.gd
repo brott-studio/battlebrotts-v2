@@ -175,14 +175,42 @@ func _apply_trick_effect(t, v) -> void:
 		TrickChoices.EffectType.ITEM_LOSE:
 			_lose_trick_item(v)
 
-## S13.6: stubs — inventory model uses typed owned_* arrays keyed by
-## enum ints. Trick data uses string tokens (e.g. "random_weak") so a
-## one-line grant isn't wired. Safe no-op for now; flagged in PR body.
-func _grant_trick_item(_token) -> void:
-	pass
+## S13.7: wired via ItemTokens router. Accepts direct tokens
+## (e.g. "minigun") and pool tokens (e.g. "random_weak").
+## Unknown tokens → silent no-op. Grants are idempotent.
+func _grant_trick_item(token) -> void:
+	var resolved: Dictionary = ItemTokens.resolve_token(String(token))
+	if resolved.is_empty():
+		return
+	var t: int = int(resolved["type"])
+	match int(resolved["category"]):
+		ItemTokens.CAT_WEAPON:
+			if not owned_weapons.has(t):
+				owned_weapons.append(t)
+		ItemTokens.CAT_ARMOR:
+			if not owned_armor.has(t):
+				owned_armor.append(t)
+		ItemTokens.CAT_MODULE:
+			if not owned_modules.has(t):
+				owned_modules.append(t)
+		ItemTokens.CAT_CHASSIS:
+			if not owned_chassis.has(t):
+				owned_chassis.append(t)
 
-func _lose_trick_item(_token) -> void:
-	pass
+func _lose_trick_item(token) -> void:
+	var resolved: Dictionary = ItemTokens.resolve_token(String(token))
+	if resolved.is_empty():
+		return
+	var t: int = int(resolved["type"])
+	match int(resolved["category"]):
+		ItemTokens.CAT_WEAPON:
+			owned_weapons.erase(t)
+		ItemTokens.CAT_ARMOR:
+			owned_armor.erase(t)
+		ItemTokens.CAT_MODULE:
+			owned_modules.erase(t)
+		ItemTokens.CAT_CHASSIS:
+			owned_chassis.erase(t)
 
 ## S13.6: Pick a trick the player hasn't seen this run; fall back to the
 ## full pool once exhausted (no crash).

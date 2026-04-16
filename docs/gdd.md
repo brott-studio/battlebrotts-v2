@@ -675,3 +675,19 @@ Sprint 13.5 is UI/UX polish only. No economy, prices, items, chassis, weapons, a
 ### S13.6 — No combat balance changes
 
 Sprint 13.6 ships BrottBrain Scrapyard Trick Choice (see §11 → BrottBrain Trick Choices). Trick effects are small session-scoped deltas — `±10` bolts, `±5` HP, `+1..3` pellets on the next fight — intentionally small so they shape voice/risk flavor without moving the chassis WR balance. No chassis, weapon, armor, or module stats were touched; `ITEM_GRANT`/`ITEM_LOSE` tokens (e.g. `random_weak`) are stubbed no-ops for this sprint and will be wired after the inventory model accepts string tokens.
+
+### S13.7 — Item token router + trick content expansion
+
+Sprint 13.7 wires real item grants/losses for BrottBrain tricks (unblocking the S13.6 F1 scavenger_kid stub) and expands the trick pool from 3 → 6. No chassis/weapon/armor/module stats changed.
+
+**Item token taxonomy** (`godot/data/item_tokens.gd`):
+
+- **Direct tokens** — one-to-one with a concrete item, e.g. `"minigun"` → `{category: CAT_WEAPON, type: WeaponType.MINIGUN}`. Names are the lowercased enum identifier. Direct token set: all 7 weapons, 3 non-NONE armors, 6 modules.
+- **Pool tokens** — resolve by picking a direct token from a named pool, then recursing once. Unknown pools or empty pools return `{}` (silent no-op at the call site). The router never loops.
+- **Pool conventions:**
+  - `random_weak` — grab-bag of starter-tier items across weapons, armor, and modules. Used for cheap rewards (e.g. `crate_find`, `scavenger_kid`) and ITEM_LOSE (e.g. `toll_goblin`).
+  - `random_module` — modules only, used for module-shaped rewards (e.g. `scrap_trader` buying a module).
+
+**Adding new items or pools:** append an entry to `ItemTokens.DIRECT` (matching a real enum value in the corresponding `*_data.gd`) for new items; append a new named entry to `ItemTokens.POOLS` (entries must be valid DIRECT token strings — validated by test 16 in `test_sprint13_7.gd`) for new pools. `GameState._grant_trick_item` / `_lose_trick_item` automatically handle any new category or pool via the router — no GameState change needed for new tokens.
+
+**S13.7 new tricks:** `crate_find` (ITEM_GRANT random_weak), `toll_goblin` (ITEM_LOSE random_weak + BOLTS_DELTA +5), `scrap_trader` (BOLTS_DELTA -15 + ITEM_GRANT random_module). `ITEM_GRANT` is idempotent (no duplicates); `ITEM_LOSE` is a safe no-op when the item isn't owned. Floor toast for item grants is deferred to S13.8.

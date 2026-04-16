@@ -146,6 +146,9 @@ func _test_pick_unseen_prefers_unseen() -> void:
 	var gs := GameState.new()
 	gs._tricks_seen.append("rusty_launcher")
 	gs._tricks_seen.append("scavenger_kid")
+	gs._tricks_seen.append("crate_find")
+	gs._tricks_seen.append("toll_goblin")
+	gs._tricks_seen.append("scrap_trader")
 	# Only risk_for_reward remains unseen — must always get it.
 	for i in 20:
 		var picked: Dictionary = gs.pick_unseen_trick()

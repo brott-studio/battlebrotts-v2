@@ -15,6 +15,9 @@ var module_types: Array[ModuleData.ModuleType] = []
 # Cached stats
 var max_hp: int = 0
 var base_speed: float = 0.0
+var base_accel: float = 0.0
+var base_decel: float = 0.0
+var turn_speed: float = 0.0  # visual only (°/s)
 var dodge_chance: float = 0.0
 
 # Runtime combat state
@@ -22,6 +25,8 @@ var hp: float = 0.0
 var energy: float = 100.0
 var position: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
+var current_speed: float = 0.0  # current movement speed (px/s)
+var facing_angle: float = 0.0  # visual sprite rotation (degrees)
 var alive: bool = true
 
 # Weapon cooldowns (ticks until next fire)
@@ -73,6 +78,9 @@ func setup() -> void:
 	max_hp = ch["hp"]
 	hp = max_hp
 	base_speed = ch["speed"]
+	base_accel = ch["accel"]
+	base_decel = ch["decel"]
+	turn_speed = ch["turn_speed"]
 	dodge_chance = ch["dodge_chance"]
 	energy = 100.0
 	alive = true
@@ -92,6 +100,23 @@ func get_effective_speed() -> float:
 	if afterburner_active:
 		spd *= 1.80
 	return spd
+
+func get_effective_accel() -> float:
+	var accel := base_accel
+	if afterburner_active:
+		accel *= 1.80
+	return accel
+
+func get_effective_decel() -> float:
+	# Decel unchanged by afterburner per spec
+	return base_decel
+
+func accelerate_toward_speed(target_speed: float, dt: float) -> void:
+	## Ramps current_speed toward target_speed using accel/decel curves
+	if current_speed < target_speed:
+		current_speed = minf(current_speed + get_effective_accel() * dt, target_speed)
+	elif current_speed > target_speed:
+		current_speed = maxf(current_speed - get_effective_decel() * dt, target_speed)
 
 func get_fire_rate_multiplier() -> float:
 	if overclock_active:

@@ -66,7 +66,7 @@ const WEAPONS := {
 		"archetype": "⚡ Melee Blaster",
 		"description": "In-your-face rapid fire beam. Brutal when you can stick to a target.",
 		"damage": 14,
-		"range_tiles": 1.5,
+		"range_tiles": 2.5,
 		"fire_rate": 3.0,
 		"spread_deg": 0.0,
 		"energy_cost": 4,

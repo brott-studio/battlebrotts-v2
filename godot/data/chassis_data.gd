@@ -9,6 +9,9 @@ const CHASSIS := {
 		"name": "Scout",
 		"hp": 150,
 		"speed": 220.0, # px/s
+		"accel": 660.0, # px/s²
+		"decel": 880.0, # px/s²
+		"turn_speed": 360.0, # °/s (visual only)
 		"weight_cap": 30,
 		"weapon_slots": 2,
 		"module_slots": 3,
@@ -19,6 +22,9 @@ const CHASSIS := {
 		"name": "Brawler",
 		"hp": 225,
 		"speed": 120.0,
+		"accel": 240.0,
+		"decel": 360.0,
+		"turn_speed": 240.0,
 		"weight_cap": 55,
 		"weapon_slots": 2,
 		"module_slots": 2,
@@ -29,6 +35,9 @@ const CHASSIS := {
 		"name": "Fortress",
 		"hp": 270,
 		"speed": 60.0,
+		"accel": 90.0,
+		"decel": 150.0,
+		"turn_speed": 150.0,
 		"weight_cap": 80,
 		"weapon_slots": 2,
 		"module_slots": 1,

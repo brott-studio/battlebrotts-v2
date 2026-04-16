@@ -10,10 +10,20 @@ const ENERGY_REGEN_PER_TICK: float = 5.0 / 10.0
 const CRIT_CHANCE: float = 0.05
 const CRIT_MULT: float = 1.5
 const MATCH_TIMEOUT_TICKS: int = 90 * 10
-const OVERTIME_TICKS: int = 60 * 10  # 600 ticks = 60s — triggers overtime aggression
+
+# Per-mode overtime thresholds (ticks)
+const OVERTIME_TICKS_1V1: int = 45 * 10   # 450 ticks = 45s
+const OVERTIME_TICKS_TEAM: int = 60 * 10  # 600 ticks = 60s
+const SUDDEN_DEATH_TICKS_1V1: int = 60 * 10   # 600 ticks = 60s
+const SUDDEN_DEATH_TICKS_TEAM: int = 75 * 10  # 750 ticks = 75s
+const MATCH_TIMEOUT_TICKS_1V1: int = 100 * 10  # 1000 ticks = 100s
+const MATCH_TIMEOUT_TICKS_TEAM: int = 120 * 10 # 1200 ticks = 120s
+
+# Legacy constants kept for backward compat (default to 1v1)
+const OVERTIME_TICKS: int = 45 * 10
 const OVERTIME_SPEED_MULT: float = 1.2  # +20% movement speed in overtime
 const OVERTIME_DAMAGE_MULT: float = 1.5  # 50% damage amp during overtime (60s+)
-const SUDDEN_DEATH_TICKS: int = 75 * 10  # 750 ticks = 75s — sudden death escalation
+const SUDDEN_DEATH_TICKS: int = 60 * 10   # default 1v1
 const SUDDEN_DEATH_DAMAGE_MULT: float = 2.0  # 100% damage amp during sudden death (75s+)
 const ARENA_SHRINK_RATE: float = 0.5  # tiles per second boundary contracts
 const ARENA_BOUNDARY_DAMAGE: float = 10.0  # damage per second outside boundary (ignores armor)
@@ -30,6 +40,16 @@ var winner_team: int = -1
 var overtime_active: bool = false
 var sudden_death_active: bool = false
 var arena_boundary_tiles: float = 8.0  # half-size in tiles from center (starts at 8 = full 16x16)
+var match_mode: String = "1v1"  # "1v1", "2v2", "3v3" — controls overtime thresholds
+
+func _get_overtime_ticks() -> int:
+	return OVERTIME_TICKS_1V1 if match_mode == "1v1" else OVERTIME_TICKS_TEAM
+
+func _get_sudden_death_ticks() -> int:
+	return SUDDEN_DEATH_TICKS_1V1 if match_mode == "1v1" else SUDDEN_DEATH_TICKS_TEAM
+
+func _get_timeout_ticks() -> int:
+	return MATCH_TIMEOUT_TICKS_1V1 if match_mode == "1v1" else MATCH_TIMEOUT_TICKS_TEAM
 
 # --- Instrumentation (S11.2) ---
 var shots_fired: Dictionary = {}   # weapon_name -> int
@@ -56,7 +76,7 @@ func simulate_tick() -> void:
 	tick_count += 1
 	
 	# Check overtime trigger
-	if not overtime_active and tick_count >= OVERTIME_TICKS:
+	if not overtime_active and tick_count >= _get_overtime_ticks():
 		overtime_active = true
 		for b in brotts:
 			if b.alive:
@@ -64,13 +84,13 @@ func simulate_tick() -> void:
 				b.overtime = true
 	
 	# Check sudden death escalation
-	if not sudden_death_active and tick_count >= SUDDEN_DEATH_TICKS:
+	if not sudden_death_active and tick_count >= _get_sudden_death_ticks():
 		sudden_death_active = true
 
 	# Shrink arena boundary during overtime
 	if overtime_active:
 		var shrink_per_tick: float = ARENA_SHRINK_RATE / float(TICKS_PER_SEC)
-		arena_boundary_tiles = maxf(0.0, 8.0 - (float(tick_count - OVERTIME_TICKS) / float(TICKS_PER_SEC)) * ARENA_SHRINK_RATE)
+		arena_boundary_tiles = maxf(0.0, 8.0 - (float(tick_count - _get_overtime_ticks()) / float(TICKS_PER_SEC)) * ARENA_SHRINK_RATE)
 	
 	# Apply boundary damage to bots outside the shrinking arena
 	if overtime_active:
@@ -319,10 +339,14 @@ func _exit_combat_movement(b: BrottState) -> void:
 
 func _move_brott(b: BrottState) -> void:
 	if b.target == null:
+		# Decelerate to stop
+		b.accelerate_toward_speed(0.0, TICK_DELTA)
 		return
-	var spd: float = b.get_effective_speed() * TICK_DELTA
+	
+	# Determine target speed for this tick
+	var target_speed: float = b.get_effective_speed()
 	if overtime_active:
-		spd *= OVERTIME_SPEED_MULT
+		target_speed *= OVERTIME_SPEED_MULT
 	
 	# Check movement override from brain
 	var move_override: String = ""
@@ -330,6 +354,8 @@ func _move_brott(b: BrottState) -> void:
 		move_override = b.brain.movement_override
 	
 	if move_override == "center":
+		b.accelerate_toward_speed(target_speed, TICK_DELTA)
+		var spd: float = b.current_speed * TICK_DELTA
 		var center := Vector2(8.0 * TILE_SIZE, 8.0 * TILE_SIZE)
 		var to_center := center - b.position
 		if to_center.length() > spd:
@@ -337,6 +363,8 @@ func _move_brott(b: BrottState) -> void:
 		else:
 			b.position = center
 	elif move_override == "cover":
+		b.accelerate_toward_speed(target_speed, TICK_DELTA)
+		var spd: float = b.current_speed * TICK_DELTA
 		var best_pillar := Vector2.ZERO
 		var best_dist := INF
 		for p in _get_pillar_positions():
@@ -351,6 +379,18 @@ func _move_brott(b: BrottState) -> void:
 		var dist: float = to_target.length()
 		var max_weapon_range: float = _get_max_weapon_range_px(b)
 		var has_los: bool = _has_los(b.position, b.target.position)
+		
+		# Determine if bot is actively moving this tick
+		var wants_to_move: bool = true
+		if b.stance == 3:  # Ambush — hold position
+			wants_to_move = false
+		
+		# Accelerate or decelerate based on intent
+		if wants_to_move:
+			b.accelerate_toward_speed(target_speed, TICK_DELTA)
+		else:
+			b.accelerate_toward_speed(0.0, TICK_DELTA)
+		var spd: float = b.current_speed * TICK_DELTA
 		
 		# Combat movement entry/exit
 		if b.stance == 3:  # Ambush — hold position
@@ -389,6 +429,17 @@ func _move_brott(b: BrottState) -> void:
 				3:  # Ambush
 					pass
 	
+	# Update visual facing angle (turn speed is visual-only)
+	if b.target != null:
+		var desired_angle: float = rad_to_deg((b.target.position - b.position).angle())
+		var angle_diff: float = fmod(desired_angle - b.facing_angle + 540.0, 360.0) - 180.0
+		var max_turn: float = b.turn_speed * TICK_DELTA
+		if absf(angle_diff) <= max_turn:
+			b.facing_angle = desired_angle
+		else:
+			b.facing_angle += signf(angle_diff) * max_turn
+		b.facing_angle = fmod(b.facing_angle + 360.0, 360.0)
+	
 	# Bot-bot separation force (S11.1: 32px threshold, 60% base speed)
 	var sep_threshold: float = TILE_SIZE  # 32px = 1 tile
 	for other in brotts:
@@ -426,12 +477,16 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 	var ideal: float = engage["ideal"]
 	var tolerance: float = engage["tolerance"]
 	
-	# Juke active
+	# Juke active — juke bursts at 120% base speed subject to accel
 	if b.juke_active_timer > 0:
 		b.juke_active_timer -= 1.0
-		var juke_spd: float = b.base_speed * 1.2 * TICK_DELTA
+		var juke_target_speed: float = b.base_speed * 1.2
+		if b.afterburner_active:
+			juke_target_speed *= 1.80
 		if overtime_active:
-			juke_spd *= OVERTIME_SPEED_MULT
+			juke_target_speed *= OVERTIME_SPEED_MULT
+		b.accelerate_toward_speed(juke_target_speed, TICK_DELTA)
+		var juke_spd: float = b.current_speed * TICK_DELTA
 		match b.juke_type:
 			"lateral":
 				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
@@ -466,10 +521,14 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 			b.juke_type = "away"
 		return
 	
-	# Normal combat movement
-	var orbit_spd: float = b.base_speed * 0.7 * TICK_DELTA
+	# Normal combat movement — orbit at 70% base speed subject to accel
+	var orbit_target_speed: float = b.base_speed * 0.7
+	if b.afterburner_active:
+		orbit_target_speed *= 1.80
 	if overtime_active:
-		orbit_spd *= OVERTIME_SPEED_MULT
+		orbit_target_speed *= OVERTIME_SPEED_MULT
+	b.accelerate_toward_speed(orbit_target_speed, TICK_DELTA)
+	var orbit_spd: float = b.current_speed * TICK_DELTA
 	
 	if dist > ideal + tolerance:
 		b.position += to_target.normalized() * base_spd
@@ -675,7 +734,7 @@ func _check_match_end() -> void:
 		match_over = true
 		winner_team = 1
 		on_match_end.emit(winner_team)
-	elif tick_count >= MATCH_TIMEOUT_TICKS:
+	elif tick_count >= _get_timeout_ticks():
 		match_over = true
 		var hp_pct_0: float = _team_hp_pct(0)
 		var hp_pct_1: float = _team_hp_pct(1)

@@ -43,6 +43,9 @@ func _cleanup() -> void:
 
 func _make_shop(bolts: int = 500) -> ShopScreen:
 	_cleanup()
+	# Reset static seen set so tests that expect a fresh "new item" pulse pass
+	# deterministically regardless of ordering.
+	ShopScreen._seen_shop_items = {}
 	var gs := GameState.new()
 	gs.bolts = bolts
 	var shop := ShopScreen.new()
@@ -65,6 +68,8 @@ func _run_all() -> void:
 	_test_d3_first_build_marks_all_new()
 	_test_d3_second_build_no_new()
 	_test_d3_tap_cancels_pulse()
+	_test_fix_shop_audio_survives_rebuilds()
+	_test_fix_seen_shop_items_persists_across_instances()
 
 # --- D2 ---
 
@@ -179,6 +184,48 @@ func _test_d3_second_build_no_new() -> void:
 	shop._build_ui()
 	assert_eq(shop._last_pulse_count, 0, "second build pulse count is 0")
 	assert_eq(shop._seen_shop_items.size(), first_seen, "seen set did not grow")
+	_cleanup()
+
+# --- Sprint 13.5 FIX regression tests ---
+
+func _test_fix_shop_audio_survives_rebuilds() -> void:
+	print("FIX: _shop_audio survives repeated _build_ui() calls")
+	var shop := _make_shop()
+	# In headless --script mode, NOTIFICATION_READY doesn't always fire on raw
+	# Control nodes, so _shop_audio may be null. Invoke _ready() manually to
+	# simulate in-game lifecycle. (In real play _ready runs after add_child.)
+	if shop._shop_audio == null:
+		shop._ready()
+	var audio_ref := shop._shop_audio
+	assert_true(audio_ref != null, "_shop_audio exists after _ready")
+	assert_true(is_instance_valid(audio_ref), "_shop_audio is valid after initial build")
+	assert_true(audio_ref.get_parent() == shop, "_shop_audio parented to ShopScreen")
+	shop._build_ui()
+	assert_true(is_instance_valid(shop._shop_audio), "_shop_audio valid after 2nd _build_ui")
+	shop._build_ui()
+	assert_true(is_instance_valid(shop._shop_audio), "_shop_audio valid after 3rd _build_ui")
+	assert_true(shop._shop_audio == audio_ref, "_shop_audio is the same instance across rebuilds (not recreated)")
+	assert_true(shop._shop_audio.get_parent() == shop, "_shop_audio still parented to ShopScreen after rebuilds")
+	# Sanity: _play_sfx still functions without crashing on a missing path.
+	shop._play_sfx("res://audio/sfx/definitely_missing_file.ogg")
+	_cleanup()
+
+func _test_fix_seen_shop_items_persists_across_instances() -> void:
+	print("FIX: _seen_shop_items (static) persists across ShopScreen instances")
+	var shop_a := _make_shop()
+	var seen_a := shop_a._seen_shop_items.size()
+	assert_true(seen_a > 0, "first shop instance populated seen set")
+	var first_pulses := shop_a._last_pulse_count
+	assert_true(first_pulses > 0, "first instance pulsed new items")
+	_cleanup()
+	# Second shop phase — fresh ShopScreen, but DO NOT reset the static dict.
+	var gs := GameState.new()
+	gs.bolts = 500
+	var shop_b := ShopScreen.new()
+	root.add_child(shop_b)
+	shop_b.setup_for_viewport(gs, 1280)
+	assert_eq(shop_b._seen_shop_items.size(), seen_a, "seen set carried over to new ShopScreen instance")
+	assert_eq(shop_b._last_pulse_count, 0, "no re-pulse on new instance when catalog unchanged")
 	_cleanup()
 
 func _test_d3_tap_cancels_pulse() -> void:

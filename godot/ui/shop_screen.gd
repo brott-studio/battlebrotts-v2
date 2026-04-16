@@ -47,10 +47,12 @@ var _forced_width: int = -1  # test hook; -1 = use viewport width
 var _shop_audio: AudioStreamPlayer
 
 # D3: session-local "seen" set + active pulse tween registry.
-# No GameState new-run hook exists, so this resets per ShopScreen instance
-# (i.e. per-run in practice, since a fresh ShopScreen is built each phase).
+# STATIC: persists across ShopScreen instances within a single game session
+# (game_main creates a fresh ShopScreen each shop phase). This preserves
+# "new item" semantics so already-seen items don't re-pulse every visit.
+# Tests must reset this dict in setup for isolation.
 # Keying: "{category}:{type}" — see _key_for (which uses "_"); normalized here.
-var _seen_shop_items: Dictionary = {}
+static var _seen_shop_items: Dictionary = {}
 var _active_pulses: Dictionary = {}  # key -> Tween
 var _last_pulse_count: int = 0  # test observability
 
@@ -85,6 +87,8 @@ func _build_ui() -> void:
 	# nodes visible to the tree between rebuilds — breaks tests and can
 	# briefly show two expanded panels during rapid taps).
 	for c in get_children():
+		if c == _shop_audio:
+			continue
 		remove_child(c)
 		c.queue_free()
 

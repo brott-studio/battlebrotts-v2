@@ -1,0 +1,75 @@
+name: Auto-merge KB PRs
+
+# Auto-enables squash merge for low-risk knowledge-base PRs.
+# A PR qualifies as "KB" if either:
+#   - Its title starts with "kb:" or "[KB]" (case-insensitive), OR
+#   - Every changed file lives under docs/kb/
+# Safety: only runs for PRs opened from the same repo (no forks) by
+# users with write/admin/maintain permissions. The "auto-merge" flag
+# still requires required status checks to pass before GitHub merges.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # Only same-repo PRs (no forks) and not drafts
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Check author permission
+        id: perm
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.payload.pull_request.user.login,
+            });
+            const ok = ['admin', 'maintain', 'write'].includes(data.permission);
+            core.setOutput('ok', ok ? 'true' : 'false');
+            core.info(`Author ${context.payload.pull_request.user.login} permission: ${data.permission}`);
+
+      - name: Determine if PR is KB-only
+        id: classify
+        if: steps.perm.outputs.ok == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = (pr.title || '').trim();
+            const titleMatch = /^(kb:|\[KB\])/i.test(title);
+
+            // Paginate files (PRs can have >30 files)
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                per_page: 100,
+              }
+            );
+
+            const allKbFiles = files.length > 0 &&
+              files.every(f => f.filename.startsWith('docs/kb/'));
+
+            const isKb = titleMatch || allKbFiles;
+            core.info(`title="${title}" titleMatch=${titleMatch} fileCount=${files.length} allKbFiles=${allKbFiles} => isKb=${isKb}`);
+            core.setOutput('is_kb', isKb ? 'true' : 'false');
+
+      - name: Enable auto-merge (squash)
+        if: steps.perm.outputs.ok == 'true' && steps.classify.outputs.is_kb == 'true'
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ github.event.pull_request.number }}
+          merge-method: squash

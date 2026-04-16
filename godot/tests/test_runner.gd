@@ -56,20 +56,20 @@ func _run_data_tests() -> void:
 	
 	# Chassis stats (v3 balance)
 	var scout := ChassisData.get_chassis(ChassisData.ChassisType.SCOUT)
-	assert_eq(scout["hp"], 200, "Scout HP = 200")
+	assert_eq(scout["hp"], 150, "Scout HP = 150")
 	assert_near(scout["speed"], 220.0, 0.1, "Scout speed = 220")
 	assert_eq(scout["weapon_slots"], 2, "Scout weapon slots = 2")
 	assert_eq(scout["module_slots"], 3, "Scout module slots = 3")
 	assert_near(scout["dodge_chance"], 0.15, 0.001, "Scout dodge = 15%")
 	
 	var brawler := ChassisData.get_chassis(ChassisData.ChassisType.BRAWLER)
-	assert_eq(brawler["hp"], 300, "Brawler HP = 300")
+	assert_eq(brawler["hp"], 225, "Brawler HP = 225")
 	assert_near(brawler["speed"], 120.0, 0.1, "Brawler speed = 120")
 	assert_eq(brawler["weapon_slots"], 2, "Brawler weapon slots = 2")
 	assert_eq(brawler["module_slots"], 2, "Brawler module slots = 2")
 	
 	var fortress := ChassisData.get_chassis(ChassisData.ChassisType.FORTRESS)
-	assert_eq(fortress["hp"], 360, "Fortress HP = 360")
+	assert_eq(fortress["hp"], 270, "Fortress HP = 270")
 	assert_near(fortress["speed"], 60.0, 0.1, "Fortress speed = 60")
 	assert_eq(fortress["weapon_slots"], 2, "Fortress weapon slots = 2")
 	assert_eq(fortress["module_slots"], 1, "Fortress module slots = 1")
@@ -193,8 +193,8 @@ func _run_combat_tests() -> void:
 	dummy.position = Vector2(400, 400)
 	sim.add_brott(dummy)
 	
-	# Run 20 ticks = 1 second = +5 energy
-	for i in 20:
+	# Run 10 ticks = 1 second at 10 ticks/sec = +5 energy
+	for i in 10:
 		sim.simulate_tick()
 	assert_near(b.energy, 55.0, 1.0, "Energy regen: 50 → ~55 after 1s")
 	
@@ -211,11 +211,11 @@ func _run_combat_tests() -> void:
 	sim2.add_brott(b1)
 	sim2.add_brott(b2)
 	
-	# Fast forward to timeout
-	for i in 2400:
+	# Fast forward to timeout (90s * 10 ticks/sec = 900 ticks)
+	for i in 900:
 		sim2.simulate_tick()
 	assert_true(sim2.match_over, "Match ends at timeout")
-	assert_eq(sim2.tick_count, 2400, "Tick count = 2400 at timeout")
+	assert_eq(sim2.tick_count, 900, "Tick count = 900 at timeout")
 	
 	# Test brott death
 	var sim3 := CombatSim.new(3)
@@ -282,13 +282,13 @@ func _run_module_tests() -> void:
 	dummy.position = Vector2(400, 400)
 	sim.add_brott(dummy)
 	
-	for i in 20:  # 1 second
+	for i in 10:  # 1 second at 10 ticks/sec
 		sim._tick_modules(b)
 	assert_near(b.hp, 103.0, 0.5, "Repair Nanites: +3 HP after 1s")
 	
 	# HP doesn't exceed max
 	b.hp = 149.0
-	for i in 20:
+	for i in 10:
 		sim._tick_modules(b)
 	assert_near(b.hp, 150.0, 0.1, "Repair Nanites: capped at max HP")
 	

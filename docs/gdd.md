@@ -556,6 +556,24 @@ All three wired through a single `ShopAudio: AudioStreamPlayer` child node via `
 - Verify no item combination produces >70% win rate against the field
 - Verify economy allows completing the game without grinding (target: <40 total matches)
 
+### BrottBrain Trick Choices (S13.6)
+
+Scrapyard-league runs open each shop visit with a one-tap **Trick Choice** from BrottBrain. Two options, clear tradeoffs, small deltas — the point is voice + risk-flavor, not balance pressure.
+
+**System overview:**
+- Pool of 3 session-scoped tricks in `data/trick_choices.gd` (`rusty_launcher`, `scavenger_kid`, `risk_for_reward`).
+- On Scrapyard shop entry, `GameState.pick_unseen_trick()` prefers an unseen trick; once exhausted the full pool is re-offered (no crash).
+- Modal (`ui/trick_choice_modal.tscn`) is presentation-only: it emits `resolved(trick_id, choice_key)` and the caller (`ShopScreen`) applies effects via `GameState.apply_trick_choice(trick, choice_key)`.
+- `EffectType` supports `BOLTS_DELTA`, `NEXT_FIGHT_PELLET_MOD`, `HP_DELTA` (pending, applied next fight), `ITEM_GRANT`/`ITEM_LOSE` (stubbed — see PR notes).
+- Secondary effects (`effect_type_2`/`effect_value_2`) compose with the primary so a single choice can read "gain X, pay Y."
+
+**BrottBrain voice — cynical-but-caring:**
+- Short. Dry. A little tired. BrottBrain has seen your nonsense before.
+- Skepticism up front ("Looks shady." / "I don't trust that kid.") followed by a pragmatic flavor line on resolution.
+- Never preachy. Never cheerleader. A mentor who'd rather you not get your paw snapped off, but will absolutely let you make the call.
+- Good: "Smart. +10 bolts." / "Got 'em. Lost some fur." / "Wise. Boring, but wise."
+- Bad (avoid): "Amazing choice!" / "You can do it!" / anything with an exclamation stack.
+
 ---
 
 ## 12. Player Fantasy
@@ -653,3 +671,7 @@ The next balance pass is **S14 Fortress Loadout Pass**, which will address resid
 ### S13.5 — No balance changes (UI/UX polish only)
 
 Sprint 13.5 is UI/UX polish only. No economy, prices, items, chassis, weapons, armor, or modules changed. See §10 Art Direction → Shop Polish (S13.5) for scope. Fortress loadout pass still owed to S14.
+
+### S13.6 — No combat balance changes
+
+Sprint 13.6 ships BrottBrain Scrapyard Trick Choice (see §11 → BrottBrain Trick Choices). Trick effects are small session-scoped deltas — `±10` bolts, `±5` HP, `+1..3` pellets on the next fight — intentionally small so they shape voice/risk flavor without moving the chassis WR balance. No chassis, weapon, armor, or module stats were touched; `ITEM_GRANT`/`ITEM_LOSE` tokens (e.g. `random_weak`) are stubbed no-ops for this sprint and will be wired after the inventory model accepts string tokens.

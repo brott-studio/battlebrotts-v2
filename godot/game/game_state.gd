@@ -24,6 +24,14 @@ var first_wins: Array[String] = []  # Tracks first-win bonus
 var bronze_unlocked: bool = false
 var brottbrain_unlocked: bool = false
 
+## S13.6: BrottBrain Trick Choice (Scrapyard)
+## Run-scoped: naturally cleared when GameFlow.new_game() constructs a fresh
+## GameState. No separate reset hook needed — see clear_run_state() for an
+## explicit path if future code ever reuses a GameState across runs.
+var _tricks_seen: Array[String] = []
+var _next_fight_pellet_mod: int = 0  ## applied to pellet count on next fight
+var _pending_hp_delta: int = 0       ## HP_DELTA carryover, applied to BrottState next fight
+
 ## Item prices
 const CHASSIS_PRICES := {
 	0: 0,    # Scout — free starter
@@ -143,6 +151,58 @@ func _check_progression() -> void:
 			bronze_unlocked = true
 			brottbrain_unlocked = true
 
+## S13.6: Apply a resolved trick choice (data-driven). Caller owns the modal
+## lifecycle; GameState only mutates session state.
+func apply_trick_choice(trick: Dictionary, choice_key: String) -> void:
+	var choice: Dictionary = trick[choice_key]
+	_apply_trick_effect(choice.get("effect_type"), choice.get("effect_value"))
+	if choice.has("effect_type_2"):
+		_apply_trick_effect(choice["effect_type_2"], choice["effect_value_2"])
+	var tid: String = String(trick.get("id", ""))
+	if tid != "" and not _tricks_seen.has(tid):
+		_tricks_seen.append(tid)
+
+func _apply_trick_effect(t, v) -> void:
+	match t:
+		TrickChoices.EffectType.BOLTS_DELTA:
+			bolts = max(0, bolts + int(v))
+		TrickChoices.EffectType.HP_DELTA:
+			_pending_hp_delta += int(v)
+		TrickChoices.EffectType.NEXT_FIGHT_PELLET_MOD:
+			_next_fight_pellet_mod += int(v)
+		TrickChoices.EffectType.ITEM_GRANT:
+			_grant_trick_item(v)
+		TrickChoices.EffectType.ITEM_LOSE:
+			_lose_trick_item(v)
+
+## S13.6: stubs — inventory model uses typed owned_* arrays keyed by
+## enum ints. Trick data uses string tokens (e.g. "random_weak") so a
+## one-line grant isn't wired. Safe no-op for now; flagged in PR body.
+func _grant_trick_item(_token) -> void:
+	pass
+
+func _lose_trick_item(_token) -> void:
+	pass
+
+## S13.6: Pick a trick the player hasn't seen this run; fall back to the
+## full pool once exhausted (no crash).
+func pick_unseen_trick() -> Dictionary:
+	var pool: Array = []
+	for t in TrickChoices.TRICKS:
+		if not _tricks_seen.has(String(t.get("id", ""))):
+			pool.append(t)
+	if pool.is_empty():
+		pool = TrickChoices.TRICKS
+	return pool[randi() % pool.size()]
+
+## S13.6: Explicit run-reset hook. Current code doesn't need to call this
+## (GameFlow.new_game() re-instantiates GameState) but it's here for future
+## reuse paths (e.g. "continue" flows that keep the same GameState).
+func clear_run_state() -> void:
+	_tricks_seen.clear()
+	_next_fight_pellet_mod = 0
+	_pending_hp_delta = 0
+
 ## Validate current loadout against chassis constraints
 func validate_loadout() -> Dictionary:
 	var ch := ChassisData.get_chassis(equipped_chassis)
@@ -195,4 +255,17 @@ func build_brott() -> BrottState:
 		b.module_types.append(mt)
 	b.stance = 0  # Default aggressive, brain will override
 	b.setup()
+	# S13.6: Apply pending trick effects accumulated between matches.
+	# HP_DELTA shifts starting hp (and max_hp so the HUD bar matches);
+	# NEXT_FIGHT_PELLET_MOD carries into the BrottState for per-shot application.
+	# Both are single-use: cleared after consumption so they do not leak to
+	# subsequent matches (or to rematches that rebuild the brott).
+	if _pending_hp_delta != 0:
+		var new_max: int = max(1, b.max_hp + _pending_hp_delta)
+		b.max_hp = new_max
+		b.hp = float(new_max)
+		_pending_hp_delta = 0
+	if _next_fight_pellet_mod != 0:
+		b.pellet_mod = _next_fight_pellet_mod
+		_next_fight_pellet_mod = 0
 	return b

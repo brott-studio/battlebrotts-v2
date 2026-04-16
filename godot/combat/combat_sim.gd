@@ -735,6 +735,10 @@ func _fire_weapons(b: BrottState) -> void:
 			first_engagement_tick = tick_count
 		
 		var pellets: int = int(wd["pellets"])
+		# S13.6: Per-match pellet modifier (from trick effects via BrottState.pellet_mod).
+		# Additive; clamped to at least 1 so negative mods can't zero out a weapon.
+		if b.pellet_mod != 0:
+			pellets = max(1, pellets + b.pellet_mod)
 		# S13.3: Track a per-trigger-pull "did any pellet land" flag via shot_id stored on
 		# projectiles. We use a (bot_name, weapon_name, tick, shot_seq) tuple as the id;
 		# shots_hit increments the first time any pellet from that tuple lands.

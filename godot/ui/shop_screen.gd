@@ -56,6 +56,13 @@ static var _seen_shop_items: Dictionary = {}
 var _active_pulses: Dictionary = {}  # key -> Tween
 var _last_pulse_count: int = 0  # test observability
 
+## S13.6: Scrapyard trick choice modal is shown once per shop visit before
+## the grid builds. This flag prevents re-trigger on subsequent _build_ui()
+## rebuilds (e.g. after a purchase). Fresh ShopScreen instance per shop
+## phase (see game_main._show_shop) → naturally resets.
+var _trick_shown: bool = false
+var _skip_trick: bool = false  # test hook: bypass modal in unit tests
+
 func _ready() -> void:
 	_shop_audio = AudioStreamPlayer.new()
 	add_child(_shop_audio)
@@ -72,12 +79,48 @@ func _play_sfx(path: String) -> void:
 
 func setup(state: GameState) -> void:
 	game_state = state
-	_build_ui()
+	_maybe_show_trick_then_build()
 
 func setup_for_viewport(state: GameState, viewport_w: int) -> void:
 	## Test hook: force a specific viewport width for deterministic layout checks.
 	game_state = state
 	_forced_width = viewport_w
+	# Tests that drive setup_for_viewport expect synchronous grid construction;
+	# do NOT show the modal here (it's animated + awaited). Integration is
+	# covered separately via setup().
+	_trick_shown = true
+	_build_ui()
+
+## S13.6: Scrapyard-only trick-choice modal hook. Awaits the modal's
+## `resolved` signal, applies the choice, then builds the shop grid. All
+## other leagues build immediately. Safe to call multiple times; only the
+## first call per ShopScreen instance triggers the modal.
+func _maybe_show_trick_then_build() -> void:
+	if _trick_shown or _skip_trick or game_state == null:
+		_trick_shown = true
+		_build_ui()
+		return
+	_trick_shown = true
+	if game_state.current_league != "scrapyard":
+		_build_ui()
+		return
+	var trick: Dictionary = game_state.pick_unseen_trick()
+	if trick.is_empty():
+		_build_ui()
+		return
+	var modal_scene: PackedScene = load("res://ui/trick_choice_modal.tscn") as PackedScene
+	if modal_scene == null:
+		push_warning("[S13.6] trick_choice_modal.tscn missing; skipping")
+		_build_ui()
+		return
+	var modal := modal_scene.instantiate()
+	add_child(modal)
+	modal.show_trick(trick)
+	var result: Array = await modal.resolved
+	# result = [trick_id, choice_key]
+	var choice_key: String = String(result[1]) if result.size() >= 2 else "choice_a"
+	game_state.apply_trick_choice(trick, choice_key)
+	modal.queue_free()
 	_build_ui()
 
 # --- UI construction ---

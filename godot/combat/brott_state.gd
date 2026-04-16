@@ -53,6 +53,11 @@ var emp_disabled_timer: float = 0.0
 # Stance
 var stance: int = 0  # 0=aggressive, 1=defensive, 2=kiting, 3=ambush
 
+# S13.6: Per-match pellet modifier (additive, applied per-weapon at fire time).
+# Populated by GameState.build_brott() from _next_fight_pellet_mod and consumed
+# inside CombatSim._fire_weapon(); floor-clamped to 1 pellet per shot.
+var pellet_mod: int = 0
+
 # BrottBrain
 var brain: RefCounted = null  # BrottBrain instance
 var _pending_gadget: String = ""  # Set by brain, consumed by combat_sim

@@ -356,24 +356,43 @@ func _get_engagement_distance(b: BrottState) -> Dictionary:
 		_:  # Ambush
 			return {"ideal": 0.0, "tolerance": 0.0}
 
+const COMBAT_EXIT_GRACE_TICKS: int = 20  # 2.0s grace before TCR state resets (S13.2 fix)
+
 func _enter_combat_movement(b: BrottState) -> void:
 	b.in_combat_movement = true
 	b.orbit_direction = 1 if rng.randf() < 0.5 else -1
 	b.backup_distance = 0.0
-	# Initialize TCR state machine
-	b.combat_phase = 0  # TENSION
-	b.combat_phase_timer = rng.randi_range(TENSION_DURATION_MIN, TENSION_DURATION_MAX)
-	b.tension_drift_timer = TENSION_DRIFT_INTERVAL
-	if json_log_enabled:
-		_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "TENSION", "duration": b.combat_phase_timer})
+	# If returning within grace period, preserve TCR state
+	if b.combat_exit_grace_timer > 0:
+		b.combat_exit_grace_timer = 0.0
+		# TCR state preserved — don't reinitialize
+		if json_log_enabled:
+			var phase_name: String = ["TENSION", "COMMIT", "RECOVERY"][b.combat_phase]
+			_tick_events.append({"type": "tcr_resume", "bot_id": b.bot_name, "phase": phase_name})
+	else:
+		# Fresh entry — initialize TCR state machine
+		b.combat_phase = 0  # TENSION
+		b.combat_phase_timer = rng.randi_range(TENSION_DURATION_MIN, TENSION_DURATION_MAX)
+		b.tension_drift_timer = TENSION_DRIFT_INTERVAL
+		if json_log_enabled:
+			_tick_events.append({"type": "tcr_phase", "bot_id": b.bot_name, "phase": "TENSION", "duration": b.combat_phase_timer})
 
 func _exit_combat_movement(b: BrottState) -> void:
 	b.in_combat_movement = false
 	b.backup_distance = 0.0
-	b.combat_phase = 0
-	b.combat_phase_timer = 0
+	# Start grace timer instead of immediately resetting TCR state (S13.2 fix)
+	b.combat_exit_grace_timer = float(COMBAT_EXIT_GRACE_TICKS)
 
 func _move_brott(b: BrottState) -> void:
+	# Tick down combat exit grace timer (S13.2 fix)
+	if b.combat_exit_grace_timer > 0 and not b.in_combat_movement:
+		b.combat_exit_grace_timer -= 1.0
+		if b.combat_exit_grace_timer <= 0:
+			# Grace period expired — fully reset TCR state
+			b.combat_phase = 0
+			b.combat_phase_timer = 0
+			b.combat_exit_grace_timer = 0.0
+	
 	if b.target == null:
 		# Decelerate to stop
 		b.accelerate_toward_speed(0.0, TICK_DELTA)
@@ -689,7 +708,7 @@ func _fire_weapons(b: BrottState) -> void:
 			dir = dir.rotated(angle_offset)
 			var target_pos: Vector2 = b.position + dir * range_px
 			
-			var proj: Projectile = Projectile.new(b, target_pos, float(wd["damage"]), is_crit, float(wd["range_tiles"]), int(wd["splash_radius"]))
+			var proj: Projectile = Projectile.new(b, target_pos, float(wd["damage"]), is_crit, float(wd["range_tiles"]), int(wd["splash_radius"]), float(wd.get("projectile_speed", 400.0)))
 			projectiles.append(proj)
 			on_projectile_spawned.emit(proj)
 
@@ -702,21 +721,37 @@ func _update_projectiles() -> void:
 			to_remove.append(i)
 			continue
 		
-		proj.pos += proj.velocity * TICK_DELTA
-		proj.traveled += proj.speed * TICK_DELTA
+		var old_pos: Vector2 = proj.pos
+		var remaining_range: float = proj.max_range_px - proj.traveled
+		var step_dist: float = proj.speed * TICK_DELTA
+		# Clamp step to remaining range so projectile doesn't overshoot
+		if step_dist > remaining_range:
+			step_dist = remaining_range
+		var step: Vector2 = proj.velocity.normalized() * step_dist
+		proj.pos += step
+		proj.traveled += step_dist
 		
-		if proj.traveled >= proj.max_range_px:
-			proj.alive = false
-			to_remove.append(i)
-			continue
-		
+		# Swept line-segment vs circle collision FIRST (S13.2 fix)
+		var hit_someone := false
 		for b in brotts:
 			if not b.alive or b == proj.source or b.team == proj.source.team:
 				continue
-			if proj.pos.distance_to(b.position) <= BOT_HITBOX_RADIUS:
+			# Closest point on segment [old_pos, proj.pos] to b.position
+			var seg: Vector2 = proj.pos - old_pos
+			var seg_len_sq: float = seg.length_squared()
+			var closest_dist: float
+			if seg_len_sq < 0.01:
+				closest_dist = proj.pos.distance_to(b.position)
+			else:
+				var t: float = clampf((b.position - old_pos).dot(seg) / seg_len_sq, 0.0, 1.0)
+				var closest_pt: Vector2 = old_pos + seg * t
+				closest_dist = closest_pt.distance_to(b.position)
+			
+			if closest_dist <= BOT_HITBOX_RADIUS:
 				if rng.randf() < b.dodge_chance:
 					proj.alive = false
 					to_remove.append(i)
+					hit_someone = true
 					break
 				
 				_apply_damage(b, proj.damage, proj.is_crit, proj.source, proj.pos)
@@ -731,7 +766,16 @@ func _update_projectiles() -> void:
 				
 				proj.alive = false
 				to_remove.append(i)
+				hit_someone = true
 				break
+		
+		if hit_someone:
+			continue
+		
+		if proj.traveled >= proj.max_range_px:
+			proj.alive = false
+			to_remove.append(i)
+			continue
 	
 	to_remove.sort()
 	for j in range(to_remove.size() - 1, -1, -1):

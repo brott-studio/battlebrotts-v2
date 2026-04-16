@@ -35,10 +35,28 @@ const ART_H := 120
 const GUTTER := 16
 const DESKTOP_MIN_W := 1024
 
+# Sprint 13.5 D2: SFX tokens (safe-load; .ogg files are not committed)
+const SFX_BUY_SUCCESS := "res://audio/sfx/shop_buy_success.ogg"
+const SFX_BUY_FAIL := "res://audio/sfx/shop_buy_fail.ogg"
+const SFX_CARD_TAP := "res://audio/sfx/shop_card_tap.ogg"
+
 var game_state: GameState
 var _content_vbox: VBoxContainer
 var _expanded_key: String = ""
 var _forced_width: int = -1  # test hook; -1 = use viewport width
+var _shop_audio: AudioStreamPlayer
+
+func _ready() -> void:
+	_shop_audio = AudioStreamPlayer.new()
+	add_child(_shop_audio)
+
+func _play_sfx(path: String) -> void:
+	if _shop_audio == null:
+		return
+	var stream = load(path) if ResourceLoader.exists(path) else null
+	if stream:
+		_shop_audio.stream = stream
+		_shop_audio.play()
 
 # --- Public API (kept backwards-compatible) ---
 
@@ -334,6 +352,7 @@ func _toggle_expand(it: Dictionary) -> void:
 		_expanded_key = ""
 	else:
 		_expanded_key = key
+	_play_sfx(SFX_CARD_TAP)
 	_build_ui()
 
 func _build_expand_panel(it: Dictionary) -> Control:
@@ -424,7 +443,8 @@ func _build_expand_panel(it: Dictionary) -> Control:
 		buy.text = "Need %d more 🔩" % (price - game_state.bolts)
 		buy.disabled = true
 	else:
-		buy.text = "BUY — %d 🔩" % price if price > 0 else "TAKE (Free)"
+		# D0 (F1 hotfix): ternary precedence — parenthesize the %-format operand.
+		buy.text = ("BUY — %d 🔩" % price) if price > 0 else "TAKE (Free)"
 		buy.pressed.connect(_on_buy.bind(category, int(it["type"])))
 	buy.custom_minimum_size = Vector2(240, 40)
 	buy.add_theme_font_size_override("font_size", 16)
@@ -444,6 +464,23 @@ func _on_buy(category: String, type: int) -> void:
 		"module":  success = game_state.buy_module(type)
 	if success:
 		item_purchased.emit(category, type)
+		# D1: success SFX + buy button scale pulse before rebuild
+		_play_sfx(SFX_BUY_SUCCESS)
+		var buy_button := _find_buy_button()
+		if buy_button != null:
+			var tween := create_tween()
+			tween.tween_property(buy_button, "scale", Vector2(1.12, 1.12), 0.06)
+			tween.tween_property(buy_button, "scale", Vector2(1.0, 1.0), 0.06)
+			await tween.finished
 		# Collapse panel after successful buy
 		_expanded_key = ""
 		_build_ui()
+	else:
+		_play_sfx(SFX_BUY_FAIL)
+
+func _find_buy_button() -> Button:
+	# BuyButton lives inside the currently-expanded ExpandPanel.
+	var nodes := find_children("BuyButton", "Button", true, false)
+	if nodes.size() > 0:
+		return nodes[0] as Button
+	return null

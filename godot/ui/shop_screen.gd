@@ -46,6 +46,14 @@ var _expanded_key: String = ""
 var _forced_width: int = -1  # test hook; -1 = use viewport width
 var _shop_audio: AudioStreamPlayer
 
+# D3: session-local "seen" set + active pulse tween registry.
+# No GameState new-run hook exists, so this resets per ShopScreen instance
+# (i.e. per-run in practice, since a fresh ShopScreen is built each phase).
+# Keying: "{category}:{type}" — see _key_for (which uses "_"); normalized here.
+var _seen_shop_items: Dictionary = {}
+var _active_pulses: Dictionary = {}  # key -> Tween
+var _last_pulse_count: int = 0  # test observability
+
 func _ready() -> void:
 	_shop_audio = AudioStreamPlayer.new()
 	add_child(_shop_audio)
@@ -123,6 +131,7 @@ func _build_ui() -> void:
 	scroll.add_child(_content_vbox)
 
 	# --- Sections in spec order ---
+	_last_pulse_count = 0  # D3: reset per-build pulse counter
 	_build_section("WEAPONS", "weapon", GameState.WEAPON_PRICES, cols, func(t): return WeaponData.get_weapon(t), game_state.owned_weapons)
 	_build_section("ARMOR",   "armor",  GameState.ARMOR_PRICES,  cols, func(t): return ArmorData.get_armor(t),  game_state.owned_armor)
 	_build_section("CHASSIS", "chassis",GameState.CHASSIS_PRICES,cols, func(t): return ChassisData.get_chassis(t), game_state.owned_chassis)
@@ -322,6 +331,23 @@ func _build_card(it: Dictionary) -> Control:
 		card.add_child(badge)
 		card.modulate = Color(1, 1, 1, 0.5)
 
+	# D3: new-item pulse — apply before returning so tween lives on the card.
+	if not _seen_shop_items.has(key):
+		var hl := ColorRect.new()
+		hl.name = "NewHighlight"
+		hl.color = Color(COLOR_CREAM.r, COLOR_CREAM.g, COLOR_CREAM.b, 0.0)
+		hl.position = Vector2.ZERO
+		hl.size = Vector2(CARD_W, CARD_H)
+		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(hl)
+		var tw := create_tween()
+		tw.set_loops(2)
+		tw.tween_property(hl, "color:a", 0.4, 1.0)
+		tw.tween_property(hl, "color:a", 0.0, 1.0)
+		_active_pulses[key] = tw
+		_last_pulse_count += 1
+		_seen_shop_items[key] = true
+
 	# Tap handler — capture the full dict
 	card.pressed.connect(_toggle_expand.bind(it))
 	return card
@@ -353,6 +379,12 @@ func _toggle_expand(it: Dictionary) -> void:
 	else:
 		_expanded_key = key
 	_play_sfx(SFX_CARD_TAP)
+	# D3: tapping a pulsing card cancels its pulse.
+	if _active_pulses.has(key):
+		var tw = _active_pulses[key]
+		if tw != null and tw.is_valid():
+			tw.kill()
+		_active_pulses.erase(key)
 	_build_ui()
 
 func _build_expand_panel(it: Dictionary) -> Control:

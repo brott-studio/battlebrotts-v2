@@ -515,6 +515,21 @@ Until commissioned art lands, item cards use category-colored tiles with a lette
 
 The placeholder scheme is *intentionally* chunky — playtesters should read these as "not final art", not mistake them for shipped visuals. Animations, SFX, and real art swap-in are deferred to S13.5.
 
+### Shop Polish (S13.5)
+
+Polish pass on top of the S13.4 card grid. Scope: `godot/ui/shop_screen.gd` only (plus one new test file + this GDD note). No art, no balance, no new items.
+
+**Animations:**
+- **Buy confirmation pulse** — 120 ms scale pulse on the buy button after a successful purchase (1.0 → 1.12 → 1.0, `TRANS_QUAD`, ease out/in). Plays before `_build_ui()` rebuild via `await tween.finished`.
+- **New-item pulse** — cards not yet seen this session get a cream-alpha (`#F4E4BC` @ 40%) overlay pulse for ~2 s (2 full loops) on first render. Tapping a pulsing card cancels its pulse. State lives on `shop_screen.gd` as `_seen_shop_items` (session-local; no GameState reset hook exists yet — cross-run persistence is a S13.6+ concern).
+
+**Audio tokens** (safe-load, placeholder paths — real SFX commissioned in S14+):
+- `SFX_BUY_SUCCESS` → `res://audio/sfx/shop_buy_success.ogg` — bright/confident register-close feel, 150–300 ms
+- `SFX_BUY_FAIL` → `res://audio/sfx/shop_buy_fail.ogg` — muted thud, 100–200 ms
+- `SFX_CARD_TAP` → `res://audio/sfx/shop_card_tap.ogg` — soft paper/card flip, 60–120 ms
+
+All three wired through a single `ShopAudio: AudioStreamPlayer` child node via `_play_sfx(path)`. Missing files are a no-op (safe-load via `ResourceLoader.exists`). Volume target: -6 dBFS peak.
+
 ---
 
 ## 11. Key Metrics for Playtest Lead
@@ -634,3 +649,7 @@ See PR description for the 6-matchup table.
 Sprint 13.4 is a **UI-only pivot** to the Shop Card Grid (see §10 Art Direction → Shop Card Grid). No chassis, weapon, armor, or module numbers were touched. The only data change is `ArmorData.archetype` values normalized to `Light` / `Adaptive` / `Heavy` for consistent card-tag display — this is a naming change, not a balance change.
 
 The next balance pass is **S14 Fortress Loadout Pass**, which will address residual cross-chassis gaps at the loadout level (Fortress long-range identity, Scout-vs-Brawler asymmetry, mirror TTM floor). See design handoff in `docs/design/sprint13.4-shop-card-grid.md` §6.
+
+### S13.5 — No balance changes (UI/UX polish only)
+
+Sprint 13.5 is UI/UX polish only. No economy, prices, items, chassis, weapons, armor, or modules changed. See §10 Art Direction → Shop Polish (S13.5) for scope. Fortress loadout pass still owed to S14.

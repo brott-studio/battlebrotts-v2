@@ -62,6 +62,9 @@ func _run_all() -> void:
 	_test_d0_free_label()
 	_test_d1_buy_button_has_scale_property()
 	_test_d1_tween_creatable()
+	_test_d3_first_build_marks_all_new()
+	_test_d3_second_build_no_new()
+	_test_d3_tap_cancels_pulse()
 
 # --- D2 ---
 
@@ -155,4 +158,48 @@ func _test_d1_tween_creatable() -> void:
 	tw.tween_property(bb, "scale", Vector2(1.12, 1.12), 0.01)
 	tw.tween_property(bb, "scale", Vector2(1.0, 1.0), 0.01)
 	assert_true(tw.is_valid(), "tween is valid")
+	_cleanup()
+
+# --- D3 ---
+
+func _test_d3_first_build_marks_all_new() -> void:
+	print("D3: first _build_ui marks all items as new (pulse count > 0)")
+	var shop := _make_shop()
+	# Initial build already ran in setup_for_viewport.
+	assert_true(shop._last_pulse_count > 0, "first build pulses at least one card")
+	assert_true(shop._seen_shop_items.size() > 0, "_seen_shop_items populated after first build")
+	assert_eq(shop._last_pulse_count, shop._seen_shop_items.size(), "pulse count equals seen count on first build")
+	_cleanup()
+
+func _test_d3_second_build_no_new() -> void:
+	print("D3: second _build_ui with no catalog change produces zero new pulses")
+	var shop := _make_shop()
+	var first_seen := shop._seen_shop_items.size()
+	assert_true(first_seen > 0, "baseline seen set is non-empty")
+	shop._build_ui()
+	assert_eq(shop._last_pulse_count, 0, "second build pulse count is 0")
+	assert_eq(shop._seen_shop_items.size(), first_seen, "seen set did not grow")
+	_cleanup()
+
+func _test_d3_tap_cancels_pulse() -> void:
+	print("D3: tapping a pulsing card cancels its pulse tween")
+	var shop := _make_shop()
+	# Grab first unowned card's key from its meta.
+	var cards := shop.find_children("Card_*", "Button", true, false)
+	var target_key := ""
+	var target_card: Button = null
+	for c in cards:
+		if c is Button and not c.get_meta("owned"):
+			target_card = c as Button
+			target_key = "%s_%d" % [String(c.get_meta("category")), int(c.get_meta("type"))]
+			break
+	assert_true(target_card != null, "found an unowned card to tap")
+	assert_true(shop._active_pulses.has(target_key), "pulse registered for target card before tap")
+	var tw_before = shop._active_pulses.get(target_key, null)
+	assert_true(tw_before != null and tw_before.is_valid(), "pulse tween is valid before tap")
+	target_card.pressed.emit()
+	# After tap, _toggle_expand runs; the pulse should be killed + entry erased,
+	# and _build_ui re-runs (but won't re-pulse since key is now in _seen_shop_items).
+	assert_true(not shop._active_pulses.has(target_key), "pulse entry erased after tap")
+	assert_true(not tw_before.is_running(), "original pulse tween no longer running after tap")
 	_cleanup()

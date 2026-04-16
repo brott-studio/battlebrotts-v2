@@ -258,6 +258,59 @@ func _deactivate_module(b: BrottState, module_index: int, mt: ModuleData.ModuleT
 		ModuleData.ModuleType.AFTERBURNER:
 			b.afterburner_active = false
 
+func _has_los(from: Vector2, to: Vector2) -> bool:
+	for pillar_pos: Vector2 in _get_pillar_positions():
+		var pillar_radius: float = 16.0
+		var line_dir: Vector2 = to - from
+		var line_len: float = line_dir.length()
+		if line_len < 0.01:
+			return true
+		var line_norm: Vector2 = line_dir / line_len
+		var to_pillar: Vector2 = pillar_pos - from
+		var proj: float = to_pillar.dot(line_norm)
+		proj = clampf(proj, 0.0, line_len)
+		var closest: Vector2 = from + line_norm * proj
+		if closest.distance_to(pillar_pos) < pillar_radius + BOT_HITBOX_RADIUS:
+			return false
+	return true
+
+func _get_min_weapon_range_px(b: BrottState) -> float:
+	var min_r: float = INF
+	for wt: WeaponData.WeaponType in b.weapon_types:
+		var wd: Dictionary = WeaponData.get_weapon(wt)
+		var r: float = float(wd["range_tiles"]) * TILE_SIZE
+		if r < min_r:
+			min_r = r
+	if min_r == INF:
+		min_r = 3.0 * TILE_SIZE
+	return min_r
+
+func _get_engagement_distance(b: BrottState) -> Dictionary:
+	var min_range: float = _get_min_weapon_range_px(b)
+	var max_range: float = _get_max_weapon_range_px(b)
+	match b.stance:
+		0:  # Aggressive
+			return {"ideal": min_range * 0.65, "tolerance": 0.5 * TILE_SIZE}
+		1:  # Defensive
+			return {"ideal": max_range * 0.85, "tolerance": 1.0 * TILE_SIZE}
+		2:  # Kiting
+			return {"ideal": max_range * 0.70, "tolerance": 1.0 * TILE_SIZE}
+		_:  # Ambush
+			return {"ideal": 0.0, "tolerance": 0.0}
+
+func _enter_combat_movement(b: BrottState) -> void:
+	b.in_combat_movement = true
+	b.orbit_direction = 1 if rng.randf() < 0.5 else -1
+	b.juke_timer = float(rng.randf_range(1.5, 3.0)) * float(TICKS_PER_SEC)
+	b.juke_active_timer = 0.0
+	b.backup_distance = 0.0
+
+func _exit_combat_movement(b: BrottState) -> void:
+	b.in_combat_movement = false
+	b.juke_active_timer = 0.0
+	b.juke_timer = 0.0
+	b.backup_distance = 0.0
+
 func _move_brott(b: BrottState) -> void:
 	if b.target == null:
 		return
@@ -278,7 +331,6 @@ func _move_brott(b: BrottState) -> void:
 		else:
 			b.position = center
 	elif move_override == "cover":
-		# Simplified: move toward nearest pillar
 		var best_pillar := Vector2.ZERO
 		var best_dist := INF
 		for p in _get_pillar_positions():
@@ -292,51 +344,138 @@ func _move_brott(b: BrottState) -> void:
 		var to_target: Vector2 = b.target.position - b.position
 		var dist: float = to_target.length()
 		var max_weapon_range: float = _get_max_weapon_range_px(b)
+		var has_los: bool = _has_los(b.position, b.target.position)
 		
-		match b.stance:
-			0:  # Aggressive
-				if dist > max_weapon_range * 0.5:
-					b.position += to_target.normalized() * spd
-			1:  # Defensive
-				if dist < max_weapon_range * 0.8:
-					b.position -= to_target.normalized() * spd
-				elif dist > max_weapon_range:
-					b.position += to_target.normalized() * spd
-			2:  # Kiting
-				var ideal: float = max_weapon_range * 0.7
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				if dist < ideal * 0.8:
-					b.position -= to_target.normalized() * spd * 0.7
-					b.position += perp * spd * 0.3
-				elif dist > ideal * 1.2:
-					b.position += to_target.normalized() * spd
-				else:
-					b.position += perp * spd
-			3:  # Ambush
-				pass
+		# Combat movement entry/exit
+		if b.stance == 3:  # Ambush — hold position
+			pass
+		elif has_los and dist <= max_weapon_range:
+			if not b.in_combat_movement:
+				_enter_combat_movement(b)
+		else:
+			if b.in_combat_movement:
+				_exit_combat_movement(b)
+		
+		if b.in_combat_movement and b.stance != 3:
+			_do_combat_movement(b, spd)
+		else:
+			# Stance-based pathfinding (pre-engagement or ambush)
+			match b.stance:
+				0:  # Aggressive — close to engagement distance
+					var engage: Dictionary = _get_engagement_distance(b)
+					if dist > engage["ideal"] + engage["tolerance"]:
+						b.position += to_target.normalized() * spd
+				1:  # Defensive
+					if dist < max_weapon_range * 0.8:
+						b.position -= to_target.normalized() * spd
+					elif dist > max_weapon_range:
+						b.position += to_target.normalized() * spd
+				2:  # Kiting
+					var ideal: float = max_weapon_range * 0.7
+					var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+					if dist < ideal * 0.8:
+						b.position -= to_target.normalized() * spd * 0.7
+						b.position += perp * spd * 0.3
+					elif dist > ideal * 1.2:
+						b.position += to_target.normalized() * spd
+					else:
+						b.position += perp * spd
+				3:  # Ambush
+					pass
 	
-	# Bot-bot separation force — prevent overlapping
-	var min_sep: float = BOT_HITBOX_RADIUS * 2.5  # 30px minimum separation
+	# Bot-bot separation force (S11.1: 32px threshold, 60% base speed)
+	var sep_threshold: float = TILE_SIZE  # 32px = 1 tile
 	for other in brotts:
 		if other == b or not other.alive:
 			continue
 		var sep: Vector2 = b.position - other.position
 		var sep_dist: float = sep.length()
-		if sep_dist < min_sep and sep_dist > 0.01:
-			var push: float = (min_sep - sep_dist) * 0.5
-			b.position += sep.normalized() * push
+		if sep_dist < sep_threshold and sep_dist > 0.01:
+			var repulsion_speed: float = b.base_speed * 0.6 * TICK_DELTA
+			b.position += sep.normalized() * repulsion_speed
 		elif sep_dist <= 0.01:
-			# Perfectly overlapping — push in arbitrary direction
-			b.position += Vector2(BOT_HITBOX_RADIUS, 0)
+			b.position += Vector2(TILE_SIZE * 0.5, 0)
 	
 	var arena_px: float = 16.0 * TILE_SIZE
+	var old_pos: Vector2 = b.position
 	b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px - BOT_HITBOX_RADIUS)
 	b.position.y = clampf(b.position.y, BOT_HITBOX_RADIUS, arena_px - BOT_HITBOX_RADIUS)
+	
+	# Flip orbit direction on wall collision
+	if b.in_combat_movement and b.position != old_pos:
+		b.orbit_direction *= -1
 	
 	for pillar_pos: Vector2 in _get_pillar_positions():
 		var to_pillar: Vector2 = b.position - pillar_pos
 		if to_pillar.length() < BOT_HITBOX_RADIUS + 16.0:
+			var old_p: Vector2 = b.position
 			b.position = pillar_pos + to_pillar.normalized() * (BOT_HITBOX_RADIUS + 16.0)
+			if b.in_combat_movement and b.position != old_p:
+				b.orbit_direction *= -1
+
+func _do_combat_movement(b: BrottState, base_spd: float) -> void:
+	var to_target: Vector2 = b.target.position - b.position
+	var dist: float = to_target.length()
+	var engage: Dictionary = _get_engagement_distance(b)
+	var ideal: float = engage["ideal"]
+	var tolerance: float = engage["tolerance"]
+	
+	# Juke active
+	if b.juke_active_timer > 0:
+		b.juke_active_timer -= 1.0
+		var juke_spd: float = b.base_speed * 1.2 * TICK_DELTA
+		if overtime_active:
+			juke_spd *= OVERTIME_SPEED_MULT
+		match b.juke_type:
+			"lateral":
+				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+				b.position += perp * float(b.orbit_direction) * juke_spd
+			"toward":
+				if dist > TILE_SIZE * 0.5:
+					b.position += to_target.normalized() * juke_spd
+			"away":
+				b.position -= to_target.normalized() * juke_spd
+		if b.juke_active_timer <= 0:
+			if b.juke_type == "lateral":
+				b.orbit_direction *= -1
+			b.juke_timer = float(rng.randf_range(1.5, 3.0)) * float(TICKS_PER_SEC)
+		return
+	
+	# Juke trigger
+	b.juke_timer -= 1.0
+	if b.juke_timer <= 0:
+		b.juke_active_timer = 4.0  # 4 ticks = 0.4s at 10 ticks/sec
+		var roll: float = rng.randf()
+		if roll < 0.6:
+			b.juke_type = "lateral"
+			b.orbit_direction *= -1
+		elif roll < 0.9:
+			b.juke_type = "toward"
+		else:
+			b.juke_type = "away"
+		return
+	
+	# Normal combat movement
+	var orbit_spd: float = b.base_speed * 0.7 * TICK_DELTA
+	if overtime_active:
+		orbit_spd *= OVERTIME_SPEED_MULT
+	
+	if dist > ideal + tolerance:
+		b.position += to_target.normalized() * base_spd
+		b.backup_distance = 0.0
+	elif dist < ideal - tolerance:
+		if b.backup_distance < TILE_SIZE:
+			var step: float = minf(base_spd, TILE_SIZE - b.backup_distance)
+			b.position -= to_target.normalized() * step
+			b.backup_distance += step
+		else:
+			var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+			b.position += perp * float(b.orbit_direction) * orbit_spd
+			b.backup_distance = 0.0
+	else:
+		var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+		b.position += perp * float(b.orbit_direction) * orbit_spd
+		b.backup_distance = 0.0
 
 func _get_max_weapon_range_px(b: BrottState) -> float:
 	var max_r: float = 0.0
@@ -356,7 +495,6 @@ func _get_pillar_positions() -> Array[Vector2]:
 		Vector2(center - offset, center + offset),
 		Vector2(center + offset, center + offset),
 	]
-
 func _fire_weapons(b: BrottState) -> void:
 	if b.target == null or not b.target.alive:
 		return

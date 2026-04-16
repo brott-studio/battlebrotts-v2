@@ -5,7 +5,23 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  godot-tests:
+    name: Godot Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.4.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+          sudo mv Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+
+      - name: Run Godot tests
+        run: godot --headless --path godot/ --script res://tests/test_runner.gd
+
+  playwright:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
     steps:
@@ -24,14 +40,13 @@ jobs:
         run: |
           mkdir -p _site/game
           cp index.html data.json _site/
-          # If build/ exists (game exported), copy it
           if [ -d build ] && [ -f build/index.html ]; then
             cp -r build/* _site/game/
           else
             echo '<html><head><title>BattleBrotts</title></head><body>Placeholder</body></html>' > _site/game/index.html
           fi
 
-      - name: Run tests
+      - name: Run Playwright tests
         run: npx playwright test
 
       - name: Upload screenshots

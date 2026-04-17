@@ -6,9 +6,50 @@ var pass_count := 0
 var fail_count := 0
 var test_count := 0
 
+# Explicit enumeration of every test_sprint*.gd file covered by the
+# previous CI glob (sprints 10-19 / 1[0-9] pattern). See [S16.1-005]:
+# this replaces the shell-glob loop that used to live in
+# .github/workflows/verify.yml. Each file is invoked in a child Godot
+# process; per-file exit codes are aggregated so a failure in one file
+# does NOT short-circuit the rest of the suite.
+#
+# Note: godot/tests/test_sprint{3,4,5,6}.gd exist in the tree but have
+# never been wired into CI (the old glob only matched 1[0-9]) and carry
+# real pre-existing failures against current game data. They are NOT
+# enumerated here because S16.1-005 is plumbing-only (must not change
+# which tests pass/fail) and S16 scope-gate forbids editing test files
+# to fix them. Separate backlog task required to triage + quarantine.
+const SPRINT_TEST_FILES := [
+	"res://tests/test_sprint10.gd",
+	"res://tests/test_sprint11.gd",
+	"res://tests/test_sprint11_2.gd",
+	"res://tests/test_sprint12_1.gd",
+	"res://tests/test_sprint12_2.gd",
+	"res://tests/test_sprint12_3.gd",
+	"res://tests/test_sprint12_4.gd",
+	"res://tests/test_sprint12_5.gd",
+	"res://tests/test_sprint13_2.gd",
+	"res://tests/test_sprint13_3.gd",
+	"res://tests/test_sprint13_4.gd",
+	"res://tests/test_sprint13_5.gd",
+	"res://tests/test_sprint13_6.gd",
+	"res://tests/test_sprint13_7.gd",
+	"res://tests/test_sprint13_8_modal_hardening.gd",
+	"res://tests/test_sprint13_8_toast.gd",
+	"res://tests/test_sprint13_9.gd",
+	"res://tests/test_sprint13_10.gd",
+	"res://tests/test_sprint14_1.gd",
+	"res://tests/test_sprint14_1_nav.gd",
+]
+
+var file_pass_count := 0
+var file_fail_count := 0
+var failed_files: Array[String] = []
+
 func _init() -> void:
 	print("=== BattleBrotts Test Suite ===\n")
 	
+	print("--- Core inline suite (data/damage/combat/module/movement + sprint10 stalemate) ---")
 	_run_data_tests()
 	_run_damage_tests()
 	_run_combat_tests()
@@ -16,12 +57,60 @@ func _init() -> void:
 	_run_movement_tests()
 	_run_sprint10_tests()
 	
-	print("\n=== Results: %d passed, %d failed, %d total ===" % [pass_count, fail_count, test_count])
+	print("\n=== Inline results: %d passed, %d failed, %d total ===" % [pass_count, fail_count, test_count])
 	
-	if fail_count > 0:
-		quit(1)
-	else:
+	# Aggregate all sprint test files via subprocess. Never short-circuit:
+	# every file runs even if an earlier one failed, so CI logs surface
+	# every failure rather than just the first.
+	print("\n=== Sprint test files (explicit enumeration — S16.1-005) ===")
+	for test_path in SPRINT_TEST_FILES:
+		_run_sprint_test_file(test_path)
+	
+	print("\n=== Sprint-file results: %d files passed, %d files failed ===" % [file_pass_count, file_fail_count])
+	if file_fail_count > 0:
+		print("Failed files:")
+		for f in failed_files:
+			print("  - %s" % f)
+	
+	var inline_ok := fail_count == 0
+	var files_ok := file_fail_count == 0
+	print("\n=== OVERALL: inline %s | sprint files %s ===" % [
+		"PASS" if inline_ok else "FAIL",
+		"PASS" if files_ok else "FAIL",
+	])
+	
+	if inline_ok and files_ok:
 		quit(0)
+	else:
+		quit(1)
+
+func _run_sprint_test_file(res_path: String) -> void:
+	var file_name := res_path.get_file()
+	print("\n--- [FILE] %s ---" % file_name)
+	# Resolve res:// to an absolute path on disk so OS.execute can invoke
+	# the Godot binary against it with --path pointing at the project root.
+	var abs_path := ProjectSettings.globalize_path(res_path)
+	if not FileAccess.file_exists(abs_path):
+		print("  MISSING: %s (expected at %s)" % [res_path, abs_path])
+		file_fail_count += 1
+		failed_files.append(file_name)
+		return
+	var godot_bin := OS.get_executable_path()
+	var project_dir := ProjectSettings.globalize_path("res://")
+	var args := ["--headless", "--path", project_dir, "--script", res_path]
+	var out: Array = []
+	var exit_code := OS.execute(godot_bin, args, out, true)
+	if out.size() > 0:
+		# out[0] is a single concatenated string of stdout+stderr when
+		# read_stderr=true. Print verbatim so CI logs remain readable.
+		print(out[0])
+	if exit_code == 0:
+		file_pass_count += 1
+		print("  [PASS] %s (exit 0)" % file_name)
+	else:
+		file_fail_count += 1
+		failed_files.append(file_name)
+		print("  [FAIL] %s (exit %d)" % [file_name, exit_code])
 
 func assert_eq(a: Variant, b: Variant, msg: String) -> void:
 	test_count += 1

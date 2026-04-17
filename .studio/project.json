@@ -1,0 +1,12 @@
+{
+  "name": "battlebrotts-v2",
+  "displayName": "BattleBrotts v2",
+  "org": "brott-studio",
+  "auditRepo": "studio-audits",
+  "paths": {
+    "gdd": "docs/gdd.md",
+    "designDocs": "docs/design",
+    "kb": "docs/kb"
+  },
+  "liveUrl": "https://brott-studio.github.io/battlebrotts-v2/"
+}

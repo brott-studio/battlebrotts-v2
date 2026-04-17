@@ -48,19 +48,19 @@ Ett will re-spawn per iteration to emit each sub-sprint's individual plan file (
 
 ### Tasks
 
-#### [S16.1-001] Fix `test_sprint12_2.gd` Plasma Cutter + Plating weight
+#### [S16.1-001] Fix `test_sprint12_2.gd` Plasma Cutter + Plating weight — merged at `da09699`
 - **Owner:** Nutts
 - **Scope:** pure test-data fix. Update the expected value to match canon: Plasma Cutter (8 kg) + Plating (**15 kg**) = 23 total, well under the 30-cap. Gizmo confirmed `armor_data.gd` and GDD both say Plating = 15 kg; the test has stale `5` for Plating.
 - **Files:** `godot/tests/test_sprint12_2.gd` only. `armor_data.gd` diff must be empty.
 - **Acceptance:** `test_sprint12_2.gd` passes the Plasma Cutter + Plating case locally and in CI.
 
-#### [S16.1-002] Fix `test_sprint10.gd` parse error
+#### [S16.1-002] Fix `test_sprint10.gd` parse error — merged at `9fcd439`
 - **Owner:** Nutts
 - **Scope:** resolve `Cannot infer the type of "d"` by adding an explicit type annotation to the offending loop variable (or local). If the fix is non-trivial (> ~10 lines) or requires changing what `d` refers to, **quarantine instead** by wrapping the affected test case in `skip-with-reason` and file a backlog note. Do NOT rewrite the test logic.
 - **Files:** `godot/tests/test_sprint10.gd` only.
 - **Acceptance:** `test_sprint10.gd` parses and runs under Godot 4.4.1 headless.
 
-#### [S16.1-003] Triage `test_sprint12_1.gd` Plasma Cutter fire-at-range
+#### [S16.1-003] Triage `test_sprint12_1.gd` Plasma Cutter fire-at-range — merged at `3726f8e`
 - **Owner:** Nutts (triage) → Patch if combat-side (quarantine only)
 - **Scope:** determine whether the failure is test-scaffolding drift against the new `simulate_tick` API (in-scope fix) or a real `fire_at_range` regression in `godot/combat/**` (out-of-scope → quarantine). Dump the failure path, read `simulate_tick` signature, compare to what the test is calling.
 - **Decision rule:**
@@ -68,7 +68,7 @@ Ett will re-spawn per iteration to emit each sub-sprint's individual plan file (
   - If combat-side (real `fire_at_range` regression): **quarantine** via `skip-with-reason` with a pointer: `# SKIP: real fire_at_range regression at 2.5-tile range, carry-forward to gameplay sprint per sprint-16.md carry-forward backlog`. Do NOT fix the code.
 - **Acceptance:** failure no longer trips CI (either passing or skipped-with-reason).
 
-#### [S16.1-004] Quarantine combat-side regressions
+#### [S16.1-004] Quarantine combat-side regressions — merged at `ddc3b57`
 - **Owner:** Nutts
 - **Scope:** mark the three combat-side failures in `test_sprint12_1.gd` as `skip-with-reason`. Do NOT delete tests. Do NOT loosen assertions. Do NOT touch `godot/combat/**`.
   - Scout 0→max accel ~0.33s → `brott_state.accelerate_toward_speed` regression
@@ -77,7 +77,7 @@ Ett will re-spawn per iteration to emit each sub-sprint's individual plan file (
 - **Skip format:** add a `skip-with-reason` helper (or the project's existing equivalent) that prints `SKIP: <test name> — <reason> — carry-forward to future gameplay sprint (see sprints/sprint-16.md)` and does not increment `fail_count`. If no such helper exists, add a minimal one in `test_runner.gd` / shared test util. Gizmo must still be able to see the canaries exist; the quarantine is a pause, not a delete.
 - **Acceptance:** these three cases do not fail CI; `Godot Unit Tests` logs print the skip reasons verbatim; tests are still present and discoverable in the source tree.
 
-#### [S16.1-005] Extend `test_runner.gd` to explicit enumeration (sprints 11+)
+#### [S16.1-005] Extend `test_runner.gd` to explicit enumeration (sprints 11+) — merged at `36e64f8`
 - **Owner:** Nutts
 - **Scope:** remove reliance on the shell glob `for f in godot/tests/test_sprint1[0-9]_*.gd godot/tests/test_sprint1[0-9].gd; do ... || exit 1; done` in `.github/workflows/verify.yml`. Replace with explicit function calls inside `test_runner.gd` — add `_run_sprint11_tests()`, `_run_sprint11_2_tests()`, `_run_sprint12_*`, `_run_sprint13_*`, etc., calling each file's top-level entrypoint. The runner must exit non-zero if any test file fails; no file can silently exit 0 after reporting failures.
 - **Workflow change:** simplify `.github/workflows/verify.yml` to just `godot --headless --path godot/ --script res://tests/test_runner.gd` (no glob loop).
@@ -86,7 +86,7 @@ Ett will re-spawn per iteration to emit each sub-sprint's individual plan file (
   - `verify.yml` no longer has the glob-for-loop.
   - A test file that intentionally fails causes the runner to exit non-zero (validate via a throwaway smoke test before PR, remove before merge).
 
-#### [S16.1-006] Minor doc + warning fixes (doc-only / cosmetic)
+#### [S16.1-006] Minor doc + warning fixes (doc-only / cosmetic) — merged at `f1362d6`
 - **Owner:** Nutts (fold into S16.1-001 PR if trivial; separate PR otherwise)
 - **Scope:**
   - Fix GDD §3.2 weapon table: Plasma Cutter `Range` row shows `1.5`; canonical is `2.5` per S12 spec + `weapon_data.gd`. Update the GDD row.
@@ -106,11 +106,11 @@ Ett will re-spawn per iteration to emit each sub-sprint's individual plan file (
 
 ### S16.1 exit criteria
 
-- [ ] S16.1-001 through S16.1-006 all landed on main.
-- [ ] Dummy code-path PR shows `Godot Unit Tests` ✅.
-- [ ] Skip reasons visible in CI log for the three combat-side quarantined cases (+ possibly #3 if triaged combat-side).
-- [ ] `test_runner.gd` explicitly enumerates sprint 11+ test files.
-- [ ] `godot/combat/**` diff across all S16.1 PRs is empty (verified via `git diff origin/main...sprint-16.1-* -- godot/combat/`).
+- [x] S16.1-001 through S16.1-006 all landed on main.
+- [x] Dummy code-path PR shows `Godot Unit Tests` ✅.
+- [x] Skip reasons visible in CI log for the three combat-side quarantined cases (+ possibly #3 if triaged combat-side).
+- [x] `test_runner.gd` explicitly enumerates sprint 11+ test files.
+- [x] `godot/combat/**` diff across all S16.1 PRs is empty (verified via `git diff origin/main...sprint-16.1-* -- godot/combat/`).
 
 ### S16.1 risks
 
@@ -222,13 +222,37 @@ These items are **out of scope for S16** by HCD decree (scope gate). They carry 
 | 1 | `test_sprint12_1.gd :: Scout 0→max accel ~0.33s` | Real regression — matches S12 spec | `godot/combat/brott_state.gd :: accelerate_toward_speed` |
 | 2 | `test_sprint12_1.gd :: Scout decel-to-stop ~0.25s` | Real regression — same path as #1 | `godot/combat/brott_state.gd :: accelerate_toward_speed` (decel branch) |
 | 4 | `test_sprint12_1.gd :: 2v2 overtime 60s / SD 75s / timeout 120s` | Real regression — matches GDD | `godot/combat/combat_sim.gd` overtime/SD plumbing |
-| 3? | `test_sprint12_1.gd :: Plasma Cutter fire at 2.5 tiles` | **Pending triage in S16.1-003.** If combat-side → carry-forward. | `godot/combat/**` (likely `fire_at_range`) |
+| 3? | `test_sprint12_1.gd :: Plasma Cutter fire at 2.5 tiles` | Resolved test-side in S16.1-003 at `3726f8e` — pure range-gate canary restored, coupled movement+range behavior moved to new carry-forward (approach-tick). | `godot/combat/**` (likely `fire_at_range`) |
 
 **Handoff instructions for the future gameplay sprint:**
 - Pull up the skip-with-reason messages first — they point at the exact file/function.
 - Do NOT start by deleting the quarantines; start by running the un-skipped tests and confirming the failure reproduces.
 - Scout accel/decel (#1, #2) share a code path; likely one fix covers both.
 - 2v2 overtime/SD (#4) is its own investigation — plumbing, not tuning.
+
+### Process & Infrastructure Carry-Forward (added at S16.1 close-out)
+
+These items surfaced during S16.1 Build / Verify / Audit. They are **not** combat-side regressions, so they don't fit the combat-regression schema above. Tracking them here with their own schema so they don't get lost.
+
+| ID | Item | Source | Disposition | Target sprint |
+|---|---|---|---|---|
+| A | Scout "approach tick" canary — `test_scout_cannot_fire_during_approach_tick` asserting an Aggressive Scout + Plasma Cutter "Roach" build can't sneak a shot off on tick 0 from just outside range. Real-gameplay-feel invariant, separate from the pure range-gate canary restored in S16.1-003. | Gizmo S16.1-003 ratification | New test to author; pure gameplay-feel invariant | S17+ (gameplay) |
+| B | Sprints 3/4/5/6 test files: quarantine-and-enumerate — triage pre-S10 test files that currently fail against current game data (e.g. `test_sprint4.gd` = 72 pass / 15 fail on overtime tick constants, arena shrink). Either quarantine the specific failing assertions (S16.1-004 pattern) and then expand `test_runner.gd` enumeration, OR decide to retire them as stale. Referenced in `godot/tests/test_runner.gd` comment above `SPRINT_TEST_FILES`. | S16.1-005 deviation | Ett's call: quarantine-and-enumerate vs retire | S16.2 candidate |
+| C | ObjectDB / resource leaks in `test_sprint14_1_nav.gd` — investigate `9×` ObjectDB / `8×` resources-still-in-use warnings per CI run. Either fix cleanup in the test or filter engine-level warnings from the CI log wrapper. | Optic verification; also flagged in old S15 verification docs | Tech-debt investigation; masks real errors | Tech-debt backlog (not time-critical) |
+| D | `SceneTree.quit()` mid-function semantics doc — `quit()` inside `_initialize()` in GDScript only schedules; trailing code still runs. Add a one-line comment in `godot/tests/test_util.gd` or a lint/docstring warning future test authors. Currently safe because all existing test files quit only on their last line. | Optic V3 probe | Low-effort docstring/comment | S16.2 polish |
+| E | Machine-readable quarantine registry — a JSON or markdown index of currently-quarantined tests with reason + target sprint, so decay of carry-forwards is trackable without grepping source. Would also enable lint-style alerts when quarantined tests stay quarantined across N sprints. | Optic recommendation | New registry file + optional lint hook | S16.2 candidate |
+
+---
+
+## S16.1 Close-Out (sealed 2026-04-17)
+
+All 6 tasks merged. Combat test gate GREEN on main. Verified by Optic (V1–V6 all ✅), audited by Specc (A1–A4 ✅, A5–A6 closed by this PR).
+
+Scope gate honored throughout: zero S16.1 commits touched `godot/combat/**` or `godot/data/**`.
+
+Carry-forward: 5 items (see "Process & Infrastructure Carry-Forward" table above), plus the pre-existing combat-regression items (#1, #2, #4).
+
+Next: Ett plans S16.2 from the carry-forward table.
 
 ---
 

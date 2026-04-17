@@ -29,3 +29,15 @@ Items deferred from S14.1 merge (PR #74 merge commit 5f97cab). Fold into 14.2 pl
 ---
 
 _Added by The Bott 2026-04-17 post-merge of PR #74._
+
+## From Nutts-A PR #76 (S14.2-A findings, 2026-04-17)
+
+4. **test_sprint4 dead-red on main — 15 failures (HP/overtime constants).**
+   - Confirmed pre-existing (present before PR #76), not introduced by S14.2.
+   - Silent in CI because `test_runner.gd` doesn't gate on it, or the suite's per-file green/red reporting hides it.
+   - Recommend: open a standalone Nutts fix-up in a future sub-sprint, OR explicitly quarantine with a skip comment pointing to a tracking issue. Do not ship a new sprint green on "runner says 72/72" without reconciling.
+
+5. **Godot headless class-cache quirk.**
+   - Fresh worktree running `godot --headless --script tests/...` parse-errors on tests that use `class_name` identifiers until `godot --headless --import` runs once.
+   - Affects: any automation spinning up fresh checkouts (CI matrix, worktree provisioning, Boltz review probes).
+   - Fix: add a one-time `godot --headless --import` pass in CI + worktree bootstrap docs. Low-effort, high-value footgun removal.

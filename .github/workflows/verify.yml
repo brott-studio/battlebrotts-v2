@@ -27,7 +27,8 @@ jobs:
           godot --headless --path godot/ --script res://tests/test_runner.gd
           # Glob-based discovery: picks up test_sprint*.gd automatically (S13.8).
           # Pattern excludes fixture/helper files (combat_batch.gd, pacing_verify.gd, etc.).
-          for f in godot/tests/test_sprint13_*.gd; do
+          for f in godot/tests/test_sprint1[0-9]_*.gd godot/tests/test_sprint1[0-9].gd; do
+            [ -e "$f" ] || continue
             name="$(basename "$f")"
             echo "Running $name"
             godot --headless --path godot/ --script "res://tests/$name" || exit 1

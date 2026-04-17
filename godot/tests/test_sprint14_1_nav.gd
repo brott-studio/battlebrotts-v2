@@ -83,18 +83,20 @@ func _test_bot_repaths_on_invalid_target() -> void:
 	_assert(a.position.distance_to(start) > TILE, "T2 cornered bot repaths (moved %.1fpx)" % a.position.distance_to(start))
 
 ## T3 — Stuck detection fires at the 1.5s (15-tick) threshold, not before.
+## Detection is armed only near geometry (see _is_near_geometry in combat_sim),
+## so pin bot against the left wall to ensure the gate is open.
 func _test_stuck_detection_threshold_2s() -> void:
 	var sim := CombatSim.new(7)
 	var a := _mk(ChassisData.ChassisType.BRAWLER, 0, "A")
 	var b := _mk(ChassisData.ChassisType.BRAWLER, 1, "B")
-	a.position = Vector2(8.0 * TILE, 8.0 * TILE)
+	a.position = Vector2(0.5 * TILE, 8.0 * TILE)
 	b.position = Vector2(10.0 * TILE, 8.0 * TILE)
 	a.target = b; b.target = a
 	sim.add_brott(a); sim.add_brott(b)
 	var fired_at := -1
 	for i in range(25):
 		sim.simulate_tick()
-		a.position = Vector2(8.0 * TILE, 8.0 * TILE)  # pin after move
+		a.position = Vector2(0.5 * TILE, 8.0 * TILE)  # pin against left wall
 		if a._unstick_timer > 0.0 and fired_at < 0: fired_at = i + 1
 	_assert(fired_at >= 15 and fired_at <= 17, "T3 stuck fires at ~1.5s (tick %d)" % fired_at)
 

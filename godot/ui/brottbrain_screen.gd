@@ -1,6 +1,7 @@
-## BrottBrain editor — Sprint 4: Card-based visual editor with drag-to-reorder
+## BrottBrain editor — card-based visual editor (Sprint 4; S14.2-A UI polish).
+## Reorder model is button-based: tap a card to select, then ▲ Up / ▼ Down to move.
 ## Each card: [emoji] "When..." → [emoji] "Then..."
-## 8 slots, up/down buttons for reorder, smart defaults, tutorial on first visit
+## 8 slots, button-based reorder, smart defaults, tutorial on first visit.
 class_name BrottBrainScreen
 extends Control
 
@@ -40,7 +41,25 @@ const STANCE_NAMES := ["🔥 Go Get 'Em!", "🛡️ Play it Safe", "🔄 Hit & R
 const TARGET_MODES := ["nearest", "weakest", "biggest_threat"]
 const WEAPON_MODES := ["all_fire", "conserve", "hold_fire"]
 
+# S14.2-A layout constants — compact rows so 8 cards + tray fit without overlap.
+const CARD_LIST_TOP: int = 132
+const CARD_ROW_HEIGHT: int = 44       # row pitch (panel 40 + 4 gap)
+const CARD_PANEL_HEIGHT: int = 40
+# Tray is pinned below the max-cards region so AC4 holds even at 8 cards.
+const TRAY_TOP: int = CARD_LIST_TOP + CARD_ROW_HEIGHT * BrottBrain.MAX_CARDS + 12  # = 496
+
+# AC1 — selected-row visual state (light blue tint; default rows render white).
+const SELECTED_MODULATE: Color = Color(0.55, 0.85, 1.0, 1.0)
+# AC3 — delete button distinct tint (red) + wider hit area.
+const DELETE_BTN_MODULATE: Color = Color(1.0, 0.55, 0.55, 1.0)
+const DELETE_BTN_SIZE: Vector2 = Vector2(48, 34)
+
 var selected_card_index: int = -1
+# AC2 — button refs so we can toggle disabled state without rebuilding UI.
+var _move_up_btn: Button = null
+var _move_down_btn: Button = null
+# AC1 — track per-row panels so selecting a card repaints without full rebuild.
+var _card_panels: Array = []
 
 func setup(state: GameState, existing_brain: BrottBrain = null) -> void:
 	game_state = state
@@ -104,39 +123,40 @@ func _build_ui() -> void:
 	add_child(list_hdr)
 	
 	# Draw card slots
-	var y := 132
+	_card_panels = []
+	var y := CARD_LIST_TOP
 	for i in range(brain.cards.size()):
 		y = _draw_card(i, y)
 	
-	# Empty slot indicator
+	# Empty slot indicator (hint text where the next card will land).
 	if brain.cards.size() < BrottBrain.MAX_CARDS:
 		var empty := Label.new()
-		empty.text = "  %d. ┌ ─ ─  + Drag a card here  ─ ─ ┐" % (brain.cards.size() + 1)
+		empty.text = "  %d. ┌ ─ ─  tap a WHEN then a THEN to add  ─ ─ ┐" % (brain.cards.size() + 1)
 		empty.add_theme_font_size_override("font_size", 12)
 		empty.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
 		empty.position = Vector2(30, y)
-		empty.size = Vector2(600, 25)
+		empty.size = Vector2(600, 22)
 		add_child(empty)
-		y += 30
 	
-	# Reorder / remove buttons (right side)
+	# Reorder / remove buttons (right side) — state updated by _refresh_reorder_buttons().
 	var btn_x := 680
-	var move_up := Button.new()
-	move_up.text = "▲ Up"
-	move_up.position = Vector2(btn_x, 132)
-	move_up.size = Vector2(90, 32)
-	move_up.pressed.connect(_move_card_up)
-	add_child(move_up)
+	_move_up_btn = Button.new()
+	_move_up_btn.text = "▲ Up"
+	_move_up_btn.position = Vector2(btn_x, CARD_LIST_TOP)
+	_move_up_btn.size = Vector2(90, 32)
+	_move_up_btn.pressed.connect(_move_card_up)
+	add_child(_move_up_btn)
 	
-	var move_down := Button.new()
-	move_down.text = "▼ Down"
-	move_down.position = Vector2(btn_x, 168)
-	move_down.size = Vector2(90, 32)
-	move_down.pressed.connect(_move_card_down)
-	add_child(move_down)
+	_move_down_btn = Button.new()
+	_move_down_btn.text = "▼ Down"
+	_move_down_btn.position = Vector2(btn_x, CARD_LIST_TOP + 36)
+	_move_down_btn.size = Vector2(90, 32)
+	_move_down_btn.pressed.connect(_move_card_down)
+	add_child(_move_down_btn)
+	_refresh_reorder_buttons()
 	
-	# Available cards tray
-	var tray_y: int = maxi(y + 15, 380)
+	# Available cards tray — FIXED Y so card list and tray never collide (AC4).
+	var tray_y: int = TRAY_TOP
 	var tray_hdr := Label.new()
 	tray_hdr.text = "── Available Cards ──"
 	tray_hdr.add_theme_font_size_override("font_size", 14)
@@ -197,15 +217,15 @@ func _build_ui() -> void:
 	# Navigation
 	var back_btn := Button.new()
 	back_btn.text = "← Loadout"
-	back_btn.position = Vector2(20, 650)
-	back_btn.size = Vector2(150, 50)
+	back_btn.position = Vector2(20, 680)
+	back_btn.size = Vector2(150, 40)
 	back_btn.pressed.connect(func(): back_pressed.emit())
 	add_child(back_btn)
 	
 	var cont_btn := Button.new()
 	cont_btn.text = "Fight! →"
-	cont_btn.position = Vector2(1050, 650)
-	cont_btn.size = Vector2(200, 50)
+	cont_btn.position = Vector2(1050, 680)
+	cont_btn.size = Vector2(200, 40)
 	cont_btn.add_theme_font_size_override("font_size", 18)
 	cont_btn.pressed.connect(func(): continue_pressed.emit())
 	add_child(cont_btn)
@@ -219,18 +239,21 @@ func _draw_card(index: int, y: int) -> int:
 	var td: Array = TRIGGER_DISPLAY[card.trigger]
 	var ad: Array = ACTION_DISPLAY[card.action]
 	
-	# Card background panel
+	# Card background panel — AC1: tracked so selection can tint it.
 	var panel := Panel.new()
 	panel.position = Vector2(30, y)
-	panel.size = Vector2(640, 50)
+	panel.size = Vector2(640, CARD_PANEL_HEIGHT)
+	panel.modulate = (SELECTED_MODULATE if index == selected_card_index else Color(1, 1, 1, 1))
+	panel.set_meta("card_index", index)
 	add_child(panel)
+	_card_panels.append(panel)
 	
 	# Priority number
 	var num_lbl := Label.new()
 	num_lbl.text = "%d." % (index + 1)
 	num_lbl.add_theme_font_size_override("font_size", 14)
-	num_lbl.position = Vector2(35, y + 5)
-	num_lbl.size = Vector2(25, 40)
+	num_lbl.position = Vector2(35, y + 4)
+	num_lbl.size = Vector2(25, 36)
 	add_child(num_lbl)
 	
 	# Trigger side: [emoji] "When..." + param
@@ -242,16 +265,16 @@ func _draw_card(index: int, y: int) -> int:
 	var trig_lbl := Label.new()
 	trig_lbl.text = trig_text
 	trig_lbl.add_theme_font_size_override("font_size", 12)
-	trig_lbl.position = Vector2(60, y + 5)
-	trig_lbl.size = Vector2(260, 20)
+	trig_lbl.position = Vector2(60, y + 4)
+	trig_lbl.size = Vector2(260, 18)
 	add_child(trig_lbl)
 	
 	# Arrow
 	var arrow := Label.new()
 	arrow.text = "→"
-	arrow.add_theme_font_size_override("font_size", 18)
-	arrow.position = Vector2(320, y + 8)
-	arrow.size = Vector2(30, 30)
+	arrow.add_theme_font_size_override("font_size", 16)
+	arrow.position = Vector2(320, y + 6)
+	arrow.size = Vector2(30, 28)
 	add_child(arrow)
 	
 	# Action side: [emoji] "Then..." + param
@@ -263,8 +286,8 @@ func _draw_card(index: int, y: int) -> int:
 	var act_lbl := Label.new()
 	act_lbl.text = act_text
 	act_lbl.add_theme_font_size_override("font_size", 12)
-	act_lbl.position = Vector2(355, y + 5)
-	act_lbl.size = Vector2(260, 20)
+	act_lbl.position = Vector2(355, y + 4)
+	act_lbl.size = Vector2(220, 18)
 	add_child(act_lbl)
 	
 	# Param edit hint (smaller text)
@@ -272,29 +295,35 @@ func _draw_card(index: int, y: int) -> int:
 	hint.text = "tap to edit params"
 	hint.add_theme_font_size_override("font_size", 9)
 	hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	hint.position = Vector2(60, y + 28)
-	hint.size = Vector2(200, 15)
+	hint.position = Vector2(60, y + 22)
+	hint.size = Vector2(200, 14)
 	add_child(hint)
 	
-	# Delete button
-	var del_btn := Button.new()
-	del_btn.text = "✕"
-	del_btn.position = Vector2(625, y + 10)
-	del_btn.size = Vector2(35, 28)
-	del_btn.pressed.connect(_remove_card.bind(index))
-	add_child(del_btn)
-	
-	# Select for reorder on click
+	# AC3 — Select overlay is narrower and sits BEHIND the delete button so clicks
+	# on ✕ don't bubble into a select. Overlay ends before the delete button starts.
 	var select_btn := Button.new()
 	select_btn.text = ""
 	select_btn.flat = true
 	select_btn.position = Vector2(30, y)
-	select_btn.size = Vector2(590, 50)
+	select_btn.size = Vector2(570, CARD_PANEL_HEIGHT)  # stops ~20px left of ✕ button
 	select_btn.modulate = Color(1, 1, 1, 0.01)  # nearly invisible overlay
-	select_btn.pressed.connect(func(): selected_card_index = index)
+	select_btn.set_meta("select_for_index", index)
+	select_btn.pressed.connect(_select_card.bind(index))
 	add_child(select_btn)
 	
-	return y + 55
+	# AC3 — Delete button: red tint, wider hit area, added AFTER the overlay so
+	# Godot's top-most-control-wins hit-testing lets clicks reach ✕ without also
+	# triggering the select overlay behind it.
+	var del_btn := Button.new()
+	del_btn.text = "✕"
+	del_btn.modulate = DELETE_BTN_MODULATE
+	del_btn.add_theme_font_size_override("font_size", 14)
+	del_btn.position = Vector2(610, y + 3)
+	del_btn.size = DELETE_BTN_SIZE
+	del_btn.pressed.connect(_remove_card.bind(index))
+	add_child(del_btn)
+	
+	return y + CARD_ROW_HEIGHT
 
 func _format_trigger_param(trigger: int, param: Variant) -> String:
 	var td: Array = TRIGGER_DISPLAY[trigger]
@@ -326,6 +355,27 @@ func _format_action_param(action: int, param: Variant) -> String:
 
 var _pending_trigger: int = -1
 
+# AC1 — click handler for the per-row select overlay. Separated so tests can
+# drive selection without simulating button presses.
+func _select_card(index: int) -> void:
+	selected_card_index = index
+	_repaint_card_selection()
+	_refresh_reorder_buttons()
+
+# AC1 — repaint card row modulates without rebuilding the whole UI.
+func _repaint_card_selection() -> void:
+	for p in _card_panels:
+		if not is_instance_valid(p): continue
+		var idx: int = p.get_meta("card_index", -1)
+		p.modulate = (SELECTED_MODULATE if idx == selected_card_index else Color(1, 1, 1, 1))
+
+# AC2 — keep ▲ Up / ▼ Down honest: disabled unless the move makes sense.
+func _refresh_reorder_buttons() -> void:
+	if _move_up_btn != null:
+		_move_up_btn.disabled = (selected_card_index <= 0 or selected_card_index >= brain.cards.size())
+	if _move_down_btn != null:
+		_move_down_btn.disabled = (selected_card_index < 0 or selected_card_index >= brain.cards.size() - 1)
+
 func _start_add_trigger(trigger_idx: int) -> void:
 	if brain.cards.size() >= BrottBrain.MAX_CARDS:
 		return
@@ -356,8 +406,12 @@ func _start_add_action(action_idx: int) -> void:
 
 func _remove_card(index: int) -> void:
 	brain.cards.remove_at(index)
-	if selected_card_index >= brain.cards.size():
-		selected_card_index = brain.cards.size() - 1
+	# AC3 — ✕ must not quietly re-select the freed slot. Clear selection when the
+	# removed row was selected (or when removal makes the selection out-of-range).
+	if selected_card_index == index or selected_card_index >= brain.cards.size():
+		selected_card_index = -1
+	elif selected_card_index > index:
+		selected_card_index -= 1  # keep the logically-same row selected after shift
 	_build_ui()
 
 func _move_card_up() -> void:
@@ -401,7 +455,9 @@ func _show_tutorial() -> void:
 	add_child(step2)
 	
 	var step3 := Label.new()
-	step3.text = "3️⃣ Click a WHEN card, then a THEN card to add new rules.\n   You can have up to 8!"
+	# AC5 — copy still reads true under the button-reorder model: tap selects,
+	# ▲ Up / ▼ Down reorder, ✕ removes.
+	step3.text = "3️⃣ Tap a WHEN card, then a THEN card to add a rule.\n   Tap a rule to select it, then use ▲ Up / ▼ Down to reorder or ✕ to remove."
 	step3.add_theme_font_size_override("font_size", 13)
 	step3.position = Vector2(170, 310)
 	step3.size = Vector2(460, 40)

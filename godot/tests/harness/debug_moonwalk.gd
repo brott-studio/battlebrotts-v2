@@ -39,20 +39,30 @@ func _scan_all_seeds() -> void:
 		sim.add_brott(b1)
 		var prev_pos := b0.position
 		var backup_run := 0.0
+		var prev_bd := 0.0
 		var max_run := 0.0
 		var violated_tick := -1
 		for t in range(300):
 			if sim.match_over:
 				break
+			# Pre-tick sampling per S15.2 ruling (intent frame).
+			var tt_pre: Vector2 = Vector2.ZERO
+			if b0.alive and b0.target != null:
+				tt_pre = b0.target.position - b0.position
 			sim.simulate_tick()
 			if b0.alive and b0.target != null:
-				var tt: Vector2 = b0.target.position - b0.position
+				# Period-boundary reset (S15.2 addendum): bd drop = new retreat period.
+				if b0.backup_distance < prev_bd:
+					backup_run = 0.0
+				prev_bd = b0.backup_distance
 				var mv: Vector2 = b0.position - prev_pos
-				if tt.length() > 0.1 and mv.length() > 0.1:
-					var dot: float = mv.normalized().dot(tt.normalized())
+				if tt_pre.length() > 0.1 and mv.length() > 0.1:
+					var dot: float = mv.normalized().dot(tt_pre.normalized())
 					if dot < -0.7:
-						backup_run += mv.length()
-						if backup_run > max_run: max_run = backup_run
+						if b0.backup_distance < CombatSim.TILE_SIZE:  # budget-gated (Addendum 2)
+							backup_run += mv.length()
+							if backup_run > max_run: max_run = backup_run
+						# else: post-cap freeze
 					else:
 						backup_run = 0.0
 				prev_pos = b0.position
@@ -74,19 +84,29 @@ func _trace_seed(seed_val: int) -> void:
 	sim.add_brott(b1)
 	var prev_pos := b0.position
 	var backup_run := 0.0
+	var prev_bd := 0.0
 	for t in range(120):
 		if sim.match_over:
 			break
+		# Pre-tick sampling per S15.2 ruling (intent frame).
+		var tt_pre: Vector2 = Vector2.ZERO
+		if b0.alive and b0.target != null:
+			tt_pre = b0.target.position - b0.position
 		sim.simulate_tick()
 		if not (b0.alive and b0.target != null):
 			continue
-		var tt: Vector2 = b0.target.position - b0.position
+		# Period-boundary reset (S15.2 addendum): bd drop = new retreat period.
+		if b0.backup_distance < prev_bd:
+			backup_run = 0.0
+		prev_bd = b0.backup_distance
 		var mv: Vector2 = b0.position - prev_pos
 		var dot := 0.0
-		if tt.length() > 0.1 and mv.length() > 0.1:
-			dot = mv.normalized().dot(tt.normalized())
+		if tt_pre.length() > 0.1 and mv.length() > 0.1:
+			dot = mv.normalized().dot(tt_pre.normalized())
 			if dot < -0.7:
-				backup_run += mv.length()
+				if b0.backup_distance < CombatSim.TILE_SIZE:  # budget-gated (Addendum 2)
+					backup_run += mv.length()
+				# else: post-cap freeze
 			else:
 				backup_run = 0.0
 		print("t=%d b0=(%.1f,%.1f) b1=(%.1f,%.1f) mv=%.2f dot=%.2f run=%.1f phase=%d bd=%.1f unstick=%.1f" % [

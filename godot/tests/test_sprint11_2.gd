@@ -82,18 +82,38 @@ func test_away_juke_cap_across_seeds() -> void:
 
 		var prev_pos := b0.position
 		var backup_run := 0.0
+		var prev_bd := 0.0
 
 		for _t in range(300):
 			if sim.match_over:
 				break
+			# Sample target direction BEFORE the tick — intent frame.
+			# Per Gizmo's S15.2 ruling (docs/design/sprint15-moonwalk-metric-ruling.md):
+			# the moonwalk invariant measures intent to retreat, not post-tick net
+			# displacement. Post-tick sampling produces false positives when two bots
+			# COMMIT-dash through each other in a single tick (flipped frame).
+			var to_target_pre: Vector2 = Vector2.ZERO
+			if b0.alive and b0.target != null:
+				to_target_pre = b0.target.position - b0.position
 			sim.simulate_tick()
 			if b0.alive and b0.target != null:
-				var to_target: Vector2 = b0.target.position - b0.position
+				# Period-boundary reset: if the runtime dropped backup_distance
+				# (phase transition or lateral break), we've entered a new retreat
+				# period — reset the rolling accumulator. Per Gizmo's S15.2
+				# addendum: the invariant is per-period, not absolute-rolling.
+				# GDD L286: "max 1 tile retreat before lateral movement" — the
+				# bd drop IS the lateral/phase break.
+				if b0.backup_distance < prev_bd:
+					backup_run = 0.0
+				prev_bd = b0.backup_distance
 				var movement: Vector2 = b0.position - prev_pos
-				if to_target.length() > 0.1 and movement.length() > 0.1:
-					var dot: float = movement.normalized().dot(to_target.normalized())
+				if to_target_pre.length() > 0.1 and movement.length() > 0.1:
+					var dot: float = movement.normalized().dot(to_target_pre.normalized())
 					if dot < -0.7:
-						backup_run += movement.length()
+						if b0.backup_distance < CombatSim.TILE_SIZE:  # budget-gated: only accumulate while retreat period is live
+							backup_run += movement.length()
+						# else: post-cap freeze (Gizmo S15.2 Addendum 2) — authored lateral/orbit
+						# motion past the cap is not a moonwalk; wait for period-boundary reset.
 					else:
 						backup_run = 0.0
 				prev_pos = b0.position

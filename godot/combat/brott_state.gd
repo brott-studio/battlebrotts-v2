@@ -63,6 +63,10 @@ var brain: RefCounted = null  # BrottBrain instance
 var _pending_gadget: String = ""  # Set by brain, consumed by combat_sim
 var overtime: bool = false  # Set by CombatSim when overtime triggers
 
+# S14.2 Slice B: stamped by combat_sim when this brott lands a hit on an enemy.
+# Consumed by BrottBrain WHEN_I_JUST_HIT_THEM trigger. -1.0 = no hit yet.
+var last_hit_time_sec: float = -1.0
+
 # Target
 var target: BrottState = null
 

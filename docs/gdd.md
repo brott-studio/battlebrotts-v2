@@ -106,7 +106,7 @@ Each Behavior Card is a visual rule with an icon and plain-English label. Cards 
 |---|---|---|
 | 💔 "When I'm Hurt" | My HP drops below threshold | 10–90% (step 10) |
 | 💪 "When I'm Healthy" | My HP is above threshold | 10–90% |
-| 🔋 "When I'm Low on Juice" | My energy drops below threshold | 10–90% |
+| 🔋 "When I'm Low on Energy" | My energy drops below threshold | 10–90% |
 | ⚡ "When I'm Charged Up" | My energy is above threshold | 10–90% |
 | 💔 "When They're Hurt" | Enemy HP drops below threshold | 10–90% |
 | 📏 "When They're Close" | Enemy is within distance | 1–12 tiles |
@@ -150,7 +150,7 @@ Each Brott has exactly one active Stance at any time. Stances define default mov
 | 2 | 📏 "When They're Close" (within 3 tiles) | 🔧 "Use Gadget" → Afterburner |
 | 3 | 📏 "When They're Close" (within 3 tiles) | 🔄 "Switch Stance" → 💨 "Hit & Run" |
 | 4 | 💔 "When They're Hurt" (below 30%) | 🔄 "Switch Stance" → 🔥 "Go Get 'Em!" |
-| 5 | 🔋 "When I'm Low on Juice" (below 20%) | 🔫 "Weapons" → Conserve |
+| 5 | 🔋 "When I'm Low on Energy" (below 20%) | 🔫 "Weapons" → Conserve |
 
 *Strategy: Keep distance and snipe. Pop shield when hurt, boost away if they close in, go aggressive for the kill.*
 

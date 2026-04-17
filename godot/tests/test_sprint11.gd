@@ -205,13 +205,10 @@ func test_no_moonwalking() -> void:
 					violations += 1
 					break
 	
-	_assert(violations <= 10, "No moonwalking violations (%d/100)" % violations)
-	# S14.1-B2 re-tune (PR #74): main baseline is 4/100 flaky; with the wall-stuck
-	# nav fix armed near geometry, the 6-8px/tick escape nudge occasionally
-	# registers as >38.4px straight backup when combined with tight Scout orbits
-	# through the pillar quadrant. Tolerance of ≤10 reflects nav-fix cost; the
-	# actual playtest wall-freeze bug is regression-tested in test_sprint14_1_nav.gd
-	# (T1 "no >2s freeze" is the hard bar). See docs/design/sprint14-arc-shape.md.
+	_assert(violations <= 9, "No moonwalking violations (%d/100)" % violations)
+	# S14.2 AC13: tightened from ≤10 to ≤9 per carry-forward plan — main baseline is
+	# 8/100 with the S14.1 wall-stuck nav fix armed. ≤9 keeps the bar at observed+1
+	# without re-flaking pre-nav-fix.
 
 func test_stances_preserved() -> void:
 	print("\n-- AC7: Existing Stances Preserved --")

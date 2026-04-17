@@ -14,7 +14,9 @@ enum Trigger {
 	WHEN_THEYRE_FAR,       # Enemy beyond distance (tiles)
 	WHEN_THEYRE_IN_COVER,  # Enemy near a pillar (within 48px)
 	WHEN_GADGET_READY,     # Specific module off cooldown
-	WHEN_CLOCK_SAYS,       # Match time exceeds threshold (seconds)
+	WHEN_CLOCK_SAYS,       # Match time exceeds threshold (seconds) — S14.2: hidden from tray, retained for save-compat
+	WHEN_THEYRE_RUNNING,   # S14.2 Slice B: enemy velocity ≥ threshold tiles/sec AND moving away
+	WHEN_I_JUST_HIT_THEM,  # S14.2 Slice B: landed hit on enemy within grace window seconds
 }
 
 ## Action types — the "DO" part of a behavior card
@@ -23,8 +25,10 @@ enum Action {
 	USE_GADGET,      # Activate a specific module
 	PICK_TARGET,     # Change target priority: "nearest", "weakest", "biggest_threat"
 	WEAPONS,         # Set weapon mode: "all_fire", "conserve", "hold_fire"
-	GET_TO_COVER,    # Override movement: go to cover (not fully implemented)
+	GET_TO_COVER,    # Override movement: go to cover — S14.2: hidden from tray (cover pathfinding incomplete); retained for save-compat
 	HOLD_CENTER,     # Override movement: go to arena center
+	CHASE_TARGET,    # S14.2 Slice B: override movement — close distance on enemy at stance-max speed
+	FOCUS_WEAKEST,   # S14.2 Slice B: sugar — sets target_priority="weakest" + clears pending target lock
 }
 
 ## A single behavior card: one trigger + one action
@@ -54,7 +58,7 @@ var weapon_mode: String = "all_fire"
 ## Target priority: "nearest", "weakest", "biggest_threat"
 var target_priority: String = "nearest"
 
-## Movement override: "", "cover", "center"
+## Movement override: "", "cover", "center", "chase"
 var movement_override: String = ""
 
 func add_card(card: BehaviorCard) -> bool:
@@ -126,6 +130,24 @@ func _check_trigger(card: BehaviorCard, brott: RefCounted, enemy: RefCounted, ma
 			return false
 		Trigger.WHEN_CLOCK_SAYS:
 			return match_time_sec >= float(param)
+		Trigger.WHEN_THEYRE_RUNNING:
+			# S14.2 Slice B: enemy velocity magnitude ≥ threshold tiles/sec AND moving away from brott.
+			if enemy == null or not enemy.alive:
+				return false
+			var speed_tiles: float = enemy.velocity.length() / 32.0
+			if speed_tiles < float(param):
+				return false
+			var away: Vector2 = enemy.position - brott.position
+			if away.length_squared() <= 0.001 or enemy.velocity.length_squared() <= 0.001:
+				return false
+			return enemy.velocity.dot(away) > 0.0
+		Trigger.WHEN_I_JUST_HIT_THEM:
+			# S14.2 Slice B: landed hit within grace window. `last_hit_time_sec` is
+			# stamped on the hitter (brott) by combat_sim at damage-application time.
+			var last_hit: float = brott.last_hit_time_sec if "last_hit_time_sec" in brott else -1.0
+			if last_hit < 0.0:
+				return false
+			return (match_time_sec - last_hit) <= float(param)
 	return false
 
 func _execute_action(card: BehaviorCard, brott: RefCounted) -> void:
@@ -143,6 +165,14 @@ func _execute_action(card: BehaviorCard, brott: RefCounted) -> void:
 			movement_override = "cover"
 		Action.HOLD_CENTER:
 			movement_override = "center"
+		Action.CHASE_TARGET:
+			# S14.2 Slice B: combat_sim handles "chase" symmetrically to "cover"/"center".
+			movement_override = "chase"
+		Action.FOCUS_WEAKEST:
+			# S14.2 Slice B: sugar — force weakest-targeting and drop any pending target lock.
+			target_priority = "weakest"
+			if brott != null and "target" in brott:
+				brott.target = null
 
 ## ===== SMART DEFAULTS =====
 ## Pre-built BrottBrains that work out of the box for each chassis

@@ -461,6 +461,20 @@ func _move_brott(b: BrottState) -> void:
 				best_pillar = p
 		if best_dist > 32.0:
 			b.position += (best_pillar - b.position).normalized() * spd
+	elif move_override == "chase":
+		# S14.2 Slice B: close distance on enemy at stance-max speed. Symmetric with
+		# "cover"/"center" overrides. No engagement-distance gating — the point of
+		# chase is to commit, ignoring stance-level kiting.
+		if b.target != null and b.target.alive:
+			b.accelerate_toward_speed(target_speed, TICK_DELTA)
+			var spd: float = b.current_speed * TICK_DELTA
+			var to_enemy: Vector2 = b.target.position - b.position
+			if to_enemy.length() > spd:
+				b.position += to_enemy.normalized() * spd
+			else:
+				b.position = b.target.position
+		else:
+			b.accelerate_toward_speed(0.0, TICK_DELTA)
 	else:
 		var to_target: Vector2 = b.target.position - b.position
 		var dist: float = to_target.length()
@@ -956,6 +970,9 @@ func _apply_damage(target: BrottState, base_dmg: float, is_crit: bool, source: B
 	if effective > 0:
 		target.hp -= effective
 		target.flash_timer = 3.0
+		# S14.2 Slice B: stamp hitter's last_hit_time for WHEN_I_JUST_HIT_THEM.
+		if source != null:
+			source.last_hit_time_sec = float(tick_count) / float(TICKS_PER_SEC)
 		if json_log_enabled:
 			_tick_events.append({"type": "damage_dealt", "target_id": target.bot_name, "amount": effective, "is_crit": is_crit})
 		on_damage.emit(target, effective, is_crit, hit_pos)

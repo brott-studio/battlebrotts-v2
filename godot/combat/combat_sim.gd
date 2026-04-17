@@ -562,6 +562,71 @@ func _move_brott(b: BrottState) -> void:
 			if b.in_combat_movement and b.position != old_p:
 				b.orbit_direction *= -1
 
+	# S14.1-B: Wall-stuck detection. Bots can freeze against walls, pillars, or
+	# behind LOS-blocking geometry during COMMIT/RECOVERY or when Aggressive
+	# stance has dist within tolerance. If history shows <10px displacement over
+	# 1.5s while alive+has target, trigger unstick (flip orbit, reset TCR, push
+	# away from geometry for 8 ticks).
+	_check_and_handle_stuck(b)
+
+func _check_and_handle_stuck(b: BrottState) -> void:
+	const STUCK_WINDOW_TICKS: int = 15   # 1.5s at 10 ticks/sec
+	const STUCK_MIN_PX: float = 10.0
+	const UNSTICK_DURATION_TICKS: float = 8.0
+	const UNSTICK_NUDGE_PX_PER_TICK: float = 14.0
+	if not b.alive or b.target == null or not b.target.alive:
+		b._stuck_history.clear()
+		b._unstick_timer = 0.0
+		return
+	if b._unstick_timer > 0.0:
+		b._unstick_timer -= 1.0
+		var nudge: Vector2 = _wall_escape_direction(b)
+		if nudge != Vector2.ZERO:
+			b.position += nudge * UNSTICK_NUDGE_PX_PER_TICK
+			var arena_px2: float = 16.0 * TILE_SIZE
+			b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
+			b.position.y = clampf(b.position.y, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
+		return
+	b._stuck_history.append(b.position)
+	if b._stuck_history.size() > STUCK_WINDOW_TICKS:
+		b._stuck_history.pop_front()
+	if b._stuck_history.size() < STUCK_WINDOW_TICKS:
+		return
+	if b.position.distance_to(b._stuck_history[0]) < STUCK_MIN_PX:
+		b._unstick_timer = UNSTICK_DURATION_TICKS
+		b.orbit_direction *= -1
+		b.combat_phase = 0
+		var tcr: Dictionary = _get_tension_range(b)
+		b.combat_phase_timer = rng.randi_range(tcr["min"], tcr["max"])
+		b.backup_distance = TILE_SIZE  # skip backup budget; go to lateral
+		b.tension_drift_timer = TENSION_DRIFT_INTERVAL
+		b._stuck_history.clear()
+		if json_log_enabled:
+			_tick_events.append({"type": "nav_unstick", "bot_id": b.bot_name, "pos": [b.position.x, b.position.y]})
+
+func _wall_escape_direction(b: BrottState) -> Vector2:
+	# Push away from nearest wall/pillar; fallback to perpendicular-to-target
+	# (orbit_direction) to break LOS-blocked or bot-bot wedge standoffs.
+	const WALL_PROX_PX: float = TILE_SIZE
+	const PILLAR_PROX_PX: float = BOT_HITBOX_RADIUS + 48.0
+	var arena_px: float = 16.0 * TILE_SIZE
+	var e := Vector2.ZERO
+	if b.position.x < WALL_PROX_PX: e.x += 1.0
+	if b.position.x > arena_px - WALL_PROX_PX: e.x -= 1.0
+	if b.position.y < WALL_PROX_PX: e.y += 1.0
+	if b.position.y > arena_px - WALL_PROX_PX: e.y -= 1.0
+	for p: Vector2 in _get_pillar_positions():
+		var away: Vector2 = b.position - p
+		if away.length() < PILLAR_PROX_PX and away.length() > 0.01:
+			e += away.normalized()
+	if e.length() >= 0.01:
+		return e.normalized()
+	if b.target != null and b.target.alive:
+		var tt: Vector2 = b.target.position - b.position
+		if tt.length() > 0.01:
+			return Vector2(-tt.y, tt.x).normalized() * float(b.orbit_direction)
+	return Vector2.ZERO
+
 func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 	var to_target: Vector2 = b.target.position - b.position
 	var dist: float = to_target.length()

@@ -69,6 +69,12 @@ var target: BrottState = null
 # Combat movement state
 var in_combat_movement: bool = false
 var orbit_direction: int = 1  # 1 = CW, -1 = CCW
+
+# S14.1-B: Wall-stuck detection. Rolling history of last N positions sampled each
+# tick. If total displacement over the window is <STUCK_MIN_PX while alive+has
+# target, bot is considered stuck and gets an unstick nudge.
+var _stuck_history: Array[Vector2] = []  # oldest first; capped to STUCK_WINDOW_TICKS
+var _unstick_timer: float = 0.0  # ticks remaining in active unstick maneuver
 var juke_timer: float = 0.0  # ticks until next juke (legacy, kept for compat)
 var juke_active_timer: float = 0.0  # ticks remaining in current juke (legacy)
 var juke_type: String = ""  # "lateral", "toward", "away" (legacy)

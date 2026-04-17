@@ -1,6 +1,6 @@
-name: Auto-merge KB PRs
+name: Auto-merge KB + doc PRs
 
-# Auto-enables squash merge for low-risk knowledge-base PRs.
+# Auto-enables squash merge for low-risk doc PRs (KB, verification, other docs).
 # A PR qualifies as "KB" if either:
 #   - Its title starts with "kb:" or "[KB]" (case-insensitive), OR
 #   - Every changed file lives under docs/kb/
@@ -46,7 +46,7 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const title = (pr.title || '').trim();
-            const titleMatch = /^(kb:|\[KB\])/i.test(title);
+            const titleMatch = /^(kb:|\[KB\]|\[S\d+(\.\d+)?-verify\]|verify:|docs:)/i.test(title);
 
             // Paginate files (PRs can have >30 files)
             const files = await github.paginate(
@@ -60,7 +60,7 @@ jobs:
             );
 
             const allKbFiles = files.length > 0 &&
-              files.every(f => f.filename.startsWith('docs/kb/'));
+              files.every(f => f.filename.startsWith('docs/kb/') || f.filename.startsWith('docs/verification/') || f.filename.startsWith('docs/'));
 
             const isKb = titleMatch || allKbFiles;
             core.info(`title="${title}" titleMatch=${titleMatch} fileCount=${files.length} allKbFiles=${allKbFiles} => isKb=${isKb}`);

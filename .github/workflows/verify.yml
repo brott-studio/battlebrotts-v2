@@ -3,6 +3,10 @@ name: Verify
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'sprints/**'
+      - '**/*.md'
 
 jobs:
   godot-tests:

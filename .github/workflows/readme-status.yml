@@ -1,0 +1,51 @@
+name: readme-status
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 12:00 UTC daily = 08:00 EST / 07:00 EDT — morning coffee refresh.
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: readme-status
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    # Belt: skip self-made commits (the [skip ci] convention is the suspenders).
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Regenerate README status block
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BROTT_STUDIO_PAT: ${{ secrets.BROTT_STUDIO_PAT }}
+        run: python3 scripts/update-readme-status.py
+
+      - name: Commit & push if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- README.md; then
+            echo "No README changes — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore(readme): auto-update status block [skip ci]"
+          git push

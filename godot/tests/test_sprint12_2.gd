@@ -70,7 +70,7 @@ func test_unequipped_card_styling() -> void:
 func test_weight_bar_updates() -> void:
 	print("\n[Test] Weight bar updates correctly")
 	var state := GameState.new()
-	# Scout with Plasma Cutter (8kg) + Plating (5kg) = 13kg, cap 30
+	# Scout with Plasma Cutter (8kg) + Plating (15kg) = 23kg, cap 30
 	state.equipped_chassis = ChassisData.ChassisType.SCOUT
 	state.equipped_weapons = [WeaponData.WeaponType.PLASMA_CUTTER]
 	state.equipped_armor = ArmorData.ArmorType.PLATING
@@ -81,7 +81,7 @@ func test_weight_bar_updates() -> void:
 	var cap: int = validation["weight_cap"]
 
 	_assert(cap == 30, "Scout weight cap is 30")
-	_assert(total == 13, "Plasma Cutter (8) + Plating (5) = 13 kg")
+	_assert(total == 23, "Plasma Cutter (8) + Plating (15) = 23 kg")
 
 	# Now equip Minigun too
 	state.owned_weapons.append(WeaponData.WeaponType.MINIGUN)

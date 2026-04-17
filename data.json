@@ -1,0 +1,14 @@
+{
+  "currentSprint": "Sprint 0 — Infrastructure",
+  "commitCount": 1,
+  "prCount": 0,
+  "testCount": 2,
+  "sprints": [],
+  "commits": [
+    {
+      "sha": "085c5d1",
+      "message": "Initial commit: BattleBrotts v2 — GDD + project structure",
+      "date": "2025-04-15T00:00:00Z"
+    }
+  ]
+}

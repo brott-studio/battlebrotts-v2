@@ -81,8 +81,13 @@ Expected future triggers:
 
 - **S13.3:** closed via unicode-loop KB + re-spawn workflow.
 - **S13.4:** this entry; mitigations go live for S13.5 scoping.
-- **Revisit:** if S13.5 or later also hits a Nutts timeout, escalate
-  to a dedicated tooling sprint on Nutts checkpointing.
+- **S13.5:** split-spawn applied — Spawn A (D0+D2+D1) and Spawn B
+  (D3+GDD+finalize). Neither timed out. Pattern validated on first
+  application. Ceiling held at ~1 medium edit + ~2 small edits + test
+  coverage per spawn.
+- **Revisit:** if a future sprint hits a Nutts timeout despite the
+  split-spawn pattern, escalate to a dedicated tooling sprint on
+  Nutts checkpointing.
 
 ## See also
 

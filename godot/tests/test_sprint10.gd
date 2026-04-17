@@ -84,7 +84,10 @@ func test_bot_separation() -> void:
 			for j in range(i + 1, sim.brotts.size()):
 				if not sim.brotts[j].alive:
 					continue
-				var d := sim.brotts[i].position.distance_to(sim.brotts[j].position)
+				# Godot 4 cannot infer the type of a value reached via indexed access on an
+				# untyped-from-this-scope Array (sim is typed `Object` here, so sim.brotts is Variant).
+				# Explicit annotation keeps the parser happy.
+				var d: float = sim.brotts[i].position.distance_to(sim.brotts[j].position)
 				if d < min_dist:
 					min_dist = d
 	_assert(min_dist >= 12.0, "Min bot distance %.1f >= BOT_HITBOX_RADIUS (12.0)" % min_dist)

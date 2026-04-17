@@ -39,6 +39,7 @@ func _scan_all_seeds() -> void:
 		sim.add_brott(b1)
 		var prev_pos := b0.position
 		var backup_run := 0.0
+		var prev_bd := 0.0
 		var max_run := 0.0
 		var violated_tick := -1
 		for t in range(300):
@@ -50,6 +51,10 @@ func _scan_all_seeds() -> void:
 				tt_pre = b0.target.position - b0.position
 			sim.simulate_tick()
 			if b0.alive and b0.target != null:
+				# Period-boundary reset (S15.2 addendum): bd drop = new retreat period.
+				if b0.backup_distance < prev_bd:
+					backup_run = 0.0
+				prev_bd = b0.backup_distance
 				var mv: Vector2 = b0.position - prev_pos
 				if tt_pre.length() > 0.1 and mv.length() > 0.1:
 					var dot: float = mv.normalized().dot(tt_pre.normalized())
@@ -77,6 +82,7 @@ func _trace_seed(seed_val: int) -> void:
 	sim.add_brott(b1)
 	var prev_pos := b0.position
 	var backup_run := 0.0
+	var prev_bd := 0.0
 	for t in range(120):
 		if sim.match_over:
 			break
@@ -87,6 +93,10 @@ func _trace_seed(seed_val: int) -> void:
 		sim.simulate_tick()
 		if not (b0.alive and b0.target != null):
 			continue
+		# Period-boundary reset (S15.2 addendum): bd drop = new retreat period.
+		if b0.backup_distance < prev_bd:
+			backup_run = 0.0
+		prev_bd = b0.backup_distance
 		var mv: Vector2 = b0.position - prev_pos
 		var dot := 0.0
 		if tt_pre.length() > 0.1 and mv.length() > 0.1:

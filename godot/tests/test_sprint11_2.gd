@@ -82,6 +82,7 @@ func test_away_juke_cap_across_seeds() -> void:
 
 		var prev_pos := b0.position
 		var backup_run := 0.0
+		var prev_bd := 0.0
 
 		for _t in range(300):
 			if sim.match_over:
@@ -96,6 +97,15 @@ func test_away_juke_cap_across_seeds() -> void:
 				to_target_pre = b0.target.position - b0.position
 			sim.simulate_tick()
 			if b0.alive and b0.target != null:
+				# Period-boundary reset: if the runtime dropped backup_distance
+				# (phase transition or lateral break), we've entered a new retreat
+				# period — reset the rolling accumulator. Per Gizmo's S15.2
+				# addendum: the invariant is per-period, not absolute-rolling.
+				# GDD L286: "max 1 tile retreat before lateral movement" — the
+				# bd drop IS the lateral/phase break.
+				if b0.backup_distance < prev_bd:
+					backup_run = 0.0
+				prev_bd = b0.backup_distance
 				var movement: Vector2 = b0.position - prev_pos
 				if to_target_pre.length() > 0.1 and movement.length() > 0.1:
 					var dot: float = movement.normalized().dot(to_target_pre.normalized())

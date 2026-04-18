@@ -299,7 +299,7 @@ def render_block() -> str:
     if (ROOT / "docs" / "kb" / "pipeline.md").exists():
         doc_links.append("[Pipeline](./docs/kb/pipeline.md)")
     else:
-        doc_links.append("[Pipeline](https://github.com/blor-inc/studio-framework/blob/main/PIPELINE.md)")
+        doc_links.append("[Pipeline](https://github.com/brott-studio/studio-framework/blob/main/PIPELINE.md)")
     if doc_links:
         lines.append("**Docs:** " + " · ".join(doc_links))
         lines.append("")

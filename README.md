@@ -27,15 +27,15 @@ Build autonomous combat Brotts, teach them how to fight with drag-and-drop Behav
 - S15.1 — B · [audit](https://github.com/brott-studio/studio-audits/blob/main/audits/battlebrotts-v2/v2-sprint-15.1.md)
 - S14.1 — ? · [audit](https://github.com/brott-studio/studio-audits/blob/main/audits/battlebrotts-v2/v2-sprint-14.1.md)
 
-**Docs:** [GDD](./docs/gdd.md) · [Audio Vision](./docs/kb/audio-vision.md) · [UX Vision](./docs/kb/ux-vision.md) · [Pipeline](https://github.com/blor-inc/studio-framework/blob/main/PIPELINE.md)
+**Docs:** [GDD](./docs/gdd.md) · [Audio Vision](./docs/kb/audio-vision.md) · [UX Vision](./docs/kb/ux-vision.md) · [Pipeline](https://github.com/brott-studio/studio-framework/blob/main/PIPELINE.md)
 
 _Last updated: 2026-04-18 05:06 UTC · [update log](../../actions/workflows/readme-status.yml)_
 <!-- STATUS-END -->
 
 ## Links
 - [Game Design Document](docs/gdd.md)
-- [Studio Framework](https://github.com/blor-inc/studio-framework)
-- [v1 Archive](https://github.com/blor-inc/battlebrotts) (16 sprints of history)
+- [Studio Framework](https://github.com/brott-studio/studio-framework)
+- [v1 Archive](https://github.com/brott-studio/battlebrotts) (16 sprints of history)
 
 ## Status
 🚧 v2 — Starting fresh with pipeline-driven development

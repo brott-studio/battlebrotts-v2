@@ -17,10 +17,6 @@ Build autonomous combat Brotts, teach them how to fight with drag-and-drop Behav
 - 🎵 Audio 4 · 🎨 Art 5 · ✨ UX 8 · 🎮 Gameplay 7 · 🔧 Tech-Debt 5 · 🏗️ Framework 2
 - 🔴 High 4 · 🟡 Mid 16 · 🔵 Low 11
 
-**Open PRs** (2)
-- [#77](https://github.com/brott-studio/battlebrotts-v2/pull/77) [S14.2-B+C] aggression cards + card library audit
-- [#76](https://github.com/brott-studio/battlebrotts-v2/pull/76) [S14.2-A] BrottBrain UI polish
-
 **Recent audits** (from [studio-audits](https://github.com/brott-studio/studio-audits))
 - S15.2 — B+ · [audit](https://github.com/brott-studio/studio-audits/blob/main/audits/battlebrotts-v2/v2-sprint-15.2.md)
 - S15.1 — B · [audit](https://github.com/brott-studio/studio-audits/blob/main/audits/battlebrotts-v2/v2-sprint-15.1.md)
@@ -28,7 +24,7 @@ Build autonomous combat Brotts, teach them how to fight with drag-and-drop Behav
 
 **Docs:** [GDD](./docs/gdd.md) · [Audio Vision](./docs/kb/audio-vision.md) · [UX Vision](./docs/kb/ux-vision.md) · [Pipeline](https://github.com/brott-studio/studio-framework/blob/main/PIPELINE.md)
 
-_Last updated: 2026-04-20 03:23 UTC · [update log](../../actions/workflows/readme-status.yml)_
+_Last updated: 2026-04-20 03:32 UTC · [update log](../../actions/workflows/readme-status.yml)_
 <!-- STATUS-END -->
 
 ## Links

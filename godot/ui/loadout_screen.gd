@@ -72,85 +72,35 @@ func _build_ui() -> void:
 	# Weight budget bar (S12.2)
 	_build_weight_bar(validation, ch)
 
-	var y := 120
+	# [S17.1-002] Scroll region for item lists. Viewport = 1280×720, header region
+	# ends at y≈96, footer row pinned at y=650 (50px tall). Scroll region is
+	# bounded 1280×520 so no amount of content can push past the footer.
+	# Footer buttons (back_btn, _equip_button) are siblings of this scroll
+	# container and are added AFTER it so they render on top.
+	var scroll := ScrollContainer.new()
+	scroll.name = "ScrollArea"
+	scroll.position = Vector2(0, 120)
+	scroll.custom_minimum_size = Vector2(1280, 520)
+	scroll.size = Vector2(1280, 520)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	add_child(scroll)
 
-	# Chassis selector
-	y = _add_label("CHASSIS (select one):", y)
-	for ct in game_state.owned_chassis:
-		var cd := ChassisData.get_chassis(ct)
-		var selected := ct == game_state.equipped_chassis
-		var btn := Button.new()
-		btn.text = ("▶ " if selected else "  ") + cd["name"] + " (HP:%d Spd:%d W:%d/%d)" % [cd["hp"], int(cd["speed"]), cd["weapon_slots"], cd["module_slots"]]
-		btn.position = Vector2(40, y)
-		btn.size = Vector2(500, 30)
-		btn.pressed.connect(_select_chassis.bind(ct))
-		add_child(btn)
-		y += 32
+	var content := VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 4)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.custom_minimum_size = Vector2(1280, 0)
+	scroll.add_child(content)
 
-	# Weapon selector with equipped styling
-	y = _add_label("WEAPONS (slots: %d/%d):" % [game_state.equipped_weapons.size(), ch["weapon_slots"]], y + 10)
+	_build_chassis_section(content)
+	_build_weapons_section(content, ch)
+	_build_armor_section(content)
+	_build_modules_section(content, ch)
+	_build_error_section(content, validation)
 
-	# Empty weapon slot indicators (S12.2)
-	var empty_weapon_slots: int = ch["weapon_slots"] - game_state.equipped_weapons.size()
-	for i in range(max(0, empty_weapon_slots)):
-		var slot_panel := _create_empty_slot_indicator("weapon")
-		slot_panel.position = Vector2(40, y)
-		add_child(slot_panel)
-		y += 36
-
-	for wt in game_state.owned_weapons:
-		var wd := WeaponData.get_weapon(wt)
-		var equipped := wt in game_state.equipped_weapons
-		var card := _create_item_card(wd["name"], wd["archetype"], wd["description"], equipped)
-		card.position = Vector2(40, y)
-		card.get_node("Button").pressed.connect(_toggle_weapon.bind(wt))
-		add_child(card)
-		y += 36
-
-	# Armor selector
-	y = _add_label("ARMOR (one):", y + 10)
-	# Add "None" option
-	var none_equipped := game_state.equipped_armor == 0
-	var none_card := _create_item_card("None", "", "", none_equipped)
-	none_card.position = Vector2(40, y)
-	none_card.get_node("Button").pressed.connect(_select_armor.bind(0))
-	add_child(none_card)
-	y += 36
-	for at in game_state.owned_armor:
-		var ad := ArmorData.get_armor(at)
-		var selected := at == game_state.equipped_armor
-		var card := _create_item_card(ad["name"], ad["archetype"], ad["description"], selected)
-		card.position = Vector2(40, y)
-		card.get_node("Button").pressed.connect(_select_armor.bind(at))
-		add_child(card)
-		y += 36
-
-	# Module selector with equipped styling
-	y = _add_label("MODULES (slots: %d/%d):" % [game_state.equipped_modules.size(), ch["module_slots"]], y + 10)
-
-	# Empty module slot indicators (S12.2)
-	var empty_module_slots: int = ch["module_slots"] - game_state.equipped_modules.size()
-	for i in range(max(0, empty_module_slots)):
-		var slot_panel := _create_empty_slot_indicator("module")
-		slot_panel.position = Vector2(40, y)
-		add_child(slot_panel)
-		y += 36
-
-	for mt in game_state.owned_modules:
-		var md := ModuleData.get_module(mt)
-		var equipped := mt in game_state.equipped_modules
-		var card := _create_item_card(md["name"], md["archetype"], md["description"], equipped)
-		card.position = Vector2(40, y)
-		card.get_node("Button").pressed.connect(_toggle_module.bind(mt))
-		add_child(card)
-		y += 36
-
-	# Error display
-	if not validation["valid"]:
-		for err in validation["errors"]:
-			y = _add_label("⚠️ " + err, y + 5, Color.RED)
-
-	# Navigation
+	# Navigation — footer siblings of ScrollArea, pinned at y=650 (unchanged).
+	# Added AFTER scroll so they render on top in Godot's default z-order.
 	var back_btn := Button.new()
 	back_btn.text = "← Shop"
 	back_btn.position = Vector2(20, 650)
@@ -165,6 +115,72 @@ func _build_ui() -> void:
 	_equip_button.disabled = not validation["valid"]
 	_equip_button.pressed.connect(func(): continue_pressed.emit())
 	add_child(_equip_button)
+
+## [S17.1-002] Section builders — append to a VBoxContainer instead of
+## absolute-positioning at a running y. Card/indicator rendering logic
+## (_create_item_card, _create_empty_slot_indicator) is untouched.
+
+func _build_chassis_section(parent: VBoxContainer) -> void:
+	parent.add_child(_make_section_label("CHASSIS (select one):"))
+	for ct in game_state.owned_chassis:
+		var cd := ChassisData.get_chassis(ct)
+		var selected := ct == game_state.equipped_chassis
+		var btn := Button.new()
+		btn.text = ("▶ " if selected else "  ") + cd["name"] + " (HP:%d Spd:%d W:%d/%d)" % [cd["hp"], int(cd["speed"]), cd["weapon_slots"], cd["module_slots"]]
+		btn.custom_minimum_size = Vector2(500, 30)
+		btn.pressed.connect(_select_chassis.bind(ct))
+		parent.add_child(btn)
+
+func _build_weapons_section(parent: VBoxContainer, ch: Dictionary) -> void:
+	parent.add_child(_make_section_label("WEAPONS (slots: %d/%d):" % [game_state.equipped_weapons.size(), ch["weapon_slots"]]))
+	var empty_weapon_slots: int = ch["weapon_slots"] - game_state.equipped_weapons.size()
+	for i in range(max(0, empty_weapon_slots)):
+		parent.add_child(_create_empty_slot_indicator("weapon"))
+	for wt in game_state.owned_weapons:
+		var wd := WeaponData.get_weapon(wt)
+		var equipped := wt in game_state.equipped_weapons
+		var card := _create_item_card(wd["name"], wd["archetype"], wd["description"], equipped)
+		card.get_node("Button").pressed.connect(_toggle_weapon.bind(wt))
+		parent.add_child(card)
+
+func _build_armor_section(parent: VBoxContainer) -> void:
+	parent.add_child(_make_section_label("ARMOR (one):"))
+	var none_equipped := game_state.equipped_armor == 0
+	var none_card := _create_item_card("None", "", "", none_equipped)
+	none_card.get_node("Button").pressed.connect(_select_armor.bind(0))
+	parent.add_child(none_card)
+	for at in game_state.owned_armor:
+		var ad := ArmorData.get_armor(at)
+		var selected := at == game_state.equipped_armor
+		var card := _create_item_card(ad["name"], ad["archetype"], ad["description"], selected)
+		card.get_node("Button").pressed.connect(_select_armor.bind(at))
+		parent.add_child(card)
+
+func _build_modules_section(parent: VBoxContainer, ch: Dictionary) -> void:
+	parent.add_child(_make_section_label("MODULES (slots: %d/%d):" % [game_state.equipped_modules.size(), ch["module_slots"]]))
+	var empty_module_slots: int = ch["module_slots"] - game_state.equipped_modules.size()
+	for i in range(max(0, empty_module_slots)):
+		parent.add_child(_create_empty_slot_indicator("module"))
+	for mt in game_state.owned_modules:
+		var md := ModuleData.get_module(mt)
+		var equipped := mt in game_state.equipped_modules
+		var card := _create_item_card(md["name"], md["archetype"], md["description"], equipped)
+		card.get_node("Button").pressed.connect(_toggle_module.bind(mt))
+		parent.add_child(card)
+
+func _build_error_section(parent: VBoxContainer, validation: Dictionary) -> void:
+	if validation["valid"]:
+		return
+	for err in validation["errors"]:
+		parent.add_child(_make_section_label("⚠️ " + err, Color.RED))
+
+func _make_section_label(text: String, color: Color = Color.WHITE) -> Label:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.custom_minimum_size = Vector2(600, 25)
+	return lbl
 
 ## S12.2: Build the weight budget bar below header
 func _build_weight_bar(validation: Dictionary, ch: Dictionary) -> void:
@@ -311,16 +327,6 @@ func _has_weight_error(errors: Array) -> bool:
 		if "Overweight" in err:
 			return true
 	return false
-
-func _add_label(text: String, y: int, color: Color = Color.WHITE) -> int:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 16)
-	lbl.add_theme_color_override("font_color", color)
-	lbl.position = Vector2(20, y)
-	lbl.size = Vector2(600, 25)
-	add_child(lbl)
-	return y + 28
 
 func _select_chassis(ct: int) -> void:
 	game_state.equipped_chassis = ct

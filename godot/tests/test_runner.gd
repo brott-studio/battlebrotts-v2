@@ -45,6 +45,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_sprint13_10.gd",
 	"res://tests/test_sprint14_1.gd",
 	"res://tests/test_sprint14_1_nav.gd",
+	"res://tests/test_sprint17_1_shop_scroll.gd",
 ]
 
 var file_pass_count := 0

@@ -46,6 +46,12 @@ var _expanded_key: String = ""
 var _forced_width: int = -1  # test hook; -1 = use viewport width
 var _shop_audio: AudioStreamPlayer
 
+# [S17.1-001] Preserves ScrollArea scroll position across full _build_ui()
+# teardown/rebuild cycles (card tap, buy, trick modal). Save on rebuild
+# entry, restore one frame later via call_deferred so the new VBox has
+# finalized its minimum size and ScrollContainer has clamped max scroll.
+var _saved_scroll_v: int = 0
+
 # D3: session-local "seen" set + active pulse tween registry.
 # STATIC: persists across ShopScreen instances within a single game session
 # (game_main creates a fresh ShopScreen each shop phase). This preserves
@@ -181,6 +187,13 @@ func _substitute_item_name(flavor: String, choice: Dictionary) -> String:
 # --- UI construction ---
 
 func _build_ui() -> void:
+	# [S17.1-001] Capture current scroll position BEFORE tearing down the
+	# tree so we can restore it after rebuild (prevents jump-to-top on card
+	# tap / buy / collapse).
+	var prior_scroll := get_node_or_null("ScrollArea") as ScrollContainer
+	if prior_scroll != null:
+		_saved_scroll_v = prior_scroll.scroll_vertical
+
 	# Remove children immediately (queue_free is deferred and leaves stale
 	# nodes visible to the tree between rebuilds — breaks tests and can
 	# briefly show two expanded panels during rapid taps).
@@ -224,6 +237,10 @@ func _build_ui() -> void:
 	scroll.custom_minimum_size = Vector2(viewport_w, 600)
 	scroll.size = Vector2(viewport_w, 600)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# [S17.1-001] Wheel step uses Godot engine defaults — intentional.
+	# Custom multiplier considered and rejected (see design §3.2): risks
+	# breaking trackpad-smooth-scroll + keyboard scroll + middle-click pan.
+	scroll.scroll_deadzone = 0
 	add_child(scroll)
 
 	_content_vbox = VBoxContainer.new()
@@ -248,6 +265,17 @@ func _build_ui() -> void:
 	btn.add_theme_font_size_override("font_size", 18)
 	btn.pressed.connect(func(): continue_pressed.emit())
 	add_child(btn)
+
+	# [S17.1-001] Restore scroll position on next frame (after layout so
+	# ScrollContainer.max_scroll_v reflects new content). Engine clamps to
+	# [0, max_scroll_v] so large/stale values resolve safely.
+	call_deferred("_restore_scroll")
+
+func _restore_scroll() -> void:
+	var scroll := get_node_or_null("ScrollArea") as ScrollContainer
+	if scroll == null:
+		return
+	scroll.scroll_vertical = _saved_scroll_v
 
 func _resolve_width() -> int:
 	if _forced_width > 0:

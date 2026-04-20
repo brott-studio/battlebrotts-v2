@@ -11,6 +11,12 @@ config/description="Build. Program. Fight."
 run/main_scene="res://game_main.tscn"
 config/features=PackedStringArray("4.4")
 
+[autoload]
+
+; [S17.1-004] First-run flag persistence (user://first_run.cfg).
+; Shared API — S17.1-006 will also consume (key `crate_first_run`).
+FirstRunState="*res://ui/first_run_state.gd"
+
 [display]
 
 window/size/viewport_width=1280

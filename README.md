@@ -13,9 +13,9 @@ Build autonomous combat Brotts, teach them how to fight with drag-and-drop Behav
 
 **Current sprint:** [Sprint 16.2 — Per-agent GitHub App for Specc + Test Hygiene Carry-Forwards](./sprints/sprint-16.2.md)
 
-**Backlog** (35 total · [view all](https://github.com/brott-studio/battlebrotts-v2/issues?q=is%3Aissue+label%3Abacklog+is%3Aopen))
+**Backlog** (33 total · [view all](https://github.com/brott-studio/battlebrotts-v2/issues?q=is%3Aissue+label%3Abacklog+is%3Aopen))
 - 🎵 Audio 4 · 🎨 Art 5 · ✨ UX 8 · 🎮 Gameplay 7 · 🔧 Tech-Debt 5 · 🏗️ Framework 2
-- 🔴 High 4 · 🟡 Mid 17 · 🔵 Low 14
+- 🔴 High 4 · 🟡 Mid 16 · 🔵 Low 13
 
 **Recent audits** (from [studio-audits](https://github.com/brott-studio/studio-audits))
 - S16.1 — ? · [audit](https://github.com/brott-studio/studio-audits/blob/main/audits/battlebrotts-v2/v2-sprint-16.1.md)
@@ -24,7 +24,7 @@ Build autonomous combat Brotts, teach them how to fight with drag-and-drop Behav
 
 **Docs:** [GDD](./docs/gdd.md) · [Audio Vision](./docs/kb/audio-vision.md) · [UX Vision](./docs/kb/ux-vision.md) · [Pipeline](https://github.com/brott-studio/studio-framework/blob/main/PIPELINE.md)
 
-_Last updated: 2026-04-20 15:30 UTC · [update log](../../actions/workflows/readme-status.yml)_
+_Last updated: 2026-04-20 15:38 UTC · [update log](../../actions/workflows/readme-status.yml)_
 <!-- STATUS-END -->
 
 ## Links

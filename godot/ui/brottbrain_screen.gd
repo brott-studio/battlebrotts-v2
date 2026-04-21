@@ -47,6 +47,12 @@ const WEAPON_MODES := ["all_fire", "conserve", "hold_fire"]
 # Tested by tests/test_s17_3_002_drag_lie.gd.
 const EMPTY_SLOT_TEXT_TEMPLATE := "  %d. ┌ ─ ─  + Tap to add card  ─ ─ ┐"
 
+# [S17.3-003] Delete button affordance — red tint at rest, darker red on hover.
+# Pulled directly from sprint-17.3.md §"Task specs" → "S17.3-003".
+const DELETE_BTN_MODULATE_REST: Color = Color(1.0, 0.4, 0.4)
+const DELETE_BTN_MODULATE_HOVER: Color = Color(1.0, 0.2, 0.2)
+const DELETE_BTN_TOOLTIP: String = "Delete this card"
+
 var selected_card_index: int = -1
 
 func setup(state: GameState, existing_brain: BrottBrain = null) -> void:
@@ -283,11 +289,17 @@ func _draw_card(index: int, y: int) -> int:
 	hint.size = Vector2(200, 15)
 	add_child(hint)
 	
-	# Delete button
+	# Delete button — [S17.3-003] red tint + tooltip + pointer cursor.
+	# Spec: sprints/sprint-17.3.md §"Task specs" → "S17.3-003".
 	var del_btn := Button.new()
 	del_btn.text = "✕"
 	del_btn.position = Vector2(625, y + 10)
 	del_btn.size = Vector2(35, 28)
+	del_btn.modulate = DELETE_BTN_MODULATE_REST
+	del_btn.tooltip_text = DELETE_BTN_TOOLTIP
+	del_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	del_btn.mouse_entered.connect(_on_delete_btn_mouse_entered.bind(del_btn))
+	del_btn.mouse_exited.connect(_on_delete_btn_mouse_exited.bind(del_btn))
 	del_btn.pressed.connect(_remove_card.bind(index))
 	add_child(del_btn)
 	
@@ -366,6 +378,15 @@ func _remove_card(index: int) -> void:
 	if selected_card_index >= brain.cards.size():
 		selected_card_index = brain.cards.size() - 1
 	_build_ui()
+
+# [S17.3-003] Hover handlers for the per-row delete button. Kept as named
+# funcs (not inline lambdas) so tests can invoke them directly without having
+# to synthesize a mouse_entered signal against a live viewport.
+func _on_delete_btn_mouse_entered(btn: Button) -> void:
+	btn.modulate = DELETE_BTN_MODULATE_HOVER
+
+func _on_delete_btn_mouse_exited(btn: Button) -> void:
+	btn.modulate = DELETE_BTN_MODULATE_REST
 
 func _move_card_up() -> void:
 	if selected_card_index <= 0 or selected_card_index >= brain.cards.size():

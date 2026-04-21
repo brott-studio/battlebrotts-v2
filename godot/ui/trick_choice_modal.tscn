@@ -17,6 +17,12 @@ offset_top = -170.0
 offset_right = 300.0
 offset_bottom = 170.0
 [node name="VBox" type="VBoxContainer" parent="Overlay/Panel"]
+[node name="FirstRunFraming" type="Label" parent="Overlay/Panel/VBox"]
+visible = false
+modulate = Color(0.75, 0.75, 0.75, 1)
+autowrap_mode = 3
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 13
 [node name="TopRow" type="HBoxContainer" parent="Overlay/Panel/VBox"]
 [node name="Portrait" type="ColorRect" parent="Overlay/Panel/VBox/TopRow"]
 custom_minimum_size = Vector2(80, 80)

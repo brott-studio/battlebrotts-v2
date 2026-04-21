@@ -10,7 +10,13 @@ signal resolved(trick_id: String, choice_key: String)
 @onready var _btn_skip: Button = $Overlay/Panel/VBox/Buttons/Skip
 @onready var _preview_a: Label = $Overlay/Panel/VBox/PreviewRow/PreviewA
 @onready var _preview_b: Label = $Overlay/Panel/VBox/PreviewRow/PreviewB
+@onready var _first_run_framing: Label = $Overlay/Panel/VBox/FirstRunFraming
 @onready var _toast: Label = $Overlay/Toast
+
+## S17.1-006 — First-run contextual framing for the `crate_find` trick.
+## Key reserved by S17.1-004 (see first_run_state.gd §Consumers).
+const CRATE_FIRST_RUN_KEY := "crate_first_run"
+const CRATE_FRAMING_TEXT := "Crates are optional loot. Opening might give you an item \u2014 or nothing."
 var _trick: Dictionary = {}
 # S13.8: one-shot guard. Modal instances are single-use; shop_screen creates
 # a fresh instance per visit, so we don't reset this. Re-entry is a no-op.
@@ -30,6 +36,7 @@ func show_trick(trick: Dictionary) -> void:
 	_btn_b.text = trick.get("choice_b", {}).get("label", "")
 	_btn_skip.text = "Not now"
 	_toast.visible = false
+	_maybe_show_first_run_framing(trick)
 	_overlay.modulate.a = 0.0
 	_btn_a.pressed.connect(func(): _on_choice("choice_a"))
 	_btn_b.pressed.connect(func(): _on_choice("choice_b"))
@@ -155,3 +162,33 @@ func _on_skip() -> void:
 	await tw.finished
 	var tid: String = String(_trick.get("id", ""))
 	resolved.emit(tid, "skip")
+
+## S17.1-006 — First-run framing: show a one-line context label above the
+## existing dialogue the first time the player encounters a `crate_find`
+## trick. `mark_seen` fires on show (not on resolve), so Skip / ESC / any
+## dismissal still counts as having seen the framing. See design §4.
+func _maybe_show_first_run_framing(trick: Dictionary) -> void:
+	if _first_run_framing == null:
+		return
+	_first_run_framing.visible = false
+	if String(trick.get("id", "")) != "crate_find":
+		return
+	var frs: Node = _get_first_run_state()
+	if frs == null:
+		return
+	if bool(frs.call("has_seen", CRATE_FIRST_RUN_KEY)):
+		return
+	_first_run_framing.text = CRATE_FRAMING_TEXT
+	_first_run_framing.visible = true
+	frs.call("mark_seen", CRATE_FIRST_RUN_KEY)
+
+func _get_first_run_state() -> Node:
+	if not is_inside_tree():
+		return null
+	var tree := get_tree()
+	if tree == null:
+		return null
+	var root := tree.get_root()
+	if root == null:
+		return null
+	return root.get_node_or_null("FirstRunState")

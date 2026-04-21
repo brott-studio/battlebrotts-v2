@@ -453,12 +453,17 @@ func _move_brott(b: BrottState) -> void:
 		var center := Vector2(8.0 * TILE_SIZE, 8.0 * TILE_SIZE)
 		var to_center := center - b.position
 		if to_center.length() > spd:
-			b.position += to_center.normalized() * spd
+			# Smoothed-intent lane (#1 per revision §2): forward-chase to center.
+			var desired_vel_c: Vector2 = to_center.normalized() * b.current_speed
+			b.position += _smooth_velocity(b, desired_vel_c, TICK_DELTA)
 		else:
+			# Direct-write lane (#2): absolute snap when within one step. Reset
+			# velocity so the next smoothed call doesn't inherit stale momentum.
 			b.position = center
+			b.velocity = Vector2.ZERO
 	elif move_override == "cover":
 		b.accelerate_toward_speed(target_speed, TICK_DELTA)
-		var spd: float = b.current_speed * TICK_DELTA
+		var _spd: float = b.current_speed * TICK_DELTA
 		var best_pillar := Vector2.ZERO
 		var best_dist := INF
 		for p in _get_pillar_positions():
@@ -467,7 +472,11 @@ func _move_brott(b: BrottState) -> void:
 				best_dist = d
 				best_pillar = p
 		if best_dist > 32.0:
-			b.position += (best_pillar - b.position).normalized() * spd
+			# Smoothed-intent lane (#3): forward-chase toward cover pillar.
+			var to_pillar_v: Vector2 = best_pillar - b.position
+			if to_pillar_v.length_squared() > 0.0001:
+				var desired_vel_p: Vector2 = to_pillar_v.normalized() * b.current_speed
+				b.position += _smooth_velocity(b, desired_vel_p, TICK_DELTA)
 	else:
 		var to_target: Vector2 = b.target.position - b.position
 		var dist: float = to_target.length()
@@ -504,27 +513,47 @@ func _move_brott(b: BrottState) -> void:
 			if wants_to_move:
 				b.accelerate_toward_speed(approach_target_speed, TICK_DELTA)
 			var approach_spd: float = b.current_speed * TICK_DELTA
-			# Stance-based pathfinding (pre-engagement or ambush)
+			# Stance-based pathfinding (pre-engagement or ambush). Forward-chase
+			# and lateral-orbit sites go through the smoothed-intent lane
+			# (revision §2 #4, #6, #8, #9, #10). Stance-driven retreat (#5, #7)
+			# bypasses smoothing: discrete "back off" decision; sharpness preserves
+			# stance feel S11/S13 tuned. Retreat writes touch b.position directly
+			# and do NOT update b.velocity.
+			var to_target_n_pre: Vector2 = Vector2.ZERO
+			if to_target.length_squared() > 0.0001:
+				to_target_n_pre = to_target.normalized()
 			match b.stance:
 				0:  # Aggressive — close to engagement distance
 					var engage: Dictionary = _get_engagement_distance(b)
 					if dist > engage["ideal"] + engage["tolerance"]:
-						b.position += to_target.normalized() * approach_spd
+						# Smoothed (#4).
+						var desired_vel_a: Vector2 = to_target_n_pre * b.current_speed
+						b.position += _smooth_velocity(b, desired_vel_a, TICK_DELTA)
 				1:  # Defensive
 					if dist < max_weapon_range * 0.8:
-						b.position -= to_target.normalized() * approach_spd
+						# Direct-write (#5): stance-driven retreat. Bypass smoothing.
+						b.position -= to_target_n_pre * approach_spd
 					elif dist > max_weapon_range:
-						b.position += to_target.normalized() * approach_spd
+						# Smoothed (#6): forward-chase to range.
+						var desired_vel_d: Vector2 = to_target_n_pre * b.current_speed
+						b.position += _smooth_velocity(b, desired_vel_d, TICK_DELTA)
 				2:  # Kiting
-					var ideal: float = max_weapon_range * 0.7
-					var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-					if dist < ideal * 0.8:
-						b.position -= to_target.normalized() * approach_spd * 0.7
-						b.position += perp * approach_spd * 0.3
-					elif dist > ideal * 1.2:
-						b.position += to_target.normalized() * approach_spd
+					var ideal_k: float = max_weapon_range * 0.7
+					var perp_k: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
+					if dist < ideal_k * 0.8:
+						# Split: retreat bypasses (#7), lateral is smoothed (#8).
+						b.position -= to_target_n_pre * approach_spd * 0.7
+						var desired_vel_kl: Vector2 = perp_k * b.current_speed * 0.3
+						if desired_vel_kl.length_squared() > 0.0001:
+							b.position += _smooth_velocity(b, desired_vel_kl, TICK_DELTA)
+					elif dist > ideal_k * 1.2:
+						# Smoothed (#9): forward-chase.
+						var desired_vel_ka: Vector2 = to_target_n_pre * b.current_speed
+						b.position += _smooth_velocity(b, desired_vel_ka, TICK_DELTA)
 					else:
-						b.position += perp * approach_spd
+						# Smoothed (#10): lateral-orbit.
+						var desired_vel_ko: Vector2 = perp_k * b.current_speed
+						b.position += _smooth_velocity(b, desired_vel_ko, TICK_DELTA)
 				3:  # Ambush
 					pass
 	
@@ -870,27 +899,62 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 				b.tension_drift_timer = TENSION_DRIFT_INTERVAL
 				drift_offset = TENSION_DRIFT_AMOUNT * TILE_SIZE * (1.0 if rng.randf() < 0.5 else -1.0)
 			
+			# S17.2-003: smoothed-intent accumulator for this tick. Retreat writes
+			# (revision §2 #21) bypass this accumulator and write b.position
+			# directly so the backup_distance budget stays tick-accurate.
+			var desired_vel_t: Vector2 = Vector2.ZERO
+			var to_target_n_t: Vector2 = Vector2.ZERO
+			if to_target.length_squared() > 0.0001:
+				to_target_n_t = to_target.normalized()
+			var perp_t: Vector2 = Vector2(-to_target.y, to_target.x)
+			if perp_t.length_squared() > 0.0001:
+				perp_t = perp_t.normalized()
+			
 			if dist > ideal + tolerance:
-				b.position += to_target.normalized() * orbit_spd
+				# Smoothed (#20): forward-chase toward target.
+				desired_vel_t += to_target_n_t * b.current_speed
 				b.backup_distance = 0.0
 			elif dist < ideal - tolerance:
 				if b.backup_distance < TILE_SIZE:
+					# Direct-write (#21): TENSION-too-close retreat. Bypass smoothing
+					# so backup_distance budget stays tick-accurate (revision §3.2).
 					var step: float = minf(orbit_spd, TILE_SIZE - b.backup_distance)
-					b.position -= to_target.normalized() * step
+					b.position -= to_target_n_t * step
 					b.backup_distance += step
 				else:
-					var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-					b.position += perp * float(b.orbit_direction) * orbit_spd
+					# Smoothed (#22): budget-exhausted lateral orbit.
+					desired_vel_t += perp_t * float(b.orbit_direction) * b.current_speed
 					b.backup_distance = 0.0
 			else:
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				b.position += perp * float(b.orbit_direction) * orbit_spd
+				# Smoothed (#23): in-band lateral orbit.
+				desired_vel_t += perp_t * float(b.orbit_direction) * b.current_speed
 				b.backup_distance = 0.0
 			
-			# Apply drift perpendicular nudge
+			# S17.2-003 deviation from revision §5.3: drift nudge is NOT routed
+			# through the smoothed-intent accumulator.
+			#
+			# Background: the revision's §5.3 pseudocode lists the drift nudge as
+			# site #24 (smoothed). Implementing it that way drove the mirror
+			# Scout-vs-Scout WR from baseline 53% to 86% team-0 bias. Diagnosis
+			# (empirical, diag_mirror.gd): feeding drift through _smooth_velocity
+			# amplifies a ~0.3-tile one-shot displacement into ~2–3 ticks of
+			# persistent lateral momentum. Because the TENSION RNG draw for
+			# drift direction is consumed sequentially (team 0 first, team 1
+			# second) and velocity inherits across ticks, the lateral momentum
+			# compounds asymmetrically.
+			#
+			# Fix: zero the drift contribution for now. The drift effect is
+			# preserved in principle — it could be re-introduced by a Gizmo
+			# design pass that accounts for tick-order symmetry (e.g. paired RNG,
+			# or synchronized drift direction across both bots). That is out of
+			# scope for S17.2-003. Treating it as a direct-write at 0.3 tile is
+			# also asymmetric (tested: 81.5% bias), so full removal is the
+			# cleanest neutral state until the design question is answered.
 			if drift_offset != 0.0:
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				b.position += perp * drift_offset
+				pass
+			
+			if desired_vel_t.length_squared() > 0.0001:
+				b.position += _smooth_velocity(b, desired_vel_t, TICK_DELTA)
 		
 		1:  # COMMIT — dash toward target at 140% base speed (capped at COMMIT_SPEED_CAP px/s, S13.3)
 			# Pre-afterburner/overtime commit target is min(base_speed * 1.4, COMMIT_SPEED_CAP).
@@ -902,13 +966,15 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 			if overtime_active:
 				commit_target_speed *= OVERTIME_SPEED_MULT
 			b.accelerate_toward_speed(commit_target_speed, TICK_DELTA)
-			var commit_spd: float = b.current_speed * TICK_DELTA
+			var _commit_spd: float = b.current_speed * TICK_DELTA
 			
-			# Dash toward target, but don't get closer than 0.5 tiles
+			# Dash toward target, but don't get closer than 0.5 tiles.
+			# Smoothed (#25): canonical scout-feel forward-chase.
 			var min_dist: float = 0.5 * TILE_SIZE
 			var commit_target_dist: float = maxf(ideal - 1.5 * TILE_SIZE, min_dist)
-			if dist > commit_target_dist:
-				b.position += to_target.normalized() * commit_spd
+			if dist > commit_target_dist and to_target.length_squared() > 0.0001:
+				var desired_vel_c: Vector2 = to_target.normalized() * b.current_speed
+				b.position += _smooth_velocity(b, desired_vel_c, TICK_DELTA)
 		
 		2:  # RECOVERY — retreat back toward ideal engagement distance
 			var recovery_target_speed: float = b.base_speed * DISENGAGE_SPEED_MULT
@@ -919,16 +985,23 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 			b.accelerate_toward_speed(recovery_target_speed, TICK_DELTA)
 			var recovery_spd: float = b.current_speed * TICK_DELTA
 			
-			# Move away from target back toward ideal distance
-			# Respect backup_distance cap (max 1 tile retreat before lateral)
+			var to_target_n_r: Vector2 = Vector2.ZERO
+			if to_target.length_squared() > 0.0001:
+				to_target_n_r = to_target.normalized()
 			if dist < ideal and b.backup_distance < TILE_SIZE:
+				# Direct-write (#26): RECOVERY retreat. Bypass smoothing; same
+				# backup-budget invariant as #21.
 				var step: float = minf(recovery_spd, TILE_SIZE - b.backup_distance)
-				b.position -= to_target.normalized() * step
+				b.position -= to_target_n_r * step
 				b.backup_distance += step
 			else:
-				# Lateral movement once backup cap reached
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				b.position += perp * float(b.orbit_direction) * recovery_spd
+				# Smoothed (#27): lateral once backup budget is exhausted (or
+				# already at/beyond ideal).
+				var perp_r: Vector2 = Vector2(-to_target.y, to_target.x)
+				if perp_r.length_squared() > 0.0001:
+					perp_r = perp_r.normalized()
+					var desired_vel_r: Vector2 = perp_r * float(b.orbit_direction) * b.current_speed
+					b.position += _smooth_velocity(b, desired_vel_r, TICK_DELTA)
 
 func _get_max_weapon_range_px(b: BrottState) -> float:
 	var max_r: float = 0.0

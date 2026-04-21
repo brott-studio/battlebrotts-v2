@@ -1,6 +1,6 @@
 # Sprint 18.1 — Optic + Boltz GitHub Apps + Required-Check Wiring
 
-**Status:** Planning
+**Status:** Complete
 **Arc:** Framework Hardening (S18)
 **Sub-sprint:** 1 of 5 (per arc-open shape; see §"Sub-sprint shape reminder")
 **Planned by:** Ett
@@ -93,12 +93,33 @@ Task IDs `[S18.1-NNN]`. Agents: Nutts (builder; in this sprint, also infra scaff
 
 ## Acceptance criteria
 
-- **AC-1 (S17.1-005 "physically impossible to bypass"):** On `battlebrotts-v2:main`, a PR cannot be merged until `Optic Verified` check-run has posted `conclusion: success` from the Optic App. Recreating the S17.1 sequence (Specc/Nutts/auto-merge attempts to merge before Optic posts) is blocked by branch protection, not by prompt convention. Verified via **[S18.1-012]**.
-- **AC-2 (Boltz self-review-422 resolved):** Boltz can APPROVE a Nutts-authored PR using its own App token and receive HTTP 200. Audit trail shows reviewer as `brott-studio-boltz[bot]`, distinct from the PR author. Same-actor 422 edge cases remain (platform-level, per `per-agent-github-apps.md`) but cross-actor flow — the actual pipeline requirement — works. Verified via **[S18.1-013]**.
-- **AC-3 (Inventory documented):** `studio-framework/SECRETS.md` lists Optic + Boltz App IDs, Installation IDs, PEM paths, token-helper paths in the same inline-comment shape as the existing Specc entry.
-- **AC-4 (Profiles updated):** `optic.md` documents check-run posting; `boltz.md` documents App-token auth + cross-actor review flow; `specc.md` cross-references the structural gate without restating the rule. `SPAWN_PROTOCOL.md` preambles for Optic and Boltz reference their own App tokens.
-- **AC-5 (No silent PAT fallback):** Token helpers exit non-zero on config/API failure; agents stop and report. No agent code path falls back to `~/.config/gh/brott-studio-token` silently.
-- **AC-6 (Scope-gate held):** Zero diffs under `godot/**`, `docs/gdd.md`. All changes land in `studio-framework/**`, `docs/kb/**` (if any), `~/bin/**` (workspace-host only, not in repo), or the `battlebrotts-v2` branch-protection config.
+- **AC-1 (S17.1-005 "physically impossible to bypass"):** ✅ PASS (narrow — pipeline actors blocked; admin-PAT bypass → S18.4). On `battlebrotts-v2:main`, a PR cannot be merged until `Optic Verified` check-run has posted `conclusion: success` from the Optic App. Recreating the S17.1 sequence (Specc/Nutts/auto-merge attempts to merge before Optic posts) is blocked by branch protection, not by prompt convention. Verified via **[S18.1-012]**.
+- **AC-2 (Boltz self-review-422 resolved):** ✅ PASS. Boltz can APPROVE a Nutts-authored PR using its own App token and receive HTTP 200. Audit trail shows reviewer as `brott-studio-boltz[bot]`, distinct from the PR author. Same-actor 422 edge cases remain (platform-level, per `per-agent-github-apps.md`) but cross-actor flow — the actual pipeline requirement — works. Verified via **[S18.1-013]**.
+- **AC-3 (Inventory documented):** ✅ PASS. `studio-framework/SECRETS.md` lists Optic + Boltz App IDs, Installation IDs, PEM paths, token-helper paths in the same inline-comment shape as the existing Specc entry.
+- **AC-4 (Profiles updated):** ✅ PASS. `optic.md` documents check-run posting; `boltz.md` documents App-token auth + cross-actor review flow; `specc.md` cross-references the structural gate without restating the rule. `SPAWN_PROTOCOL.md` preambles for Optic and Boltz reference their own App tokens.
+- **AC-5 (No silent PAT fallback):** ✅ PASS. Token helpers exit non-zero on config/API failure; agents stop and report. No agent code path falls back to `~/.config/gh/brott-studio-token` silently.
+- **AC-6 (Scope-gate held):** ✅ PASS. Zero diffs under `godot/**`, `docs/gdd.md`. All changes land in `studio-framework/**`, `docs/kb/**` (if any), `~/bin/**` (workspace-host only, not in repo), or the `battlebrotts-v2` branch-protection config.
+
+---
+
+## Close-out residuals
+
+*Added at S18.1 close-out (2026-04-21) per HCD-delegated Bott decisions.*
+
+### AC-1 interpretation (narrow read)
+
+Per HCD-delegated Bott decision 2026-04-21, AC-1 is interpreted as **"pipeline actors (App tokens) cannot bypass the branch-protection gate."** Under that reading, AC-1 is **PASS**: PR #222 — a pre-Optic Boltz-App-token merge attempt — returned **HTTP 405**, confirming the pipeline gate holds against normal pipeline actors.
+
+**Admin-PAT bypass is a known residual.** Branch protection on `main` does not currently have `enforce_admins` set, so an admin-PAT probe (PR #221) returned **HTTP 200**. This is deferred to **S18.4** (Optic as sole-merger / admin lockdown), per the original arc plan. **Do NOT flip `enforce_admins` this sprint** — that's S18.4 scope.
+
+### Evidence
+
+- **PR #222** — pre-Optic Boltz-App-token merge attempt → **HTTP 405** → **PASS (pipeline gate holds).**
+- **PR #221** — admin-PAT probe → **HTTP 200** → **residual, carry to S18.4.**
+
+### O1 resolved (planning-PR audit-gate)
+
+Open Question **O1** (audit-gate planning-PR structural enforcement) resolved by Bott decision 2026-04-21: **Option B.** S18.2 will add a CI check that fails a planning PR when the prior sprint's audit file is absent from `brott-studio/studio-audits` on `main`. This is a **carry-forward to S18.2 scope**.
 
 ---
 
@@ -158,7 +179,7 @@ Arc fuse: 5 sub-sprints; re-evaluate with HCD if any sub-sprint grows or additio
 
 ## Exit criteria
 
-- [ ] All AC-1 through AC-6 satisfied and evidenced.
-- [ ] `sprint-18.1.md` status updated from `Planning` to `Complete` at close-out; exit-criteria checkboxes ticked; carry-forwards (if any) listed.
-- [ ] Specc audit for S18.1 lands on `studio-audits/main` before S18.2 planning PR opens (audit-gate discipline).
-- [ ] No regressions in existing required checks on `battlebrotts-v2:main`.
+- [x] All AC-1 through AC-6 satisfied and evidenced. *(AC-1 narrow — pipeline actors blocked; admin-PAT bypass → S18.4. See Close-out residuals.)*
+- [x] `sprint-18.1.md` status updated from `Planning` to `Complete` at close-out; exit-criteria checkboxes ticked; carry-forwards (if any) listed.
+- [x] Specc audit for S18.1 lands on `studio-audits/main` before S18.2 planning PR opens (audit-gate discipline).
+- [x] No regressions in existing required checks on `battlebrotts-v2:main`.

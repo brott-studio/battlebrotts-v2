@@ -480,7 +480,7 @@ func _move_brott(b: BrottState) -> void:
 		if to_center.length() > spd:
 			# Smoothed-intent lane (#1 per revision §2): forward-chase to center.
 			var desired_vel_c: Vector2 = to_center.normalized() * b.current_speed
-			b.position += _smooth_velocity(b, desired_vel_c, TICK_DELTA)
+			_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_c, TICK_DELTA))
 		else:
 			# Direct-write lane (#2): absolute snap when within one step. Reset
 			# velocity so the next smoothed call doesn't inherit stale momentum.
@@ -501,7 +501,7 @@ func _move_brott(b: BrottState) -> void:
 			var to_pillar_v: Vector2 = best_pillar - b.position
 			if to_pillar_v.length_squared() > 0.0001:
 				var desired_vel_p: Vector2 = to_pillar_v.normalized() * b.current_speed
-				b.position += _smooth_velocity(b, desired_vel_p, TICK_DELTA)
+				_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_p, TICK_DELTA))
 	else:
 		var to_target: Vector2 = b.target._pos_snapshot - b.position
 		var dist: float = to_target.length()
@@ -553,7 +553,7 @@ func _move_brott(b: BrottState) -> void:
 					if dist > engage["ideal"] + engage["tolerance"]:
 						# Smoothed (#4).
 						var desired_vel_a: Vector2 = to_target_n_pre * b.current_speed
-						b.position += _smooth_velocity(b, desired_vel_a, TICK_DELTA)
+						_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_a, TICK_DELTA))
 				1:  # Defensive
 					if dist < max_weapon_range * 0.8:
 						# Direct-write (#5): stance-driven retreat. Bypass smoothing.
@@ -562,7 +562,7 @@ func _move_brott(b: BrottState) -> void:
 					elif dist > max_weapon_range:
 						# Smoothed (#6): forward-chase to range.
 						var desired_vel_d: Vector2 = to_target_n_pre * b.current_speed
-						b.position += _smooth_velocity(b, desired_vel_d, TICK_DELTA)
+						_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_d, TICK_DELTA))
 				2:  # Kiting
 					var ideal_k: float = max_weapon_range * 0.7
 					var perp_k: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
@@ -572,15 +572,15 @@ func _move_brott(b: BrottState) -> void:
 						b.position -= to_target_n_pre * approach_spd * 0.7 * RETREAT_SPEED_MULT
 						var desired_vel_kl: Vector2 = perp_k * b.current_speed * 0.3
 						if desired_vel_kl.length_squared() > 0.0001:
-							b.position += _smooth_velocity(b, desired_vel_kl, TICK_DELTA)
+							_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_kl, TICK_DELTA))
 					elif dist > ideal_k * 1.2:
 						# Smoothed (#9): forward-chase.
 						var desired_vel_ka: Vector2 = to_target_n_pre * b.current_speed
-						b.position += _smooth_velocity(b, desired_vel_ka, TICK_DELTA)
+						_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_ka, TICK_DELTA))
 					else:
 						# Smoothed (#10): lateral-orbit.
 						var desired_vel_ko: Vector2 = perp_k * b.current_speed
-						b.position += _smooth_velocity(b, desired_vel_ko, TICK_DELTA)
+						_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_ko, TICK_DELTA))
 				3:  # Ambush
 					pass
 	
@@ -875,6 +875,31 @@ func _smooth_velocity(b: BrottState, desired: Vector2, dt: float) -> Vector2:
 
 	return b.velocity * dt
 
+# S17.2-003 Addendum 1: apply a smoothed-intent displacement with a budget gate
+# on its backward-along-target component. Forward and perpendicular components
+# pass through untouched; any backward-along component is clamped against the
+# remaining `backup_distance` budget (same contract as separation L625 and
+# unstick nudge L790). Closes the wall-clamp + orbit-flip limit-cycle bypass
+# identified in the strict-zero moonwalk seeds 5/8/80/83.
+func _apply_smoothed_displacement(b: BrottState, delta: Vector2) -> void:
+	if b.target == null or delta.length_squared() < 0.0001:
+		b.position += delta
+		return
+	var to_target_v: Vector2 = b.target._pos_snapshot - b.position
+	if to_target_v.length_squared() < 0.0001:
+		b.position += delta
+		return
+	var to_target_n: Vector2 = to_target_v.normalized()
+	var along: float = delta.dot(to_target_n)
+	if along >= 0.0:
+		b.position += delta  # forward or purely perpendicular — passthrough
+		return
+	var perp_delta: Vector2 = delta - to_target_n * along
+	var remaining_budget: float = maxf(0.0, TILE_SIZE - b.backup_distance)
+	var backward_mag: float = minf(-along, remaining_budget)
+	b.backup_distance += backward_mag
+	b.position += perp_delta + to_target_n * (-backward_mag)
+
 func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 	var to_target: Vector2 = b.target._pos_snapshot - b.position
 	var dist: float = to_target.length()
@@ -982,7 +1007,7 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 				pass
 			
 			if desired_vel_t.length_squared() > 0.0001:
-				b.position += _smooth_velocity(b, desired_vel_t, TICK_DELTA)
+				_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_t, TICK_DELTA))
 		
 		1:  # COMMIT — dash toward target at 140% base speed (capped at COMMIT_SPEED_CAP px/s, S13.3)
 			# Pre-afterburner/overtime commit target is min(base_speed * 1.4, COMMIT_SPEED_CAP).
@@ -1002,7 +1027,7 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 			var commit_target_dist: float = maxf(ideal - 1.5 * TILE_SIZE, min_dist)
 			if dist > commit_target_dist and to_target.length_squared() > 0.0001:
 				var desired_vel_c: Vector2 = to_target.normalized() * b.current_speed
-				b.position += _smooth_velocity(b, desired_vel_c, TICK_DELTA)
+				_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_c, TICK_DELTA))
 		
 		2:  # RECOVERY — retreat back toward ideal engagement distance
 			var recovery_target_speed: float = b.base_speed * DISENGAGE_SPEED_MULT
@@ -1030,7 +1055,7 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 				if perp_r.length_squared() > 0.0001:
 					perp_r = perp_r.normalized()
 					var desired_vel_r: Vector2 = perp_r * float(b.orbit_direction) * b.current_speed
-					b.position += _smooth_velocity(b, desired_vel_r, TICK_DELTA)
+					_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_r, TICK_DELTA))
 
 func _get_max_weapon_range_px(b: BrottState) -> float:
 	var max_r: float = 0.0

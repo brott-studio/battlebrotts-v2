@@ -4,6 +4,8 @@
 
 Build autonomous combat Brotts, teach them how to fight with drag-and-drop Behavior Cards, and watch them battle in top-down arenas.
 
+🌐 **Public landing:** https://brott-studio.github.io/battlebrotts/ · **Studio site:** https://brott-studio.github.io/
+
 **Engine:** Godot 4 | **Platform:** Web (HTML5) | **Genre:** Auto-battler / Strategy
 
 <!-- STATUS-START -->

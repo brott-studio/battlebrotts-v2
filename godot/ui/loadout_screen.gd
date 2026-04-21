@@ -236,9 +236,14 @@ func _get_weight_color(ratio: float) -> Color:
 		return WEIGHT_GREEN
 
 ## S12.2: Create a styled item card (equipped vs unequipped)
+## [S17.1-003] Row now renders an always-visible inline summary (description)
+## under the name line. Row stride 32 → 64 px (inside S17.1-002 §7.1's authorized
+## 60–80 px envelope). Hover tooltip preserved on the wrapping Button as the
+## full-text fallback.
 func _create_item_card(item_name: String, archetype: String, description: String, equipped: bool) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.size = Vector2(500, 32)
+	panel.custom_minimum_size = Vector2(500, 64)
+	panel.size = Vector2(500, 64)
 
 	var style := StyleBoxFlat.new()
 	if equipped:
@@ -260,38 +265,73 @@ func _create_item_card(item_name: String, archetype: String, description: String
 		style.border_width_bottom = 0
 		panel.add_theme_stylebox_override("panel", style)
 
-	var btn := Button.new()
-	btn.name = "Button"
-	btn.flat = true
 	var display_text: String
 	if archetype != "":
 		display_text = "%s — %s" % [item_name, archetype]
 	else:
 		display_text = item_name
 
-	if equipped:
-		btn.text = "✓ " + display_text
-		btn.add_theme_color_override("font_color", EQUIPPED_TEXT)
-		btn.add_theme_color_override("font_hover_color", EQUIPPED_TEXT)
-	else:
-		btn.text = "  " + display_text
-		btn.add_theme_color_override("font_color", UNEQUIPPED_TEXT)
-		btn.add_theme_color_override("font_hover_color", UNEQUIPPED_TEXT)
+	var text_color: Color = EQUIPPED_TEXT if equipped else UNEQUIPPED_TEXT
+	var prefix: String = "✓ " if equipped else "  "
 
-	btn.tooltip_text = description
-	btn.size = Vector2(500, 32)
+	# [S17.1-003] Stack (name line + summary line) rendered inside the panel.
+	# The overlay Button remains the sole click target, wrapping the full row
+	# so keyboard focus/hover tooltip behavior is unchanged.
+	var stack := VBoxContainer.new()
+	stack.name = "Stack"
+	stack.add_theme_constant_override("separation", 2)
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# Accessibility: equipped state in text for screen readers
+	var name_lbl := Label.new()
+	name_lbl.name = "NameLabel"
+	name_lbl.text = prefix + display_text
+	name_lbl.add_theme_font_size_override("font_size", 14)
+	name_lbl.add_theme_color_override("font_color", text_color)
+	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	stack.add_child(name_lbl)
+
+	# Summary sub-label — always-visible description, truncates with ellipsis.
+	# Fallback to em-dash when description is empty (design §6.1).
+	var summary_lbl := Label.new()
+	summary_lbl.name = "SummaryLabel"
+	var summary_text: String = description if description != "" else "—"
+	summary_lbl.text = "   " + summary_text
+	summary_lbl.add_theme_font_size_override("font_size", 12)
+	var sub_color: Color = text_color
+	sub_color.a = 0.75
+	summary_lbl.add_theme_color_override("font_color", sub_color)
+	summary_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	summary_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	summary_lbl.clip_text = true
+	summary_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(summary_lbl)
+
+	panel.add_child(stack)
+
+	# Click target — wraps the whole panel. Flat & transparent so Stack text
+	# shows through. Preserves equipped-state tooltip (fallback) semantics.
+	var btn := Button.new()
+	btn.name = "Button"
+	btn.flat = true
+	btn.text = ""
+	btn.custom_minimum_size = Vector2(500, 64)
+	btn.size = Vector2(500, 64)
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	if equipped:
 		btn.tooltip_text = "[Equipped] " + description
-
+	else:
+		btn.tooltip_text = description
 	panel.add_child(btn)
 	return panel
 
 ## S12.2: Create empty slot indicator with dashed outline and "+" icon
+## [S17.1-003] Row height matches populated rows (64 px) so empty/filled
+## rows align visually inside the scroll VBox.
 func _create_empty_slot_indicator(slot_type: String) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.size = Vector2(500, 32)
+	panel.custom_minimum_size = Vector2(500, 64)
+	panel.size = Vector2(500, 64)
 
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0)
@@ -307,7 +347,8 @@ func _create_empty_slot_indicator(slot_type: String) -> PanelContainer:
 	lbl.name = "SlotLabel"
 	lbl.text = "  + Empty %s slot" % slot_type
 	lbl.add_theme_color_override("font_color", EMPTY_SLOT_COLOR)
-	lbl.size = Vector2(500, 32)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.size = Vector2(500, 64)
 	panel.add_child(lbl)
 
 	return panel

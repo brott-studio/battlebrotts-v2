@@ -132,6 +132,11 @@ func _maybe_show_trick_then_build() -> void:
 	# S13.8: queue_free BEFORE apply so modal is always reclaimed,
 	# even if apply_trick_choice raises on malformed trick data.
 	modal.queue_free()
+	# S17.1-005 — Skip path: bypass apply_trick_choice entirely. No bolts/HP
+	# /inventory change, no flavor toast. Silence is the reward.
+	if choice_key == "skip":
+		_build_ui()
+		return
 	# S13.8 item 5: pass patched dict so apply operates on the pre-resolved
 	# pool tokens (RNG-consistent with the toast the modal showed).
 	game_state.apply_trick_choice(patched, choice_key)
@@ -425,6 +430,26 @@ func _build_card(it: Dictionary) -> Control:
 	tag.size = Vector2(CARD_W - 20, 16)
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(tag)
+
+	# [S17.1-003] Inline description — always visible, no hover required.
+	# Reads existing data["description"] field; em-dash fallback when empty.
+	# Full text remains available via existing expand-panel / hover path.
+	var data_dict: Dictionary = it["data"] if it.has("data") else {}
+	var desc_str: String = String(data_dict.get("description", ""))
+	if desc_str == "":
+		desc_str = "—"
+	var desc_lbl := Label.new()
+	desc_lbl.name = "Description"
+	desc_lbl.text = desc_str
+	desc_lbl.add_theme_font_size_override("font_size", 11)
+	desc_lbl.add_theme_color_override("font_color", COLOR_MUTED)
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	desc_lbl.clip_text = true
+	desc_lbl.position = Vector2(10, ART_H + 54)
+	desc_lbl.size = Vector2(CARD_W - 20, 32)
+	desc_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(desc_lbl)
 
 	# Price (bottom-right)
 	var price_lbl := Label.new()

@@ -6,17 +6,23 @@ script = ExtResource("1")
 [node name="Overlay" type="ColorRect" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.6)
+color = Color(0, 0, 0, 0.45)
 [node name="Panel" type="PanelContainer" parent="Overlay"]
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -300.0
-offset_top = -150.0
+offset_top = -170.0
 offset_right = 300.0
-offset_bottom = 150.0
+offset_bottom = 170.0
 [node name="VBox" type="VBoxContainer" parent="Overlay/Panel"]
+[node name="FirstRunFraming" type="Label" parent="Overlay/Panel/VBox"]
+visible = false
+modulate = Color(0.75, 0.75, 0.75, 1)
+autowrap_mode = 3
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 13
 [node name="TopRow" type="HBoxContainer" parent="Overlay/Panel/VBox"]
 [node name="Portrait" type="ColorRect" parent="Overlay/Panel/VBox/TopRow"]
 custom_minimum_size = Vector2(80, 80)
@@ -27,12 +33,28 @@ autowrap_mode = 3
 [node name="Prompt" type="Label" parent="Overlay/Panel/VBox"]
 autowrap_mode = 3
 horizontal_alignment = 1
+[node name="PreviewRow" type="HBoxContainer" parent="Overlay/Panel/VBox"]
+alignment = 1
+[node name="PreviewA" type="Label" parent="Overlay/Panel/VBox/PreviewRow"]
+size_flags_horizontal = 3
+horizontal_alignment = 1
+autowrap_mode = 3
+custom_minimum_size = Vector2(0, 18)
+[node name="PreviewB" type="Label" parent="Overlay/Panel/VBox/PreviewRow"]
+size_flags_horizontal = 3
+horizontal_alignment = 1
+autowrap_mode = 3
+custom_minimum_size = Vector2(0, 18)
 [node name="Buttons" type="HBoxContainer" parent="Overlay/Panel/VBox"]
 alignment = 1
 [node name="ChoiceA" type="Button" parent="Overlay/Panel/VBox/Buttons"]
 size_flags_horizontal = 3
 [node name="ChoiceB" type="Button" parent="Overlay/Panel/VBox/Buttons"]
 size_flags_horizontal = 3
+[node name="Skip" type="Button" parent="Overlay/Panel/VBox/Buttons"]
+size_flags_horizontal = 3
+text = "Not now"
+modulate = Color(0.78, 0.82, 0.88, 1)
 [node name="Toast" type="Label" parent="Overlay"]
 anchor_left = 0.5
 anchor_top = 0.85

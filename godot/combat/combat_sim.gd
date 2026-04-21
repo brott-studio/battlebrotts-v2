@@ -642,31 +642,8 @@ func _check_and_handle_stuck(b: BrottState) -> void:
 		b._unstick_timer -= 1.0
 		var nudge: Vector2 = _wall_escape_direction(b)
 		if nudge != Vector2.ZERO:
-			# S15 moonwalk fix: clamp the backward component of the unstick nudge
-			# against the shared `backup_distance` budget (TILE_SIZE). The escape
-			# direction can resolve to a backward vector when no clear wall/pillar
-			# signal is available; without this gate, the nudge is a 7px/tick
-			# unclamped retreat source. Forward/lateral components pass through
-			# untouched — the unstick maneuver's job is to escape geometry, not to
-			# out-retreat the moonwalk invariant. See docs/kb/juke-bypass-movement-caps.md.
 			var push: Vector2 = nudge * UNSTICK_NUDGE_PX_PER_TICK
-			var to_target_u: Vector2 = b.target.position - b.position
-			if to_target_u.length_squared() > 0.0001:
-				var to_target_n: Vector2 = to_target_u.normalized()
-				var along: float = push.dot(to_target_n)
-				var perp_push: Vector2 = push - to_target_n * along
-				if along < 0.0:
-					var remaining_budget: float = maxf(0.0, TILE_SIZE - b.backup_distance)
-					var backward_mag: float = minf(-along, remaining_budget)
-					b.backup_distance += backward_mag
-					b.position += perp_push + to_target_n * (-backward_mag)
-				else:
-					b.position += push
-			else:
-				b.position += push
-			var arena_px2: float = 16.0 * TILE_SIZE
-			b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
-			b.position.y = clampf(b.position.y, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
+			_apply_unstick_nudge(b, push)
 		return
 	if not b.alive or b.target == null or not b.target.alive:
 		if not b._stuck_history.is_empty():
@@ -695,11 +672,25 @@ func _check_and_handle_stuck(b: BrottState) -> void:
 		if json_log_enabled:
 			_tick_events.append({"type": "nav_unstick", "bot_id": b.bot_name, "pos": [b.position.x, b.position.y]})
 
+# S17.2-002 magnitude gate: pre-normalize sum must clear this magnitude before
+# we trust its direction. When wall and pillar contributions partially cancel
+# (HCD's corner+inner-pillar repro, issue #180), the pre-normalize sum can be
+# near-zero but non-zero — normalizing it would amplify direction noise and
+# apply a 7 px/tick nudge in a bogus direction that fails to clear the wedge
+# before COMMIT re-pins the bot. Redirect to the target-bias fallback instead.
+# Threshold locked at 0.25 per Riv (S17.2-002 task prompt, Q1).
+const ESCAPE_MAGNITUDE_MIN: float = 0.25
+
 func _wall_escape_direction(b: BrottState) -> Vector2:
 	# Push away from nearest wall/pillar. If no clear wall/pillar vector (rare,
 	# since we only arm near geometry), bias TOWARD target — advancing breaks
 	# wedge standoffs and, critically, does NOT produce the moonwalk arc that a
 	# perpendicular-to-target fallback would (Boltz HOLD review, Flag 1).
+	#
+	# S17.2-002 (issue #180): the magnitude gate below catches the near-cancelling
+	# corner+pillar case that the previous `> 0.01` gate let through as direction
+	# noise. See docs/design/s17.2-001-wall-stuck.md §4 for Gizmo's root-cause
+	# analysis.
 	const WALL_PROX_PX: float = TILE_SIZE
 	const PILLAR_PROX_PX: float = BOT_HITBOX_RADIUS + 48.0
 	var arena_px: float = 16.0 * TILE_SIZE
@@ -712,13 +703,48 @@ func _wall_escape_direction(b: BrottState) -> Vector2:
 		var away: Vector2 = b.position - p
 		if away.length() < PILLAR_PROX_PX and away.length() > 0.01:
 			e += away.normalized()
-	if e.length() >= 0.01:
+	if e.length() >= ESCAPE_MAGNITUDE_MIN:
 		return e.normalized()
 	if b.target != null and b.target.alive:
 		var tt: Vector2 = b.target.position - b.position
 		if tt.length() > 0.01:
 			return tt.normalized()
 	return Vector2.ZERO
+
+# S17.2-002: the ONE unstick write-site. Applies the 7 px/tick nudge with the
+# S15 moonwalk backward-component clamp and the arena-bounds clamp. Extracted
+# as a single call-site so S17.2-003 (scout-feel) can route this write around
+# its velocity-smoothing layer via a `bypass_smoothing` opt-out — the smoothing
+# lag would otherwise defeat the 8-tick unstick maneuver. Grep-verified: this
+# is the only `b.position +=` write inside `_check_and_handle_stuck`.
+func _apply_unstick_nudge(b: BrottState, push: Vector2) -> void:
+	# S15 moonwalk fix: clamp the backward component of the unstick nudge
+	# against the shared `backup_distance` budget (TILE_SIZE). The escape
+	# direction can resolve to a backward vector when no clear wall/pillar
+	# signal is available; without this gate, the nudge is a 7px/tick
+	# unclamped retreat source. Forward/lateral components pass through
+	# untouched — the unstick maneuver's job is to escape geometry, not to
+	# out-retreat the moonwalk invariant. See docs/kb/juke-bypass-movement-caps.md.
+	if b.target != null:
+		var to_target_u: Vector2 = b.target.position - b.position
+		if to_target_u.length_squared() > 0.0001:
+			var to_target_n: Vector2 = to_target_u.normalized()
+			var along: float = push.dot(to_target_n)
+			var perp_push: Vector2 = push - to_target_n * along
+			if along < 0.0:
+				var remaining_budget: float = maxf(0.0, TILE_SIZE - b.backup_distance)
+				var backward_mag: float = minf(-along, remaining_budget)
+				b.backup_distance += backward_mag
+				b.position += perp_push + to_target_n * (-backward_mag)
+			else:
+				b.position += push
+		else:
+			b.position += push
+	else:
+		b.position += push
+	var arena_px2: float = 16.0 * TILE_SIZE
+	b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
+	b.position.y = clampf(b.position.y, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
 
 func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 	var to_target: Vector2 = b.target.position - b.position

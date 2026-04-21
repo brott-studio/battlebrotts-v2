@@ -44,8 +44,11 @@ func test_equipped_card_styling() -> void:
 	_assert(style.border_width_top >= 1, "Equipped has border width")
 
 	var btn: Button = card.get_node("Button")
-	_assert(btn.text.begins_with("✓"), "Equipped card has checkmark badge")
-	_assert(btn.get_theme_color("font_color") == Color.WHITE, "Equipped text is white")
+	# [S17.1-003] Name + checkmark + color moved from Button.text onto NameLabel
+	# inside the Stack VBox. Button is now a transparent overlay click target.
+	var name_lbl: Label = card.get_node("Stack/NameLabel")
+	_assert(name_lbl.text.begins_with("✓"), "Equipped card has checkmark badge")
+	_assert(name_lbl.get_theme_color("font_color") == Color.WHITE, "Equipped text is white")
 	_assert("[Equipped]" in btn.tooltip_text, "Equipped state in tooltip for accessibility")
 	screen.free()
 
@@ -62,8 +65,10 @@ func test_unequipped_card_styling() -> void:
 	_assert(style.shadow_size == 0 or not ("shadow_size" in style), "Unequipped has no shadow")
 
 	var btn: Button = card.get_node("Button")
-	_assert(not btn.text.begins_with("✓"), "Unequipped card has no checkmark")
-	_assert(btn.get_theme_color("font_color") == Color("#AAAAAA"), "Unequipped text is grey")
+	# [S17.1-003] Name + color moved to NameLabel inside the Stack VBox.
+	var name_lbl: Label = card.get_node("Stack/NameLabel")
+	_assert(not name_lbl.text.begins_with("✓"), "Unequipped card has no checkmark")
+	_assert(name_lbl.get_theme_color("font_color") == Color("#AAAAAA"), "Unequipped text is grey")
 	screen.free()
 
 # --- Weight Bar Updates ---

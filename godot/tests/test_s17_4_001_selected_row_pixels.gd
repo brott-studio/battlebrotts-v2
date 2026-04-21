@@ -80,13 +80,19 @@ func _mk_screen_with_cards(card_count: int, selected: int) -> BrottBrainScreen:
 	return screen
 
 # Find the ColorRect overlay for a given row index by name (set in
-# _draw_card as "select_overlay_<index>").
+# _draw_card as "select_overlay_<index>"). Walks the scene tree
+# recursively — [S17.4-002] overlays moved into a ScrollContainer's
+# content node, so they're no longer direct children of the screen.
 func _find_overlay(screen: BrottBrainScreen, index: int) -> ColorRect:
-	for child in screen.get_children():
-		if child is ColorRect and not child.is_queued_for_deletion():
-			var cr: ColorRect = child
-			if cr.name == StringName("select_overlay_%d" % index):
-				return cr
+	return _find_overlay_recursive(screen, StringName("select_overlay_%d" % index))
+
+func _find_overlay_recursive(node: Node, target_name: StringName) -> ColorRect:
+	if node is ColorRect and not node.is_queued_for_deletion() and node.name == target_name:
+		return node
+	for child in node.get_children():
+		var found := _find_overlay_recursive(child, target_name)
+		if found != null:
+			return found
 	return null
 
 # --- Pixel-sample helper (the #207 reference pattern) ---
@@ -112,20 +118,27 @@ func _find_overlay(screen: BrottBrainScreen, index: int) -> ColorRect:
 #   overlay are transparent, which is a degenerate fixture case.)
 func _sample_pixel(screen: BrottBrainScreen, point: Vector2) -> Color:
 	var acc := BASE_COLOR
-	for child in screen.get_children():
-		if not (child is ColorRect):
-			continue
-		if child.is_queued_for_deletion():
-			continue
-		var cr: ColorRect = child
+	var rects: Array[ColorRect] = []
+	_collect_color_rects(screen, rects)
+	for cr in rects:
 		if not cr.visible:
 			continue
+		# The `point` here is expressed in the ColorRect's local
+		# coordinate space (tests sample at cr.position + cr.size * 0.5,
+		# which is a content-local coordinate whether the overlay is a
+		# direct child of the screen or nested inside a ScrollContainer).
 		var rect := Rect2(cr.position, cr.size)
 		if not rect.has_point(point):
 			continue
 		var src: Color = cr.color * cr.modulate
 		acc = _composite_over(src, acc)
 	return acc
+
+func _collect_color_rects(node: Node, out: Array[ColorRect]) -> void:
+	if node is ColorRect and not node.is_queued_for_deletion():
+		out.append(node)
+	for child in node.get_children():
+		_collect_color_rects(child, out)
 
 func _composite_over(src: Color, dst: Color) -> Color:
 	var out_a: float = src.a + dst.a * (1.0 - src.a)
@@ -190,11 +203,7 @@ func _test_click_still_selects_row() -> void:
 	var screen := _mk_screen_with_cards(3, 0)
 	_assert(screen.selected_card_index == 0, "Initial selected_card_index == 0")
 	var buttons: Array = []
-	for child in screen.get_children():
-		if child is Button and not child.is_queued_for_deletion():
-			var btn: Button = child
-			if btn.flat and btn.text == "" and int(btn.size.x) == 600 and int(btn.size.y) == 55:
-				buttons.append(btn)
+	_collect_click_capture_buttons(screen, buttons)
 	_assert(buttons.size() == 3, "Found 3 click-capture Buttons (600x55, flat, empty), got %d" % buttons.size())
 	if buttons.size() < 3:
 		screen.queue_free()
@@ -220,16 +229,20 @@ func _test_overlay_mouse_filter_is_ignore() -> void:
 	screen.queue_free()
 
 # AC3 (draw-order): click-capture Button is emitted AFTER its ColorRect
-# overlay, so Godot draws it on top and it receives input.
+# overlay in sibling order, so Godot draws it on top and it receives
+# input. [S17.4-002] Overlays + click-capture Buttons are now siblings
+# inside the ScrollContainer's content node; we walk the actual parent
+# of the overlay rather than the screen root.
 func _test_click_capture_button_is_stacked_above_overlay() -> void:
 	var screen := _mk_screen_with_cards(3, 1)
 	for i in range(3):
 		var cr := _find_overlay(screen, i)
 		if cr == null:
 			continue
+		var siblings: Array = cr.get_parent().get_children()
 		var found := false
 		var after_cr := false
-		for child in screen.get_children():
+		for child in siblings:
 			if child == cr:
 				after_cr = true
 				continue
@@ -241,5 +254,13 @@ func _test_click_capture_button_is_stacked_above_overlay() -> void:
 					found = true
 					break
 		_assert(found,
-			"Row %d: click-capture Button (flat, 600x55, same position) is stacked AFTER its ColorRect overlay in child order" % i)
+			"Row %d: click-capture Button (flat, 600x55, same position) is stacked AFTER its ColorRect overlay in sibling order" % i)
 	screen.queue_free()
+
+func _collect_click_capture_buttons(node: Node, out: Array) -> void:
+	if node is Button and not node.is_queued_for_deletion():
+		var btn: Button = node
+		if btn.flat and btn.text == "" and int(btn.size.x) == 600 and int(btn.size.y) == 55:
+			out.append(btn)
+	for child in node.get_children():
+		_collect_click_capture_buttons(child, out)

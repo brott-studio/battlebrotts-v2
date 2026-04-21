@@ -128,10 +128,37 @@ func _build_ui() -> void:
 	list_hdr.size = Vector2(500, 22)
 	add_child(list_hdr)
 	
-	# Draw card slots
-	var y := 132
+	# [S17.4-002] Card-draw region wrapped in a ScrollContainer so the tray
+	# position is decoupled from cards.size(). Fixes #206 (tray/nav overlap
+	# at MAX_CARDS==8). Spec numbers verbatim from sprints/sprint-17.4.md
+	# §"Task specs" → "S17.4-002":
+	#   - ScrollContainer size (770, 220), position (20, 132)
+	#   - vertical_scroll_mode = SCROLL_MODE_AUTO (scrollbar only when overflow)
+	#   - Cards drawn as children of an inner content Control; positions are
+	#     relative to the content node (x starts at 10 instead of 30 to keep
+	#     the previous 10px inset; y starts at 0 instead of 132).
+	var card_scroll := ScrollContainer.new()
+	card_scroll.name = "card_scroll"
+	card_scroll.position = Vector2(20, 132)
+	card_scroll.size = Vector2(770, 220)
+	card_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	card_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(card_scroll)
+	
+	var card_content := Control.new()
+	card_content.name = "card_content"
+	# The content's custom_minimum_size drives ScrollContainer's scrollable
+	# extent; compute based on actual card count so scrollbar appears only
+	# when cards overflow the (770, 220) viewport.
+	var content_h: int = brain.cards.size() * 55
+	if brain.cards.size() < BrottBrain.MAX_CARDS:
+		content_h += 30  # empty-slot indicator row
+	card_content.custom_minimum_size = Vector2(750, content_h)
+	card_scroll.add_child(card_content)
+	
+	var y := 0  # relative to card_content
 	for i in range(brain.cards.size()):
-		y = _draw_card(i, y)
+		y = _draw_card(i, y, card_content)
 	
 	# Empty slot indicator
 	if brain.cards.size() < BrottBrain.MAX_CARDS:
@@ -139,13 +166,14 @@ func _build_ui() -> void:
 		empty.text = EMPTY_SLOT_TEXT_TEMPLATE % (brain.cards.size() + 1)
 		empty.add_theme_font_size_override("font_size", 12)
 		empty.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-		empty.position = Vector2(30, y)
+		empty.position = Vector2(10, y)
 		empty.size = Vector2(600, 25)
-		add_child(empty)
+		card_content.add_child(empty)
 		y += 30
 	
-	# Reorder / remove buttons (right side)
-	var btn_x := 680
+	# Reorder / remove buttons (right side) — [S17.4-002] btn_x moved from
+	# 680 to 820 so they clear the (770,220) ScrollContainer at x=20–790.
+	var btn_x := 820
 	var move_up := Button.new()
 	move_up.text = "▲ Up"
 	move_up.position = Vector2(btn_x, 132)
@@ -160,8 +188,11 @@ func _build_ui() -> void:
 	move_down.pressed.connect(_move_card_down)
 	add_child(move_down)
 	
-	# Available cards tray
-	var tray_y: int = maxi(y + 15, 380)
+	# Available cards tray — [S17.4-002] tray_y_base fixed at 370,
+	# independent of cards.size(). This is the other half of the #206 fix:
+	# previously `maxi(y + 15, 380)` grew with card count and collided
+	# with nav at y=650 when MAX_CARDS==8.
+	var tray_y: int = 370
 	var tray_hdr := Label.new()
 	tray_hdr.text = "── Available Cards ──"
 	tray_hdr.add_theme_font_size_override("font_size", 14)
@@ -243,24 +274,35 @@ func _build_ui() -> void:
 	if not tutorial_dismissed:
 		_show_tutorial()
 
-func _draw_card(index: int, y: int) -> int:
+# [S17.4-002] Cards now draw into a ScrollContainer content node passed
+# in as `parent`, with positions relative to that content node. Previous
+# x offsets were at 30/35/60/320/355/625; now shifted by -20 so they
+# remain visually at the same screen x once the ScrollContainer is
+# positioned at (20, 132). The click-capture Button + ColorRect overlay
+# keep their (600, 55) bounds — the S17.4-001 pixel-sample pattern still
+# works because it samples at overlay.position + overlay.size*0.5, which
+# is a content-local coordinate (the test walks card_content's children,
+# not the screen's).
+func _draw_card(index: int, y: int, parent: Node = null) -> int:
+	if parent == null:
+		parent = self
 	var card: BrottBrain.BehaviorCard = brain.cards[index]
 	var td: Array = TRIGGER_DISPLAY[card.trigger]
 	var ad: Array = ACTION_DISPLAY[card.action]
 	
 	# Card background panel
 	var panel := Panel.new()
-	panel.position = Vector2(30, y)
+	panel.position = Vector2(10, y)
 	panel.size = Vector2(640, 50)
-	add_child(panel)
+	parent.add_child(panel)
 	
 	# Priority number
 	var num_lbl := Label.new()
 	num_lbl.text = "%d." % (index + 1)
 	num_lbl.add_theme_font_size_override("font_size", 14)
-	num_lbl.position = Vector2(35, y + 5)
+	num_lbl.position = Vector2(15, y + 5)
 	num_lbl.size = Vector2(25, 40)
-	add_child(num_lbl)
+	parent.add_child(num_lbl)
 	
 	# Trigger side: [emoji] "When..." + param
 	var trig_text := "%s %s" % [td[0], td[1]]
@@ -271,17 +313,17 @@ func _draw_card(index: int, y: int) -> int:
 	var trig_lbl := Label.new()
 	trig_lbl.text = trig_text
 	trig_lbl.add_theme_font_size_override("font_size", 12)
-	trig_lbl.position = Vector2(60, y + 5)
+	trig_lbl.position = Vector2(40, y + 5)
 	trig_lbl.size = Vector2(260, 20)
-	add_child(trig_lbl)
+	parent.add_child(trig_lbl)
 	
 	# Arrow
 	var arrow := Label.new()
 	arrow.text = "→"
 	arrow.add_theme_font_size_override("font_size", 18)
-	arrow.position = Vector2(320, y + 8)
+	arrow.position = Vector2(300, y + 8)
 	arrow.size = Vector2(30, 30)
-	add_child(arrow)
+	parent.add_child(arrow)
 	
 	# Action side: [emoji] "Then..." + param
 	var act_text := "%s %s" % [ad[0], ad[1]]
@@ -292,24 +334,24 @@ func _draw_card(index: int, y: int) -> int:
 	var act_lbl := Label.new()
 	act_lbl.text = act_text
 	act_lbl.add_theme_font_size_override("font_size", 12)
-	act_lbl.position = Vector2(355, y + 5)
+	act_lbl.position = Vector2(335, y + 5)
 	act_lbl.size = Vector2(260, 20)
-	add_child(act_lbl)
+	parent.add_child(act_lbl)
 	
 	# Param edit hint (smaller text)
 	var hint := Label.new()
 	hint.text = "tap to edit params"
 	hint.add_theme_font_size_override("font_size", 9)
 	hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	hint.position = Vector2(60, y + 28)
+	hint.position = Vector2(40, y + 28)
 	hint.size = Vector2(200, 15)
-	add_child(hint)
+	parent.add_child(hint)
 	
 	# Delete button — [S17.3-003] red tint + tooltip + pointer cursor.
 	# Spec: sprints/sprint-17.3.md §"Task specs" → "S17.3-003".
 	var del_btn := Button.new()
 	del_btn.text = "✕"
-	del_btn.position = Vector2(625, y + 10)
+	del_btn.position = Vector2(605, y + 10)
 	del_btn.size = Vector2(35, 28)
 	del_btn.modulate = DELETE_BTN_MODULATE_REST
 	del_btn.tooltip_text = DELETE_BTN_TOOLTIP
@@ -317,7 +359,7 @@ func _draw_card(index: int, y: int) -> int:
 	del_btn.mouse_entered.connect(_on_delete_btn_mouse_entered.bind(del_btn))
 	del_btn.mouse_exited.connect(_on_delete_btn_mouse_exited.bind(del_btn))
 	del_btn.pressed.connect(_remove_card.bind(index))
-	add_child(del_btn)
+	parent.add_child(del_btn)
 	
 	# [S17.4-001] Selected-row overlay: ColorRect overlay pair (pixel-visible tint).
 	# Previous implementation used `modulate` on a flat Button — Godot's flat-button
@@ -327,22 +369,22 @@ func _draw_card(index: int, y: int) -> int:
 	# above handles clicks. Overlay bounds (600, 55).
 	var select_overlay := ColorRect.new()
 	select_overlay.name = "select_overlay_%d" % index
-	select_overlay.position = Vector2(30, y)
+	select_overlay.position = Vector2(10, y)
 	select_overlay.size = Vector2(600, 55)
 	select_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if index == selected_card_index:
 		select_overlay.color = Color(0.3, 0.6, 1.0, 0.3)  # selected: blue @ 30% alpha
 	else:
 		select_overlay.color = Color(0, 0, 0, 0)  # unselected: fully transparent
-	add_child(select_overlay)
+	parent.add_child(select_overlay)
 	
 	var select_btn := Button.new()
 	select_btn.text = ""
 	select_btn.flat = true
-	select_btn.position = Vector2(30, y)
+	select_btn.position = Vector2(10, y)
 	select_btn.size = Vector2(600, 55)
 	select_btn.pressed.connect(func(): selected_card_index = index; _build_ui())
-	add_child(select_btn)
+	parent.add_child(select_btn)
 	
 	return y + 55
 

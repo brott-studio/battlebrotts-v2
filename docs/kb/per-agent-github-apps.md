@@ -182,3 +182,4 @@ The S16.2 Specc App pattern generalizes to any pipeline agent that needs a disti
 - S16.2-002 PR — profile wiring first instance.
 - S16.2-003 redo PR #149 — cross-actor validation end-to-end test.
 
+

@@ -14,18 +14,22 @@ var brain: BrottBrain
 var tutorial_dismissed: bool = false  # persists per session; ideally save to disk
 
 # Trigger display data: [emoji, label, param_type, default_param]
-# param_type: "pct" (0-100% slider), "tiles" (distance), "seconds" (time), "module" (dropdown), "none"
+# param_type: "pct" (0-100% slider), "tiles" (distance), "seconds" (time), "module" (dropdown), "none", "tiles_per_sec" (S14.2)
+# Display table is indexed by Trigger enum value — entries must stay aligned with BrottBrain.Trigger.
+# HIDDEN_TRIGGERS lists enum values that remain in the table (so existing saves render) but are omitted from the Available Cards tray.
 const TRIGGER_DISPLAY := [
 	["💔", "When I'm Hurt", "pct", 0.4],
 	["💪", "When I'm Healthy", "pct", 0.7],
-	["🔋", "When I'm Low on Juice", "pct", 0.3],
+	["🔋", "When I'm Low on Energy", "pct", 0.3],
 	["⚡", "When I'm Charged Up", "pct", 0.8],
 	["💔", "When They're Hurt", "pct", 0.3],
 	["📏", "When They're Close", "tiles", 3],
 	["📏", "When They're Far", "tiles", 8],
 	["🧱", "When They're In Cover", "none", 0],
 	["✅", "When Gadget Is Ready", "module", ""],
-	["⏱️", "When the Clock Says", "seconds", 30],
+	["⏱️", "When the Clock Says", "seconds", 30],  # S14.2: hidden from tray (see HIDDEN_TRIGGERS), retained for save-compat.
+	["🏃", "When They're Running", "tiles_per_sec", 4],  # S14.2 Slice B
+	["🎯", "When I Just Hit Them", "seconds", 2],       # S14.2 Slice B
 ]
 
 # Action display data: [emoji, label, param_type, default_param]
@@ -34,9 +38,17 @@ const ACTION_DISPLAY := [
 	["🔧", "Use Gadget", "module", ""],
 	["🎯", "Pick a Target", "target", "nearest"],
 	["🔫", "Weapons", "weapon_mode", "all_fire"],
-	["🧱", "Get to Cover", "none", null],
+	["🧱", "Get to Cover", "none", null],       # S14.2: hidden from tray (see HIDDEN_ACTIONS), retained for save-compat.
 	["📍", "Hold the Center", "none", null],
+	["🏃", "Chase Them", "none", null],         # S14.2 Slice B
+	["🎯", "Focus the Weakest", "none", null],   # S14.2 Slice B
 ]
+
+# S14.2 Slices B/C: enum values intentionally omitted from the Available Cards tray.
+# Entries remain present in the display tables above so that existing saves referencing
+# these cards still render with correct labels, and evaluate without crashing.
+const HIDDEN_TRIGGERS := [BrottBrain.Trigger.WHEN_CLOCK_SAYS]
+const HIDDEN_ACTIONS := [BrottBrain.Action.GET_TO_COVER]
 
 const STANCE_NAMES := ["🔥 Go Get 'Em!", "🛡️ Play it Safe", "🔄 Hit & Run", "🕳️ Lie in Wait"]
 const TARGET_MODES := ["nearest", "weakest", "biggest_threat"]
@@ -169,6 +181,8 @@ func _build_ui() -> void:
 	
 	var tx := 80
 	for i in range(TRIGGER_DISPLAY.size()):
+		if i in HIDDEN_TRIGGERS:
+			continue
 		var td: Array = TRIGGER_DISPLAY[i]
 		var tbtn := Button.new()
 		tbtn.text = "%s %s" % [td[0], td[1].replace("When ", "")]
@@ -194,6 +208,8 @@ func _build_ui() -> void:
 	
 	var ax := 80
 	for i in range(ACTION_DISPLAY.size()):
+		if i in HIDDEN_ACTIONS:
+			continue
 		var ad: Array = ACTION_DISPLAY[i]
 		var abtn := Button.new()
 		abtn.text = "%s %s" % [ad[0], ad[1]]
@@ -303,14 +319,22 @@ func _draw_card(index: int, y: int) -> int:
 	del_btn.pressed.connect(_remove_card.bind(index))
 	add_child(del_btn)
 	
-	# Select for reorder on click
+	# Select for reorder on click.
+	# [S17.3-004] Selected-row overlay: previously α=0.01 (always invisible, no
+	# visual feedback for which row is selected). Now tinted blue @ 30% alpha
+	# when this row is the selected card; non-selected rows keep the near-
+	# invisible click overlay so the button stays click-capturable without
+	# visual noise. Per sprint-17.3.md §"Task specs" → "S17.3-004".
 	var select_btn := Button.new()
 	select_btn.text = ""
 	select_btn.flat = true
 	select_btn.position = Vector2(30, y)
 	select_btn.size = Vector2(590, 50)
-	select_btn.modulate = Color(1, 1, 1, 0.01)  # nearly invisible overlay
-	select_btn.pressed.connect(func(): selected_card_index = index)
+	if index == selected_card_index:
+		select_btn.modulate = Color(0.3, 0.6, 1.0, 0.3)  # blue, 30% alpha
+	else:
+		select_btn.modulate = Color(1, 1, 1, 0.01)  # near-invisible click overlay
+	select_btn.pressed.connect(func(): selected_card_index = index; _build_ui())
 	add_child(select_btn)
 	
 	return y + 55
@@ -322,7 +346,12 @@ func _format_trigger_param(trigger: int, param: Variant) -> String:
 			return "below %d%%" % int(float(param) * 100) if trigger in [0, 2, 4] else "above %d%%" % int(float(param) * 100)
 		"tiles":
 			return "within %s tiles" % str(param) if trigger == 5 else "beyond %s tiles" % str(param)
+		"tiles_per_sec":
+			return "at %s tiles/sec" % str(param)
 		"seconds":
+			# S14.2: WHEN_I_JUST_HIT_THEM reads as a grace window, not a timestamp.
+			if trigger == BrottBrain.Trigger.WHEN_I_JUST_HIT_THEM:
+				return "within last %ss" % str(param)
 			return "after %ss" % str(param)
 		"module":
 			return str(param) if str(param) != "" else ""

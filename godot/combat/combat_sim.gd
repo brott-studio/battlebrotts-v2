@@ -46,6 +46,12 @@ const COMMIT_SPEED_MULT: float = 1.4
 # are unaffected by the cap; only Scout's commit is clipped to 200 px/s.
 const COMMIT_SPEED_CAP: float = 200.0
 const ORBIT_SPEED_MULT: float = 0.55
+# S17.2-003 addendum: per-tick retreat step under two-phase tick.
+# Applied only to direct-write retreat sites (TENSION-too-close,
+# RECOVERY-retreat, stance-driven retreats). Preserves pair-relative
+# separation rate under simultaneous physics. See
+# docs/design/s17.2-003-retreat-calibration.md.
+const RETREAT_SPEED_MULT: float = 0.50
 const APPROACH_SPEED_MULT: float = 0.80
 const DISENGAGE_SPEED_MULT: float = 0.90
 const TENSION_DRIFT_INTERVAL: int = 10  # ticks (1.0s)
@@ -551,7 +557,8 @@ func _move_brott(b: BrottState) -> void:
 				1:  # Defensive
 					if dist < max_weapon_range * 0.8:
 						# Direct-write (#5): stance-driven retreat. Bypass smoothing.
-						b.position -= to_target_n_pre * approach_spd
+						# S17.2-003 addendum: halve retreat step under two-phase tick.
+						b.position -= to_target_n_pre * approach_spd * RETREAT_SPEED_MULT
 					elif dist > max_weapon_range:
 						# Smoothed (#6): forward-chase to range.
 						var desired_vel_d: Vector2 = to_target_n_pre * b.current_speed
@@ -561,7 +568,8 @@ func _move_brott(b: BrottState) -> void:
 					var perp_k: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
 					if dist < ideal_k * 0.8:
 						# Split: retreat bypasses (#7), lateral is smoothed (#8).
-						b.position -= to_target_n_pre * approach_spd * 0.7
+						# S17.2-003 addendum: halve retreat step under two-phase tick.
+						b.position -= to_target_n_pre * approach_spd * 0.7 * RETREAT_SPEED_MULT
 						var desired_vel_kl: Vector2 = perp_k * b.current_speed * 0.3
 						if desired_vel_kl.length_squared() > 0.0001:
 							b.position += _smooth_velocity(b, desired_vel_kl, TICK_DELTA)
@@ -937,7 +945,8 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 				if b.backup_distance < TILE_SIZE:
 					# Direct-write (#21): TENSION-too-close retreat. Bypass smoothing
 					# so backup_distance budget stays tick-accurate (revision §3.2).
-					var step: float = minf(orbit_spd, TILE_SIZE - b.backup_distance)
+					# S17.2-003 addendum: halve retreat step under two-phase tick.
+					var step: float = minf(orbit_spd * RETREAT_SPEED_MULT, TILE_SIZE - b.backup_distance)
 					b.position -= to_target_n_t * step
 					b.backup_distance += step
 				else:
@@ -1010,7 +1019,8 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 			if dist < ideal and b.backup_distance < TILE_SIZE:
 				# Direct-write (#26): RECOVERY retreat. Bypass smoothing; same
 				# backup-budget invariant as #21.
-				var step: float = minf(recovery_spd, TILE_SIZE - b.backup_distance)
+				# S17.2-003 addendum: halve retreat step under two-phase tick.
+				var step: float = minf(recovery_spd * RETREAT_SPEED_MULT, TILE_SIZE - b.backup_distance)
 				b.position -= to_target_n_r * step
 				b.backup_distance += step
 			else:

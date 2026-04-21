@@ -73,12 +73,55 @@ var fortress_micro_shake_timer: float = 0.0
 var overtime_glow_intensity: float = 0.0  # 0→1 for overtime light glow
 var victory_sparks_spawned: bool = false
 
+# ─────────────────────────────────────────────────────────────
+# [S17.2-004] Dev-only velocity debug overlay
+#
+# Dev-flag-gated draw of velocity vectors per bot. OFF by default.
+#
+# Toggle mechanisms (either works; both resolve to `debug_velocity_overlay`):
+#   1. Env var: BB_DEBUG_VELOCITY=1 (read once in setup())
+#   2. Hotkey:  F3 (live toggle at runtime)
+#
+# Renders two vectors per bot:
+#   - Cyan : computed velocity (position-delta / sample-dt). Always
+#            available — this is the "Option B" implementation that
+#            works on main today before S17.2-003 lands.
+#   - Magenta: b.velocity. Drawn only when non-zero. On main, combat_sim.gd
+#             never writes b.velocity, so this vector is invisible until
+#             S17.2-003 ships in S17.3; then it lights up automatically.
+#   - (Future) desired vector — depends on S17.2-003 exposing the tick's
+#             desired direction. Follow-up task post-S17.2-003.
+#
+# Additive, dev-only, zero gameplay impact.
+# ─────────────────────────────────────────────────────────────
+var debug_velocity_overlay: bool = false
+var _debug_prev_position: Dictionary = {}  # id -> Vector2
+var _debug_prev_sample_time: Dictionary = {}  # id -> float (seconds)
+var _debug_computed_velocity: Dictionary = {}  # id -> Vector2 (px/s)
+const _DEBUG_SAMPLE_INTERVAL: float = 0.05  # resample every 50ms → ~20Hz
+const _DEBUG_VELOCITY_SCALE: float = 0.15  # px per (px/s) — keeps arrows short
+const _DEBUG_COLOR_COMPUTED := Color(0.2, 1.0, 1.0, 0.9)  # cyan
+const _DEBUG_COLOR_VELOCITY := Color(1.0, 0.2, 1.0, 0.9)  # magenta
+
 func setup(p_sim: CombatSim, p_offset: Vector2) -> void:
 	sim = p_sim
 	arena_offset = p_offset
 	sim.on_damage.connect(_on_damage)
 	sim.on_death.connect(_on_death)
+	# [S17.2-004] Env-var opt-in for dev velocity overlay.
+	if OS.has_environment("BB_DEBUG_VELOCITY") and OS.get_environment("BB_DEBUG_VELOCITY") == "1":
+		debug_velocity_overlay = true
+		print("[S17.2-004] velocity debug overlay enabled via BB_DEBUG_VELOCITY=1")
+	set_process_unhandled_input(true)
 	charm_rng.seed = 12345  # deterministic for testing
+
+func _unhandled_input(event: InputEvent) -> void:
+	# [S17.2-004] Hidden hotkey (F3) to toggle the velocity overlay at runtime.
+	# Dev-only: not bound in the input map and not discoverable in shipping UI.
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F3:
+			debug_velocity_overlay = not debug_velocity_overlay
+			print("[S17.2-004] velocity debug overlay toggled: ", debug_velocity_overlay)
 
 func _get_weapon_shake_class(source: BrottState) -> String:
 	# Determine shake intensity based on weapon type
@@ -586,6 +629,10 @@ func _draw() -> void:
 	# Brotts
 	for b: BrottState in sim.brotts:
 		_draw_brott(b, draw_offset)
+
+	# [S17.2-004] Dev-only velocity debug overlay (additive, OFF by default).
+	if debug_velocity_overlay:
+		_draw_debug_velocity_overlay(draw_offset)
 	
 	# Particles (sparks)
 	for p in particles:
@@ -637,6 +684,81 @@ func _draw() -> void:
 	if sudden_death_flash_timer > 0:
 		var flash_alpha := clampf(sudden_death_flash_timer / 90.0 * 0.4, 0.0, 0.4)
 		draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), Color(1, 0, 0, flash_alpha))
+
+# ─────────────────────────────────────────────────────────────
+# [S17.2-004] Dev-only velocity debug overlay helpers.
+# ─────────────────────────────────────────────────────────────
+func _draw_debug_velocity_overlay(draw_offset: Vector2) -> void:
+	if sim == null:
+		return
+	var now: float = Time.get_ticks_msec() / 1000.0
+
+	# Live bot IDs (for stale-entry cleanup).
+	var live_ids: Dictionary = {}
+
+	for b: BrottState in sim.brotts:
+		if not b.alive:
+			continue
+		var bid := b.get_instance_id()
+		live_ids[bid] = true
+
+		# Re-sample computed velocity at a fixed interval.
+		# Between samples, we keep drawing the last-computed vector so the
+		# arrow doesn't flicker between render frames (bots only move on
+		# combat ticks @ 10Hz; render runs faster, so naive per-frame delta
+		# would read zero most frames).
+		var prev_t: float = _debug_prev_sample_time.get(bid, -1.0)
+		if prev_t < 0.0:
+			_debug_prev_sample_time[bid] = now
+			_debug_prev_position[bid] = b.position
+			_debug_computed_velocity[bid] = Vector2.ZERO
+		else:
+			var dt: float = now - prev_t
+			if dt >= _DEBUG_SAMPLE_INTERVAL:
+				var prev_pos: Vector2 = _debug_prev_position.get(bid, b.position)
+				if dt > 0.0:
+					_debug_computed_velocity[bid] = (b.position - prev_pos) / dt
+				_debug_prev_position[bid] = b.position
+				_debug_prev_sample_time[bid] = now
+
+		var origin: Vector2 = b.position + draw_offset
+		var computed_v: Vector2 = _debug_computed_velocity.get(bid, Vector2.ZERO)
+		if computed_v.length() > 1.0:
+			_draw_debug_arrow(origin, computed_v * _DEBUG_VELOCITY_SCALE, _DEBUG_COLOR_COMPUTED)
+
+		# b.velocity is always Vector2.ZERO on main today (combat_sim.gd never
+		# writes it). After S17.2-003 lands, this branch activates automatically.
+		var stored_v: Vector2 = b.velocity
+		if stored_v.length() > 1.0:
+			_draw_debug_arrow(origin, stored_v * _DEBUG_VELOCITY_SCALE, _DEBUG_COLOR_VELOCITY)
+
+	# Drop stale entries so dicts don't grow across matches.
+	for bid_key in _debug_prev_position.keys():
+		if not live_ids.has(bid_key):
+			_debug_prev_position.erase(bid_key)
+			_debug_prev_sample_time.erase(bid_key)
+			_debug_computed_velocity.erase(bid_key)
+
+	# Legend — small, top-left of arena.
+	var legend_pos: Vector2 = draw_offset + Vector2(6, 14)
+	var font := ThemeDB.fallback_font
+	draw_string(font, legend_pos, "[S17.2-004 DEBUG]", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.8))
+	draw_string(font, legend_pos + Vector2(0, 12), "cyan=computed_velocity  magenta=b.velocity", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.7))
+
+func _draw_debug_arrow(origin: Vector2, vec: Vector2, col: Color) -> void:
+	var tip: Vector2 = origin + vec
+	draw_line(origin, tip, col, 1.5)
+	# Arrowhead: two short lines at 25° off the vector, 4px long.
+	var len: float = vec.length()
+	if len < 2.0:
+		return
+	var dir: Vector2 = vec / len
+	var head_len: float = 4.0
+	var head_angle: float = deg_to_rad(25.0)
+	var left_dir: Vector2 = dir.rotated(PI - head_angle)
+	var right_dir: Vector2 = dir.rotated(PI + head_angle)
+	draw_line(tip, tip + left_dir * head_len, col, 1.5)
+	draw_line(tip, tip + right_dir * head_len, col, 1.5)
 
 func _draw_danger_zone(draw_offset: Vector2) -> void:
 	var boundary: float = sim.get_arena_boundary_tiles()

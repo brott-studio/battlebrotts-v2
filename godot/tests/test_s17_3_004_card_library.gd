@@ -13,7 +13,11 @@
 ##     FOCUS_WEAKEST exist and have display entries.
 ##   - WHEN_LOW_ENERGY label reworded "Low on Juice" → "Low on Energy".
 ##   - Selected-row overlay uses Color(0.3, 0.6, 1.0, 0.3) for selected row
-##     and Color(1, 1, 1, 0.01) for non-selected rows.
+##     and Color(0, 0, 0, 0) for non-selected rows.
+##     [S17.4-001] Overlay migrated from flat-Button modulate to ColorRect.color.
+##     Property assertions kept here for structural coverage; pixel-sample
+##     assertions (the canonical #207 reference pattern) live in
+##     test_s17_4_001_selected_row_pixels.gd.
 ##
 ## Strategy: load the display-dict consts via preload and inspect them as
 ## plain data. Selected-row overlay is checked against a live rebuilt UI.
@@ -156,38 +160,53 @@ func _mk_screen_with_cards(card_count: int, selected: int = -1) -> BrottBrainScr
 	screen.setup(gs, brain)
 	return screen
 
-# Find the N-th select overlay button (full-row, flat, empty text) drawn by _draw_card.
-# _draw_card order per row: panel, num_lbl, trig_lbl, arrow, act_lbl, hint, del_btn, select_btn.
-# So the select overlays are the flat empty-text buttons sized 590x50.
-# Note: _build_ui() uses queue_free() (deferred) when rebuilding, so after a
-# mid-test rebuild the old children are still reachable until the next frame.
+# [S17.4-001] _draw_card now emits a ColorRect overlay (beneath) + a flat
+# click-capture Button (above). The ColorRect carries the tint color; the
+# Button is transparent and mouse_filter-default (click-capturing). Overlay
+# bounds: (600, 55). See sprints/sprint-17.4.md §"S17.4-001".
 # We filter out queued-for-deletion nodes to see only the current UI.
-func _find_select_overlays(screen: BrottBrainScreen) -> Array:
+func _find_select_color_rects(screen: BrottBrainScreen) -> Array:
+	var out: Array = []
+	for child in screen.get_children():
+		if child is ColorRect and not child.is_queued_for_deletion():
+			var cr: ColorRect = child
+			if int(cr.size.x) == 600 and int(cr.size.y) == 55:
+				out.append(cr)
+	return out
+
+func _find_select_click_buttons(screen: BrottBrainScreen) -> Array:
 	var out: Array = []
 	for child in screen.get_children():
 		if child is Button and not child.is_queued_for_deletion():
 			var btn: Button = child
-			if btn.flat and btn.text == "" and int(btn.size.x) == 590 and int(btn.size.y) == 50:
+			if btn.flat and btn.text == "" and int(btn.size.x) == 600 and int(btn.size.y) == 55:
 				out.append(btn)
 	return out
 
 func _test_selected_row_overlay_color_when_selected() -> void:
 	var screen := _mk_screen_with_cards(3, 1)
-	var overlays: Array = _find_select_overlays(screen)
-	_assert(overlays.size() == 3, "Found 3 select overlays (one per card), got %d" % overlays.size())
+	var overlays: Array = _find_select_color_rects(screen)
+	_assert(overlays.size() == 3, "Found 3 select ColorRect overlays (one per card), got %d" % overlays.size())
 	if overlays.size() == 3:
-		var selected_btn: Button = overlays[1]
+		var selected_cr: ColorRect = overlays[1]
 		var expected := Color(0.3, 0.6, 1.0, 0.3)
-		_assert(selected_btn.modulate.is_equal_approx(expected),
-			"Selected row (index 1) modulate == Color(0.3, 0.6, 1.0, 0.3), got %s" % str(selected_btn.modulate))
+		_assert(selected_cr.color.is_equal_approx(expected),
+			"Selected row (index 1) ColorRect.color == Color(0.3, 0.6, 1.0, 0.3), got %s" % str(selected_cr.color))
+		# Click-capture: Button above must have MOUSE_FILTER default (not IGNORE);
+		# overlay must be MOUSE_FILTER_IGNORE.
+		_assert(selected_cr.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"Selected row ColorRect mouse_filter == MOUSE_FILTER_IGNORE (Button above handles clicks)")
+		var click_btns: Array = _find_select_click_buttons(screen)
+		_assert(click_btns.size() == 3,
+			"Found 3 click-capture Buttons (flat, empty, 600x55), got %d" % click_btns.size())
 	screen.queue_free()
 
 func _test_selected_row_overlay_color_when_not_selected() -> void:
 	var screen := _mk_screen_with_cards(3, 1)
-	var overlays: Array = _find_select_overlays(screen)
+	var overlays: Array = _find_select_color_rects(screen)
 	if overlays.size() == 3:
-		var non_selected_btn: Button = overlays[0]
-		var expected := Color(1, 1, 1, 0.01)
-		_assert(non_selected_btn.modulate.is_equal_approx(expected),
-			"Non-selected row modulate == Color(1, 1, 1, 0.01), got %s" % str(non_selected_btn.modulate))
+		var non_selected_cr: ColorRect = overlays[0]
+		var expected := Color(0, 0, 0, 0)
+		_assert(non_selected_cr.color.is_equal_approx(expected),
+			"Non-selected row ColorRect.color == Color(0, 0, 0, 0) (fully transparent), got %s" % str(non_selected_cr.color))
 	screen.queue_free()

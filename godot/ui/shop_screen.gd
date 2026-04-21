@@ -132,6 +132,11 @@ func _maybe_show_trick_then_build() -> void:
 	# S13.8: queue_free BEFORE apply so modal is always reclaimed,
 	# even if apply_trick_choice raises on malformed trick data.
 	modal.queue_free()
+	# S17.1-005 — Skip path: bypass apply_trick_choice entirely. No bolts/HP
+	# /inventory change, no flavor toast. Silence is the reward.
+	if choice_key == "skip":
+		_build_ui()
+		return
 	# S13.8 item 5: pass patched dict so apply operates on the pre-resolved
 	# pool tokens (RNG-consistent with the toast the modal showed).
 	game_state.apply_trick_choice(patched, choice_key)

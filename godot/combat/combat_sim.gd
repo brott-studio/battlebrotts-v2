@@ -51,6 +51,13 @@ const DISENGAGE_SPEED_MULT: float = 0.90
 const TENSION_DRIFT_INTERVAL: int = 10  # ticks (1.0s)
 const TENSION_DRIFT_AMOUNT: float = 0.3  # tiles
 
+# S17.2-003: Scout-feel velocity-smoothing constants. Kept in combat_sim.gd
+# (not chassis_data.gd) to preserve the godot/data/** scope gate. See
+# docs/design/s17.2-scout-feel.md §4.5 and s17.2-003-scout-feel-revision.md.
+const REVERSAL_ANGLE_THRESHOLD_DEG: float = 120.0
+const REVERSAL_DAMPING_FACTOR: float = 0.35
+const REVERSAL_DAMPING_TICKS: int = 2
+
 var brotts: Array[BrottState] = []
 var projectiles: Array[Projectile] = []
 var rng: RandomNumberGenerator
@@ -745,6 +752,72 @@ func _apply_unstick_nudge(b: BrottState, push: Vector2) -> void:
 	var arena_px2: float = 16.0 * TILE_SIZE
 	b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
 	b.position.y = clampf(b.position.y, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
+
+# S17.2-003: Velocity-smoothing helper. Single writer of b.velocity.
+#
+# Math per docs/design/s17.2-scout-feel.md §4.2:
+#   1. Rotate current velocity toward desired direction, capped by per-tick
+#      max_angular_velocity. Large rotations (> REVERSAL_ANGLE_THRESHOLD_DEG)
+#      arm a short damping timer.
+#   2. Blend magnitude toward |desired| using chassis accel/decel. While the
+#      damping timer is active, the target magnitude is scaled by
+#      REVERSAL_DAMPING_FACTOR to produce the visible "plant foot" dip.
+#   3. Write the blended vector back to b.velocity and return realized
+#      displacement (velocity * dt) for the caller to apply to b.position.
+#
+# IMPORTANT: this is the SMOOTHED-INTENT lane only. Retreat, separation,
+# pillar-repel, arena clamp, and unstick writes all BYPASS this helper and
+# write b.position directly without touching b.velocity. See the revision doc
+# (docs/design/s17.2-003-scout-feel-revision.md) §2 for the full site table.
+func _smooth_velocity(b: BrottState, desired: Vector2, dt: float) -> Vector2:
+	var cur: Vector2 = b.velocity
+	var des: Vector2 = desired
+	var cur_len_sq: float = cur.length_squared()
+	var des_len_sq: float = des.length_squared()
+
+	# Step 1: rotate current velocity toward desired direction (angular cap).
+	var large_reversal: bool = false
+	if cur_len_sq > 0.0001 and des_len_sq > 0.0001:
+		var cur_angle: float = cur.angle()
+		var des_angle: float = des.angle()
+		var angle_diff: float = wrapf(des_angle - cur_angle, -PI, PI)
+		var max_rot: float = b.max_angular_velocity * dt
+		var rot: float = clampf(angle_diff, -max_rot, max_rot)
+		cur = cur.rotated(rot)
+		if absf(angle_diff) > deg_to_rad(REVERSAL_ANGLE_THRESHOLD_DEG):
+			large_reversal = true
+
+	# Arm reversal damping on large intent reversals. The timer is consumed by
+	# the magnitude step below; bypass writes (retreat, etc.) never arm it.
+	if large_reversal and b.reversal_damping_timer <= 0:
+		b.reversal_damping_timer = REVERSAL_DAMPING_TICKS
+
+	# Step 2: blend magnitude toward |des| at chassis accel/decel.
+	var cur_mag: float = cur.length()
+	var des_mag: float = des.length()
+	var target_mag: float = des_mag
+	if b.reversal_damping_timer > 0:
+		target_mag = des_mag * REVERSAL_DAMPING_FACTOR
+	var mag_delta: float
+	if target_mag > cur_mag:
+		mag_delta = minf(b.get_effective_accel() * dt, target_mag - cur_mag)
+	else:
+		mag_delta = -minf(b.get_effective_decel() * dt, cur_mag - target_mag)
+	var new_mag: float = cur_mag + mag_delta
+	var new_dir: Vector2
+	if cur.length_squared() > 0.0001:
+		new_dir = cur.normalized()
+	elif des_len_sq > 0.0001:
+		new_dir = des.normalized()
+	else:
+		new_dir = Vector2.ZERO
+	b.velocity = new_dir * new_mag
+
+	# Consume one tick of the damping timer at the end.
+	if b.reversal_damping_timer > 0:
+		b.reversal_damping_timer -= 1
+
+	return b.velocity * dt
 
 func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 	var to_target: Vector2 = b.target.position - b.position

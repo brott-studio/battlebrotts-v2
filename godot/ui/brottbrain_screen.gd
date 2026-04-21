@@ -319,14 +319,22 @@ func _draw_card(index: int, y: int) -> int:
 	del_btn.pressed.connect(_remove_card.bind(index))
 	add_child(del_btn)
 	
-	# Select for reorder on click
+	# Select for reorder on click.
+	# [S17.3-004] Selected-row overlay: previously α=0.01 (always invisible, no
+	# visual feedback for which row is selected). Now tinted blue @ 30% alpha
+	# when this row is the selected card; non-selected rows keep the near-
+	# invisible click overlay so the button stays click-capturable without
+	# visual noise. Per sprint-17.3.md §"Task specs" → "S17.3-004".
 	var select_btn := Button.new()
 	select_btn.text = ""
 	select_btn.flat = true
 	select_btn.position = Vector2(30, y)
 	select_btn.size = Vector2(590, 50)
-	select_btn.modulate = Color(1, 1, 1, 0.01)  # nearly invisible overlay
-	select_btn.pressed.connect(func(): selected_card_index = index)
+	if index == selected_card_index:
+		select_btn.modulate = Color(0.3, 0.6, 1.0, 0.3)  # blue, 30% alpha
+	else:
+		select_btn.modulate = Color(1, 1, 1, 0.01)  # near-invisible click overlay
+	select_btn.pressed.connect(func(): selected_card_index = index; _build_ui())
 	add_child(select_btn)
 	
 	return y + 55

@@ -173,6 +173,15 @@ func test_position_change_frequency() -> void:
 
 func test_no_moonwalking() -> void:
 	print("\n-- AC6: No Moonwalking (backup >1 tile) --")
+	# S17.2-003 addendum (docs/design/s17.2-003-retreat-calibration.md §2.3):
+	# migrated from naive post-tick metric to the S15.2-canonical intent-frame
+	# pre-tick + period-boundary reset + budget-gated accumulator pattern already
+	# used by test_sprint11_2.gd::test_away_juke_cap_across_seeds. Under the
+	# two-phase tick introduced in S17.2-003, the post-tick metric produced
+	# false positives because post-cap perpendicular/lateral motion read as
+	# backward against a stale post-tick `to_target` frame. Threshold stays
+	# `<= 10` (unchanged); no AC relaxation. See S15.2 ruling
+	# (docs/design/sprint15-moonwalk-metric-ruling.md, main + Addendum 1 + 2).
 	var violations := 0
 	for seed_val in range(100):
 		var b0 := _make_scout(0)
@@ -185,19 +194,30 @@ func test_no_moonwalking() -> void:
 		
 		var prev_pos := b0.position
 		var backup_run := 0.0
+		var prev_bd := 0.0
 		
 		for _t in range(300):
 			if sim.match_over:
 				break
+			# Pre-tick intent-frame sampling (S15.2 ruling, main).
+			var to_target_pre: Vector2 = Vector2.ZERO
+			if b0.alive and b0.target != null:
+				to_target_pre = b0.target.position - b0.position
 			sim.simulate_tick()
 			if b0.alive and b0.target != null:
-				var to_target: Vector2 = b0.target.position - b0.position
+				# Period-boundary reset (S15.2 Addendum 1): bd drop → new retreat period.
+				if b0.backup_distance < prev_bd:
+					backup_run = 0.0
+				prev_bd = b0.backup_distance
 				var movement: Vector2 = b0.position - prev_pos
-				# Check if moving away from target (dot product < 0 means backing up)
-				if to_target.length() > 0.1 and movement.length() > 0.1:
-					var dot: float = movement.normalized().dot(to_target.normalized())
+				if to_target_pre.length() > 0.1 and movement.length() > 0.1:
+					var dot: float = movement.normalized().dot(to_target_pre.normalized())
 					if dot < -0.7:  # Mostly backing away
-						backup_run += movement.length()
+						# Budget-gated accumulator (S15.2 Addendum 2): only accumulate
+						# while retreat period is live.
+						if b0.backup_distance < CombatSim.TILE_SIZE:
+							backup_run += movement.length()
+						# else: post-cap freeze; wait for period-boundary reset.
 					else:
 						backup_run = 0.0
 				prev_pos = b0.position
@@ -206,12 +226,11 @@ func test_no_moonwalking() -> void:
 					break
 	
 	_assert(violations <= 10, "No moonwalking violations (%d/100)" % violations)
-	# S14.1-B2 re-tune (PR #74): main baseline is 4/100 flaky; with the wall-stuck
-	# nav fix armed near geometry, the 6-8px/tick escape nudge occasionally
-	# registers as >38.4px straight backup when combined with tight Scout orbits
-	# through the pillar quadrant. Tolerance of ≤10 reflects nav-fix cost; the
-	# actual playtest wall-freeze bug is regression-tested in test_sprint14_1_nav.gd
-	# (T1 "no >2s freeze" is the hard bar). See docs/design/sprint14-arc-shape.md.
+	# Threshold retained at ≤10 per Gizmo's S17.2-003 addendum ruling §2 (no AC
+	# relaxation; the combination of `RETREAT_SPEED_MULT = 0.50` + metric
+	# migration is expected to land at ≤1–2/100). The wall-stuck nav nudge tail
+	# documented in the prior comment block is still present as the dominant
+	# residual source of violations, which is why the ≤10 floor remains.
 
 func test_stances_preserved() -> void:
 	print("\n-- AC7: Existing Stances Preserved --")

@@ -24,6 +24,9 @@ var dodge_chance: float = 0.0
 var hp: float = 0.0
 var energy: float = 100.0
 var position: Vector2 = Vector2.ZERO
+# S17.2-003: Real velocity vector. Previously vestigial; now the first-class
+# state written by CombatSim._smooth_velocity() on smoothed-intent ticks.
+# See docs/design/s17.2-scout-feel.md §4.1 and s17.2-003-scout-feel-revision.md §5.
 var velocity: Vector2 = Vector2.ZERO
 var current_speed: float = 0.0  # current movement speed (px/s)
 var facing_angle: float = 0.0  # visual sprite rotation (degrees)
@@ -69,6 +72,17 @@ var target: BrottState = null
 # Combat movement state
 var in_combat_movement: bool = false
 var orbit_direction: int = 1  # 1 = CW, -1 = CCW
+
+# S17.2-003: Per-chassis angular-velocity cap (rad/s). Derived at setup() from
+# chassis_type. Kept off `chassis_data.gd` to preserve the S17.2 scope gate on
+# godot/data/**. See docs/design/s17.2-scout-feel.md §4.1, §4.5.
+var max_angular_velocity: float = 0.0  # rad/s
+
+# S17.2-003: Reversal damping timer for the "plant foot" dip on hard > 120°
+# forward-intent reversals. Armed by _smooth_velocity when an intent reversal
+# is detected; decremented per tick; consumed by the magnitude blend step.
+# Bypass writes (retreat, separation, unstick) never arm this timer.
+var reversal_damping_timer: int = 0  # ticks remaining at REVERSAL_DAMPING_FACTOR
 
 # S14.1-B: Wall-stuck detection. Rolling history of last N positions sampled each
 # tick. If total displacement over the window is <STUCK_MIN_PX while alive+has
@@ -116,6 +130,21 @@ func setup() -> void:
 	dodge_chance = ch["dodge_chance"]
 	energy = 100.0
 	alive = true
+
+	# S17.2-003: hand-tuned angular caps (per spec §4.5). NOT data-driven —
+	# values live here instead of chassis_data.gd to keep the godot/data/**
+	# scope gate closed.
+	match chassis_type:
+		ChassisData.ChassisType.SCOUT:
+			max_angular_velocity = deg_to_rad(540.0)  # 1.5 turns/s
+		ChassisData.ChassisType.BRAWLER:
+			max_angular_velocity = deg_to_rad(270.0)
+		ChassisData.ChassisType.FORTRESS:
+			max_angular_velocity = deg_to_rad(150.0)
+		_:
+			max_angular_velocity = deg_to_rad(270.0)  # safe default
+	velocity = Vector2.ZERO
+	reversal_damping_timer = 0
 	
 	weapon_cooldowns.clear()
 	for _w in weapon_types:

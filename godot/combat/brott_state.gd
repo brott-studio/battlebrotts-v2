@@ -24,8 +24,15 @@ var dodge_chance: float = 0.0
 var hp: float = 0.0
 var energy: float = 100.0
 var position: Vector2 = Vector2.ZERO
-var velocity: Vector2 = Vector2.ZERO
-var current_speed: float = 0.0  # current movement speed (px/s)
+var velocity: Vector2 = Vector2.ZERO  # S17.2-003: true velocity vector, source of truth for position updates
+var current_speed: float = 0.0  # current movement speed (px/s) — magnitude target for velocity smoothing
+# S17.2-003: Per-chassis angular-velocity cap (rad/s). Derived at setup() from
+# chassis_type; NOT a data-file field to preserve the data/** scope gate.
+var max_angular_velocity: float = 0.0  # rad/s
+# S17.2-003: Reversal-damping timer. When a large direction reversal (>=120°)
+# occurs, this is armed to REVERSAL_DAMPING_TICKS; magnitude target is scaled
+# by REVERSAL_DAMPING_FACTOR while >0. Consumed in _smooth_velocity.
+var reversal_damping_timer: int = 0
 var facing_angle: float = 0.0  # visual sprite rotation (degrees)
 var alive: bool = true
 
@@ -126,6 +133,20 @@ func setup() -> void:
 	for _m in module_types:
 		module_cooldowns.append(0.0)
 		module_active_timers.append(0.0)
+	
+	# S17.2-003: Per-chassis angular-velocity cap. Hand-tuned, NOT in chassis_data
+	# (keeps data/** scope gate intact). Values from docs/design/s17.2-scout-feel.md §4.1.
+	match chassis_type:
+		ChassisData.ChassisType.SCOUT:
+			max_angular_velocity = deg_to_rad(540.0)  # 1.5 turns/sec — nimble, not magical
+		ChassisData.ChassisType.BRAWLER:
+			max_angular_velocity = deg_to_rad(270.0)  # deliberate, tracked-vehicle feel
+		ChassisData.ChassisType.FORTRESS:
+			max_angular_velocity = deg_to_rad(150.0)  # siege-walker, turns like a tank
+		_:
+			max_angular_velocity = deg_to_rad(270.0)
+	velocity = Vector2.ZERO
+	reversal_damping_timer = 0
 
 func get_effective_speed() -> float:
 	var spd := base_speed

@@ -51,6 +51,14 @@ const DISENGAGE_SPEED_MULT: float = 0.90
 const TENSION_DRIFT_INTERVAL: int = 10  # ticks (1.0s)
 const TENSION_DRIFT_AMOUNT: float = 0.3  # tiles
 
+# S17.2-003: Scout-feel velocity-smoothing constants. Kept in combat_sim.gd
+# (NOT chassis_data.gd) to preserve the data/** scope gate.
+# See docs/design/s17.2-scout-feel.md §4.4, §4.5.
+const REVERSAL_ANGLE_THRESHOLD_DEG: float = 120.0  # angle diff that triggers "plant foot" dip
+const REVERSAL_ANGLE_THRESHOLD_RAD: float = REVERSAL_ANGLE_THRESHOLD_DEG * PI / 180.0
+const REVERSAL_DAMPING_FACTOR: float = 0.35  # target-mag scale during damping window
+const REVERSAL_DAMPING_TICKS: int = 2        # ticks of damping (200 ms @ 10 Hz)
+
 var brotts: Array[BrottState] = []
 var projectiles: Array[Projectile] = []
 var rng: RandomNumberGenerator
@@ -415,8 +423,68 @@ func _exit_combat_movement(b: BrottState) -> void:
 	# Start grace timer instead of immediately resetting TCR state (S13.2 fix)
 	b.combat_exit_grace_timer = float(COMBAT_EXIT_GRACE_TICKS)
 
+# S17.2-003: Velocity smoothing helper. Rotates `b.velocity` toward the desired
+# vector (direction * target speed in px/s), capped by `b.max_angular_velocity`,
+# and blends magnitude toward desired using chassis accel/decel. Optionally
+# applies reversal damping on large angle flips (>= REVERSAL_ANGLE_THRESHOLD_DEG).
+# Returns the displacement (px) to apply to b.position this tick.
+#
+# CALLING CONVENTION (design §4.3):
+#   desired_vel = intent_direction * b.current_speed    # per-second vector
+#   b.position += _smooth_velocity(b, desired_vel, TICK_DELTA)
+#
+# NOT routed through here (by design — see docs/design/s17.2-scout-feel.md §10):
+#   - Bot-bot separation push (geometry correction, not movement intent).
+#   - Arena / pillar clamp (geometry correction).
+#   - _apply_unstick_nudge (S17.2-002 8-tick escape maneuver must stay crisp).
+func _smooth_velocity(b: BrottState, desired: Vector2, dt: float) -> Vector2:
+	var cur: Vector2 = b.velocity
+	var des_dir: Vector2 = Vector2.ZERO
+	var des_mag: float = desired.length()
+	if des_mag > 0.0001:
+		des_dir = desired / des_mag
+	var cur_mag: float = cur.length()
+
+	# Step 1: angular-velocity cap. Rotate current velocity vector toward desired
+	# direction; clamp rotation to max_angular_velocity * dt. On large flips, arm
+	# the reversal-damping timer (magnitude dip, not full stop) per §4.4.
+	if cur_mag > 0.0001 and des_mag > 0.0001:
+		var cur_angle: float = cur.angle()
+		var des_angle: float = des_dir.angle()
+		var angle_diff: float = wrapf(des_angle - cur_angle, -PI, PI)
+		if absf(angle_diff) >= REVERSAL_ANGLE_THRESHOLD_RAD and b.reversal_damping_timer <= 0:
+			b.reversal_damping_timer = REVERSAL_DAMPING_TICKS
+		var max_rot: float = b.max_angular_velocity * dt
+		var rot: float = clampf(angle_diff, -max_rot, max_rot)
+		cur = cur.rotated(rot)
+		cur_mag = cur.length()  # rotation is length-preserving, but re-read defensively
+
+	# Step 2: magnitude blend toward desired (with optional reversal damping).
+	# Target magnitude is scaled by REVERSAL_DAMPING_FACTOR while timer > 0.
+	var eff_des_mag: float = des_mag
+	if b.reversal_damping_timer > 0:
+		eff_des_mag = des_mag * REVERSAL_DAMPING_FACTOR
+		b.reversal_damping_timer -= 1
+	var new_mag: float
+	if eff_des_mag > cur_mag:
+		new_mag = minf(cur_mag + b.get_effective_accel() * dt, eff_des_mag)
+	else:
+		new_mag = maxf(cur_mag - b.get_effective_decel() * dt, eff_des_mag)
+	new_mag = maxf(new_mag, 0.0)
+
+	# Step 3: assemble new velocity.
+	var new_dir: Vector2
+	if cur_mag > 0.0001:
+		new_dir = cur / cur_mag
+	elif des_mag > 0.0001:
+		new_dir = des_dir
+	else:
+		new_dir = Vector2.ZERO
+	b.velocity = new_dir * new_mag
+	return b.velocity * dt
+
 func _move_brott(b: BrottState) -> void:
-	# Tick down combat exit grace timer (S13.2 fix)
+	# S13.2 fix: tick down combat-exit grace timer before TCR-state reset
 	if b.combat_exit_grace_timer > 0 and not b.in_combat_movement:
 		b.combat_exit_grace_timer -= 1.0
 		if b.combat_exit_grace_timer <= 0:
@@ -426,8 +494,9 @@ func _move_brott(b: BrottState) -> void:
 			b.combat_exit_grace_timer = 0.0
 	
 	if b.target == null:
-		# Decelerate to stop
+		# Decelerate to stop. Drive current_speed to 0 AND decay velocity vector.
 		b.accelerate_toward_speed(0.0, TICK_DELTA)
+		b.position += _smooth_velocity(b, Vector2.ZERO, TICK_DELTA)
 		return
 	
 	# Determine target speed for this tick
@@ -440,18 +509,24 @@ func _move_brott(b: BrottState) -> void:
 	if b.brain != null:
 		move_override = b.brain.movement_override
 	
+	# S17.2-003: per-tick desired-velocity accumulator (px/s). All primary
+	# movement-intent contributions accumulate here, then _smooth_velocity
+	# applies angular-velocity cap + accel/decel + reversal damping ONCE
+	# before separation/clamp. See docs/design/s17.2-scout-feel.md §10.
+	var desired_vel: Vector2 = Vector2.ZERO
+	var snap_to_pos: Vector2 = Vector2.INF  # sentinel; if set, we snap after smoothing
+	
 	if move_override == "center":
 		b.accelerate_toward_speed(target_speed, TICK_DELTA)
 		var spd: float = b.current_speed * TICK_DELTA
 		var center := Vector2(8.0 * TILE_SIZE, 8.0 * TILE_SIZE)
 		var to_center := center - b.position
 		if to_center.length() > spd:
-			b.position += to_center.normalized() * spd
+			desired_vel += to_center.normalized() * b.current_speed
 		else:
-			b.position = center
+			snap_to_pos = center
 	elif move_override == "cover":
 		b.accelerate_toward_speed(target_speed, TICK_DELTA)
-		var spd: float = b.current_speed * TICK_DELTA
 		var best_pillar := Vector2.ZERO
 		var best_dist := INF
 		for p in _get_pillar_positions():
@@ -460,7 +535,7 @@ func _move_brott(b: BrottState) -> void:
 				best_dist = d
 				best_pillar = p
 		if best_dist > 32.0:
-			b.position += (best_pillar - b.position).normalized() * spd
+			desired_vel += (best_pillar - b.position).normalized() * b.current_speed
 	else:
 		var to_target: Vector2 = b.target.position - b.position
 		var dist: float = to_target.length()
@@ -472,12 +547,11 @@ func _move_brott(b: BrottState) -> void:
 		if b.stance == 3:  # Ambush — hold position
 			wants_to_move = false
 		
-		# Accelerate or decelerate based on intent
+		# Accelerate or decelerate scalar current_speed based on intent
 		if wants_to_move:
 			b.accelerate_toward_speed(target_speed, TICK_DELTA)
 		else:
 			b.accelerate_toward_speed(0.0, TICK_DELTA)
-		var spd: float = b.current_speed * TICK_DELTA
 		
 		# Combat movement entry/exit
 		if b.stance == 3:  # Ambush — hold position
@@ -490,36 +564,81 @@ func _move_brott(b: BrottState) -> void:
 				_exit_combat_movement(b)
 		
 		if b.in_combat_movement and b.stance != 3:
-			_do_combat_movement(b, spd)
+			desired_vel += _do_combat_movement(b)
 		else:
 			# Pre-engagement: apply approach speed multiplier (S13.2)
 			var approach_target_speed: float = target_speed * APPROACH_SPEED_MULT
 			if wants_to_move:
 				b.accelerate_toward_speed(approach_target_speed, TICK_DELTA)
-			var approach_spd: float = b.current_speed * TICK_DELTA
+			var approach_speed_ps: float = b.current_speed  # px/s
 			# Stance-based pathfinding (pre-engagement or ambush)
 			match b.stance:
 				0:  # Aggressive — close to engagement distance
 					var engage: Dictionary = _get_engagement_distance(b)
 					if dist > engage["ideal"] + engage["tolerance"]:
-						b.position += to_target.normalized() * approach_spd
+						desired_vel += to_target.normalized() * approach_speed_ps
 				1:  # Defensive
 					if dist < max_weapon_range * 0.8:
-						b.position -= to_target.normalized() * approach_spd
+						desired_vel -= to_target.normalized() * approach_speed_ps
 					elif dist > max_weapon_range:
-						b.position += to_target.normalized() * approach_spd
+						desired_vel += to_target.normalized() * approach_speed_ps
 				2:  # Kiting
 					var ideal: float = max_weapon_range * 0.7
 					var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
 					if dist < ideal * 0.8:
-						b.position -= to_target.normalized() * approach_spd * 0.7
-						b.position += perp * approach_spd * 0.3
+						desired_vel -= to_target.normalized() * approach_speed_ps * 0.7
+						desired_vel += perp * approach_speed_ps * 0.3
 					elif dist > ideal * 1.2:
-						b.position += to_target.normalized() * approach_spd
+						desired_vel += to_target.normalized() * approach_speed_ps
 					else:
-						b.position += perp * approach_spd
+						desired_vel += perp * approach_speed_ps
 				3:  # Ambush
 					pass
+	
+	# S17.2-003: apply smoothing ONCE over accumulated desired_vel, then write
+	# displacement. Separation push + arena/pillar clamp + unstick nudge happen
+	# AFTER this and write directly to b.position (bypass smoothing by design).
+	if snap_to_pos != Vector2.INF:
+		b.position = snap_to_pos
+		b.velocity = Vector2.ZERO
+	else:
+		# S17.2-003: before smoothing, if there's no backward-to-target intent
+		# this tick, zero out any backward component of b.velocity left over
+		# from prior ticks. This keeps the angular-velocity cap honest (velocity
+		# still rotates through a visible arc) without letting momentum coast
+		# past the backup_distance budget. Moonwalk invariant protection.
+		if b.target != null and b.target.alive:
+			var pre_tgt: Vector2 = b.target.position - b.position
+			if pre_tgt.length_squared() > 0.0001:
+				var pre_tgt_n: Vector2 = pre_tgt.normalized()
+				var desired_back_pre: float = -desired_vel.dot(pre_tgt_n)
+				if desired_back_pre <= 0.0:  # no backward intent
+					var v_back_pre: float = -b.velocity.dot(pre_tgt_n)
+					if v_back_pre > 0.0:
+						b.velocity += pre_tgt_n * v_back_pre
+		var disp: Vector2 = _smooth_velocity(b, desired_vel, TICK_DELTA)
+		# S17.2-003: post-smoothing clamp. Even with pre-smoothing backward-bleed
+		# above, the rotation lag during intent reversals can still produce a
+		# small backward component in disp when desired IS backward but velocity
+		# rotated past it. Clamp against remaining backup_distance budget and
+		# track realized backward for the budget. Same semantic as the existing
+		# TCR/separation/unstick backup-budget guards.
+		if b.target != null and b.target.alive:
+			var to_tgt: Vector2 = b.target.position - b.position
+			if to_tgt.length_squared() > 0.0001:
+				var to_tgt_n: Vector2 = to_tgt.normalized()
+				var backward_component: float = -disp.dot(to_tgt_n)  # >0 means moving away
+				if backward_component > 0.0:
+					var remaining: float = maxf(0.0, TILE_SIZE - b.backup_distance)
+					if backward_component > remaining:
+						var excess: float = backward_component - remaining
+						disp += to_tgt_n * excess
+						var v_backward: float = -b.velocity.dot(to_tgt_n)
+						if v_backward > 0.0:
+							b.velocity += to_tgt_n * v_backward
+						b.backup_distance = TILE_SIZE
+		b.position += disp
+	
 	
 	# Update visual facing angle (turn speed is visual-only)
 	if b.target != null:
@@ -746,7 +865,13 @@ func _apply_unstick_nudge(b: BrottState, push: Vector2) -> void:
 	b.position.x = clampf(b.position.x, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
 	b.position.y = clampf(b.position.y, BOT_HITBOX_RADIUS, arena_px2 - BOT_HITBOX_RADIUS)
 
-func _do_combat_movement(b: BrottState, base_spd: float) -> void:
+func _do_combat_movement(b: BrottState) -> Vector2:
+	# S17.2-003: returns desired velocity (px/s) accumulated from TCR phase intent.
+	# Caller in _move_brott routes this through _smooth_velocity. backup_distance
+	# is tracked against desired-step magnitude (same semantic as pre-S17.2-003),
+	# which is slightly under-counted when smoothing clips the step — acceptable
+	# per design §10 (tuning pass may revisit).
+	var desired_vel: Vector2 = Vector2.ZERO
 	var to_target: Vector2 = b.target.position - b.position
 	var dist: float = to_target.length()
 	var engage: Dictionary = _get_engagement_distance(b)
@@ -788,6 +913,7 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 			if overtime_active:
 				orbit_target_speed *= OVERTIME_SPEED_MULT
 			b.accelerate_toward_speed(orbit_target_speed, TICK_DELTA)
+			var orbit_speed_ps: float = b.current_speed  # px/s
 			var orbit_spd: float = b.current_speed * TICK_DELTA
 			
 			# Lateral drift every 1.0s
@@ -797,45 +923,42 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 				b.tension_drift_timer = TENSION_DRIFT_INTERVAL
 				drift_offset = TENSION_DRIFT_AMOUNT * TILE_SIZE * (1.0 if rng.randf() < 0.5 else -1.0)
 			
+			var to_target_n: Vector2 = to_target.normalized() if to_target.length_squared() > 0.0001 else Vector2.ZERO
+			var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized() if to_target.length_squared() > 0.0001 else Vector2.ZERO
 			if dist > ideal + tolerance:
-				b.position += to_target.normalized() * orbit_spd
+				desired_vel += to_target_n * orbit_speed_ps
 				b.backup_distance = 0.0
 			elif dist < ideal - tolerance:
 				if b.backup_distance < TILE_SIZE:
 					var step: float = minf(orbit_spd, TILE_SIZE - b.backup_distance)
-					b.position -= to_target.normalized() * step
+					# Convert clipped step (px/tick) back to px/s for desired_vel.
+					desired_vel -= to_target_n * (step / TICK_DELTA)
 					b.backup_distance += step
 				else:
-					var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-					b.position += perp * float(b.orbit_direction) * orbit_spd
+					desired_vel += perp * float(b.orbit_direction) * orbit_speed_ps
 					b.backup_distance = 0.0
 			else:
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				b.position += perp * float(b.orbit_direction) * orbit_spd
+				desired_vel += perp * float(b.orbit_direction) * orbit_speed_ps
 				b.backup_distance = 0.0
 			
-			# Apply drift perpendicular nudge
+			# Apply drift perpendicular nudge (one-tick offset → px/s equivalent)
 			if drift_offset != 0.0:
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				b.position += perp * drift_offset
+				desired_vel += perp * (drift_offset / TICK_DELTA)
 		
 		1:  # COMMIT — dash toward target at 140% base speed (capped at COMMIT_SPEED_CAP px/s, S13.3)
-			# Pre-afterburner/overtime commit target is min(base_speed * 1.4, COMMIT_SPEED_CAP).
-			# Afterburner and overtime multipliers stack on top of the (already capped) commit speed,
-			# preserving the relative feel of those buffs while fixing the Scout teleport case.
 			var commit_target_speed: float = minf(b.base_speed * COMMIT_SPEED_MULT, COMMIT_SPEED_CAP)
 			if b.afterburner_active:
 				commit_target_speed *= 1.80
 			if overtime_active:
 				commit_target_speed *= OVERTIME_SPEED_MULT
 			b.accelerate_toward_speed(commit_target_speed, TICK_DELTA)
-			var commit_spd: float = b.current_speed * TICK_DELTA
+			var commit_speed_ps: float = b.current_speed
 			
 			# Dash toward target, but don't get closer than 0.5 tiles
 			var min_dist: float = 0.5 * TILE_SIZE
 			var commit_target_dist: float = maxf(ideal - 1.5 * TILE_SIZE, min_dist)
-			if dist > commit_target_dist:
-				b.position += to_target.normalized() * commit_spd
+			if dist > commit_target_dist and to_target.length_squared() > 0.0001:
+				desired_vel += to_target.normalized() * commit_speed_ps
 		
 		2:  # RECOVERY — retreat back toward ideal engagement distance
 			var recovery_target_speed: float = b.base_speed * DISENGAGE_SPEED_MULT
@@ -844,18 +967,20 @@ func _do_combat_movement(b: BrottState, base_spd: float) -> void:
 			if overtime_active:
 				recovery_target_speed *= OVERTIME_SPEED_MULT
 			b.accelerate_toward_speed(recovery_target_speed, TICK_DELTA)
+			var recovery_speed_ps: float = b.current_speed
 			var recovery_spd: float = b.current_speed * TICK_DELTA
 			
-			# Move away from target back toward ideal distance
+			var to_target_n2: Vector2 = to_target.normalized() if to_target.length_squared() > 0.0001 else Vector2.ZERO
 			# Respect backup_distance cap (max 1 tile retreat before lateral)
 			if dist < ideal and b.backup_distance < TILE_SIZE:
 				var step: float = minf(recovery_spd, TILE_SIZE - b.backup_distance)
-				b.position -= to_target.normalized() * step
+				desired_vel -= to_target_n2 * (step / TICK_DELTA)
 				b.backup_distance += step
 			else:
 				# Lateral movement once backup cap reached
-				var perp: Vector2 = Vector2(-to_target.y, to_target.x).normalized()
-				b.position += perp * float(b.orbit_direction) * recovery_spd
+				var perp2: Vector2 = Vector2(-to_target.y, to_target.x).normalized() if to_target.length_squared() > 0.0001 else Vector2.ZERO
+				desired_vel += perp2 * float(b.orbit_direction) * recovery_speed_ps
+	return desired_vel
 
 func _get_max_weapon_range_px(b: BrottState) -> float:
 	var max_r: float = 0.0

@@ -45,6 +45,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_sprint13_10.gd",
 	"res://tests/test_sprint14_1.gd",
 	"res://tests/test_sprint14_1_nav.gd",
+	"res://tests/test_sprint14_2_cards.gd",
 	"res://tests/test_sprint17_1_shop_scroll.gd",
 	"res://tests/test_sprint17_1_loadout_overlap.gd",
 	"res://tests/test_sprint17_1_visible_tooltips.gd",
@@ -56,6 +57,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s17_2_scout_feel.gd",
 	"res://tests/test_s17_3_002_drag_lie.gd",
 	"res://tests/test_s17_3_003_delete_redesign.gd",
+	"res://tests/test_s17_3_004_card_library.gd",
 ]
 
 var file_pass_count := 0

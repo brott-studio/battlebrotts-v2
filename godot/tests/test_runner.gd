@@ -51,6 +51,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_sprint17_1_first_encounter_hud.gd",
 	"res://tests/test_sprint17_1_random_event_popup.gd",
 	"res://tests/test_sprint17_1_first_run_crate.gd",
+	"res://tests/test_sprint17_2_wall_stuck.gd",
 ]
 
 var file_pass_count := 0

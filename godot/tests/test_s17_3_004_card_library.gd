@@ -164,24 +164,34 @@ func _mk_screen_with_cards(card_count: int, selected: int = -1) -> BrottBrainScr
 # click-capture Button (above). The ColorRect carries the tint color; the
 # Button is transparent and mouse_filter-default (click-capturing). Overlay
 # bounds: (600, 55). See sprints/sprint-17.4.md §"S17.4-001".
-# We filter out queued-for-deletion nodes to see only the current UI.
+# [S17.4-002] Cards are now drawn inside a ScrollContainer's content node,
+# so walk the scene tree recursively. We filter out queued-for-deletion
+# nodes to see only the current UI.
 func _find_select_color_rects(screen: BrottBrainScreen) -> Array:
 	var out: Array = []
-	for child in screen.get_children():
-		if child is ColorRect and not child.is_queued_for_deletion():
-			var cr: ColorRect = child
-			if int(cr.size.x) == 600 and int(cr.size.y) == 55:
-				out.append(cr)
+	_collect_select_color_rects(screen, out)
 	return out
+
+func _collect_select_color_rects(node: Node, out: Array) -> void:
+	if node is ColorRect and not node.is_queued_for_deletion():
+		var cr: ColorRect = node
+		if int(cr.size.x) == 600 and int(cr.size.y) == 55:
+			out.append(cr)
+	for child in node.get_children():
+		_collect_select_color_rects(child, out)
 
 func _find_select_click_buttons(screen: BrottBrainScreen) -> Array:
 	var out: Array = []
-	for child in screen.get_children():
-		if child is Button and not child.is_queued_for_deletion():
-			var btn: Button = child
-			if btn.flat and btn.text == "" and int(btn.size.x) == 600 and int(btn.size.y) == 55:
-				out.append(btn)
+	_collect_select_click_buttons(screen, out)
 	return out
+
+func _collect_select_click_buttons(node: Node, out: Array) -> void:
+	if node is Button and not node.is_queued_for_deletion():
+		var btn: Button = node
+		if btn.flat and btn.text == "" and int(btn.size.x) == 600 and int(btn.size.y) == 55:
+			out.append(btn)
+	for child in node.get_children():
+		_collect_select_click_buttons(child, out)
 
 func _test_selected_row_overlay_color_when_selected() -> void:
 	var screen := _mk_screen_with_cards(3, 1)

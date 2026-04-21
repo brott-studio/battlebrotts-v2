@@ -24,6 +24,16 @@ var dodge_chance: float = 0.0
 var hp: float = 0.0
 var energy: float = 100.0
 var position: Vector2 = Vector2.ZERO
+# S17.2-003 (phase 3 — mirror-symmetry fix): Pre-movement position snapshot,
+# written by CombatSim.simulate_tick() at the start of the movement loop and
+# read by cross-bot movement code in place of `target.position` / `other.position`.
+# This eliminates the sequential-update bias that caused team-0 WR = 80% in
+# Scout-vs-Scout mirror matches (each bot saw the current-tick-updated position
+# of bots that moved before it; team 0 always moved first). See
+# docs/design/s17.2-003-scout-feel-revision.md §3 and the [S17.2-003] commit
+# body on brott_state.gd that added this field. Separation still reads LIVE
+# positions (snapshotting breaks overlap resolution — see combat_sim.gd).
+var _pos_snapshot: Vector2 = Vector2.ZERO
 # S17.2-003: Real velocity vector. Previously vestigial; now the first-class
 # state written by CombatSim._smooth_velocity() on smoothed-intent ticks.
 # See docs/design/s17.2-scout-feel.md §4.1 and s17.2-003-scout-feel-revision.md §5.

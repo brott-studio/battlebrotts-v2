@@ -76,6 +76,8 @@
 
 ## Sub-sprint shape (tentative — Gizmo/Ett to refine)
 
+**Naming note:** sub-sprint IDs (F.1, F.2, ...) and task IDs are **tentative**. Before arc launch, investigate existing numeric-ID assumptions (PR-title CI checks, sprint-file discovery in agent profiles, dashboard enumeration) and either (a) use a numeric-compatible scheme (e.g., Sprint 18 / [S18-NNN]) or (b) formalize non-numeric IDs as a framework-supported case. Bias: (a) — slot into existing scheme, lower tooling churn.
+
 - **F.1** Optic App + structural check (CI workflow + Optic profile update + branch protection update).
 - **F.2** Framework self-sufficiency pass (ESCALATION promotion, FRAMEWORK reconciliation on Riv+Ett canon, BOOTSTRAP_NEW_PROJECT.md, CI-gate abstraction).
 - **F.3** Cold-start validation + arc-close protocol update.

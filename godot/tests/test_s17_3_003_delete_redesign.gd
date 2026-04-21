@@ -60,10 +60,17 @@ func _mk_screen(card_count: int) -> BrottBrainScreen:
 
 func _delete_buttons(screen: BrottBrainScreen) -> Array:
 	var out := []
-	for c in screen.get_children():
-		if c is Button and c.text == "✕":
-			out.append(c)
+	# [S17.4-002] Cards now live inside a ScrollContainer's content node,
+	# so walk the scene tree recursively instead of scanning direct children.
+	_collect_delete_buttons(screen, out)
 	return out
+
+func _collect_delete_buttons(node: Node, out: Array) -> void:
+	if node is Button and not node.is_queued_for_deletion():
+		if (node as Button).text == "✕":
+			out.append(node)
+	for child in node.get_children():
+		_collect_delete_buttons(child, out)
 
 # --- tests ---
 

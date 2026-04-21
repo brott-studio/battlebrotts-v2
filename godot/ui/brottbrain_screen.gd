@@ -1,6 +1,8 @@
-## BrottBrain editor — Sprint 4: Card-based visual editor with drag-to-reorder
+## BrottBrain editor — card-based visual editor (Sprint 4).
+## Reorder model is button-based: tap a card to select, then use ▲/▼ to move it.
 ## Each card: [emoji] "When..." → [emoji] "Then..."
-## 8 slots, up/down buttons for reorder, smart defaults, tutorial on first visit
+## 8 slots, button-based reorder, smart defaults, tutorial on first visit.
+## [S17.3-002] Removed "drag-to-reorder" claim — UI has no drag handlers; click/tap is the honest UX.
 class_name BrottBrainScreen
 extends Control
 
@@ -39,6 +41,11 @@ const ACTION_DISPLAY := [
 const STANCE_NAMES := ["🔥 Go Get 'Em!", "🛡️ Play it Safe", "🔄 Hit & Run", "🕳️ Lie in Wait"]
 const TARGET_MODES := ["nearest", "weakest", "biggest_threat"]
 const WEAPON_MODES := ["all_fire", "conserve", "hold_fire"]
+
+# [S17.3-002] Empty-slot prompt text. Must not contain the word "drag" —
+# reordering is button-based, cards are added by tapping a WHEN then a THEN.
+# Tested by tests/test_s17_3_002_drag_lie.gd.
+const EMPTY_SLOT_TEXT_TEMPLATE := "  %d. ┌ ─ ─  + Tap to add card  ─ ─ ┐"
 
 var selected_card_index: int = -1
 
@@ -111,7 +118,7 @@ func _build_ui() -> void:
 	# Empty slot indicator
 	if brain.cards.size() < BrottBrain.MAX_CARDS:
 		var empty := Label.new()
-		empty.text = "  %d. ┌ ─ ─  + Drag a card here  ─ ─ ┐" % (brain.cards.size() + 1)
+		empty.text = EMPTY_SLOT_TEXT_TEMPLATE % (brain.cards.size() + 1)
 		empty.add_theme_font_size_override("font_size", 12)
 		empty.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
 		empty.position = Vector2(30, y)

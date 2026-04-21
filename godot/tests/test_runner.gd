@@ -54,6 +54,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_sprint17_2_wall_stuck.gd",
 	"res://tests/test_s17_2_scout_feel.gd",
 	"res://tests/test_s17_2_scout_feel.gd",
+	"res://tests/test_s17_3_002_drag_lie.gd",
 ]
 
 var file_pass_count := 0

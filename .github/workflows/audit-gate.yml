@@ -1,0 +1,54 @@
+# Audit Gate — structural CI check that closes the sub-sprint close-out invariant.
+#
+# Fires on planning PRs that add/modify `sprints/sprint-<N>.<M>.md`.
+# Succeeds if the immediately-preceding sub-sprint's Specc audit exists on
+# `brott-studio/studio-audits` at `audits/battlebrotts-v2/v2-sprint-<N>.<M-1>.md`
+# on `main`. First sprint of an arc (M==1) instead requires `arcs/arc-<N>.md`
+# in the PR tree and SKIPs the audit lookup.
+#
+# Why Boltz App (not Specc or Optic, not a new studio-ci App):
+#   Specc writes audits — gating on Specc's own absence is circular.
+#   Optic is narrowly scoped to check-runs. Boltz already holds Contents on
+#   project repos and studio-audits — reusing it keeps App inventory at 3.
+#
+# [S18.2-003] — Arc S18, sub-sprint 18.2.
+
+name: Audit Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'sprints/sprint-*.md'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  audit-gate:
+    name: Audit Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyJWT + cryptography
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet 'PyJWT>=2.8' 'cryptography>=42'
+
+      - name: Run Audit Gate
+        env:
+          BOLTZ_APP_ID: ${{ secrets.BOLTZ_APP_ID }}
+          BOLTZ_APP_PRIVATE_KEY: ${{ secrets.BOLTZ_APP_PRIVATE_KEY }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python .github/workflows/scripts/audit_gate.py

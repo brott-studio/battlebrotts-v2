@@ -169,3 +169,17 @@ Task IDs `[S18.2-NNN]`. Agents: **Nutts** (build; infra-only scope tag on all no
 ## Sub-sprint shape reminder
 
 S18 arc fuse: **5 sub-sprints.** S18.1 (apps + required check) ✓ · **S18.2 (this)** · S18.3 (cold-start validation) · S18.4 (branch-protection tightening) · S18.5 (simplification passes 5a–5g). If S18.2 scope expands beyond the in-scope list above, escalate to The Bott before proceeding — don't silently stretch the sub-sprint.
+
+---
+
+## Close-out residuals
+
+*Added at S18.4 close-out (2026-04-22) per S18.3 §7 merge-commit hygiene + S18.1 close-out-residuals precedent.*
+
+### §11.2 Option A bootstrap carve-out ledger
+
+This sub-section tracks admin-PAT / bootstrap carve-out merges on `brott-studio/battlebrotts-v2` that predated the S18.4 structural closure of `Optic Verified` + `enforce_admins`. Each entry is a one-time annotated carve-out with explicit reason and scope. **The ledger is closed as of S18.4-001 landing (2026-04-22).** No further entries will be added — from S18.4-001 onward, every PR must pass the 4 required contexts on its own, and no admin override is available (S18.4-002 applied `enforce_admins: true`).
+
+- **PR #233** — `brott-studio/battlebrotts-v2` — [S18.4-001] — merged `7e16b95c` on 2026-04-22 — reason: `Optic Verified` producer workflow did not yet exist on `main`, so the required context was unreachable for PR #233 itself. Post-merge validation: `Optic Verified` posted green by `brott-studio-optic` App on PR #152 head (first live PR after merge) and PR #234 head. **Ledger closed.**
+
+Prior carve-outs (S18.3 sandbox setup / teardown admin-PAT uses for the cold-start dry-run; S18.2 `[S18.2-006]` doc-only close-out amendment; S18.1 `PR #221` admin-PAT probe) are logged in their respective sprint close-out residuals sections; this §11.2 ledger is scoped to S18.2-and-forward admin-PAT use on `battlebrotts-v2:main` and supersedes no prior record.

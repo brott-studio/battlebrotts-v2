@@ -1,0 +1,90 @@
+# Optic Verified — producer workflow for the "Optic Verified" check-run.
+#
+# [S18.4-001] Arc S18 "Framework Hardening", sub-sprint 18.4.
+# Resolves brott-studio/battlebrotts-v2#229.
+#
+# Purpose
+# -------
+# Posts the `Optic Verified` check-run (authored by the **Optic App**, not
+# `GITHUB_TOKEN` and not the shared PAT) on every PR to `main`, with a binary
+# PASS/FAIL conclusion derived from the existing `Verify` workflow's outcome.
+#
+# Why workflow_run (not a fresh job duplicating Verify logic)
+# -----------------------------------------------------------
+# Optic's role per `studio-framework/agents/optic.md` is to be the *identity*
+# posting the binary verdict. Re-implementing test criteria here would drift
+# from Verify over time. `workflow_run` lets us read Verify's conclusion +
+# PR head SHA directly from the triggering run's payload, mint the Optic App
+# token, and post exactly one check-run against the PR head — no extra test
+# infrastructure.
+#
+# `workflow_run` SHA semantics: when Verify was triggered by a `pull_request`
+# event, `github.event.workflow_run.head_sha` is the PR branch's head SHA
+# (same SHA Verify's own checks are attached to). We target that SHA so
+# `Optic Verified` shows up on the PR's check list alongside Verify.
+#
+# Bootstrap note: the first time this workflow lands on a PR, the PR itself
+# can't satisfy an "Optic Verified" required context because the producer
+# doesn't yet exist on main. S18.2 §11.2 Option A bootstrap-annotation
+# carve-out covers that case. Post-merge validation uses a trivial follow-up
+# PR to exercise the workflow end-to-end.
+
+name: Optic Verified
+
+on:
+  # Path-agnostic producer per the S18.4-001 brief: every PR to main should
+  # produce an `Optic Verified` check-run. Keep the `pull_request` trigger
+  # here so GitHub registers the workflow file against PR events (discovery
+  # + the "workflows on this repo" surface), even though the actual posting
+  # happens from the workflow_run branch below.
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  # Primary trigger: Verify finished for a PR — now post the binary verdict
+  # under the Optic App identity.
+  workflow_run:
+    workflows: ["Verify"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  # NOTE: we do NOT need `checks: write` here because we post the check-run
+  # using an Optic App installation token, not `GITHUB_TOKEN`. Keeping the
+  # default token's scope minimal follows least-privilege.
+
+jobs:
+  post-optic-verified:
+    # Only run on the workflow_run branch AND only for PR-triggered Verify
+    # runs. On direct pushes to main (Verify's push trigger) there is no PR
+    # head to post against and the `Optic Verified` context doesn't apply.
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request'
+    name: Post Optic Verified check-run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for scripts/)
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyJWT + cryptography
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet 'PyJWT>=2.8' 'cryptography>=42'
+
+      - name: Post Optic Verified
+        env:
+          OPTIC_APP_ID: ${{ secrets.OPTIC_APP_ID }}
+          OPTIC_INSTALLATION_ID: ${{ secrets.OPTIC_INSTALLATION_ID }}
+          OPTIC_APP_PRIVATE_KEY: ${{ secrets.OPTIC_APP_PRIVATE_KEY }}
+          VERIFY_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          VERIFY_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          VERIFY_RUN_ID: ${{ github.event.workflow_run.id }}
+          VERIFY_HTML_URL: ${{ github.event.workflow_run.html_url }}
+          TARGET_REPO: ${{ github.repository }}
+        run: python .github/workflows/scripts/optic_verified.py

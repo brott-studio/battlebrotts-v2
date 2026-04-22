@@ -12,14 +12,35 @@
 #   project repos and studio-audits — reusing it keeps App inventory at 3.
 #
 # [S18.2-003] — Arc S18, sub-sprint 18.2.
+#
+# [S18.4-002a] Amendment — Path-filter regression fix.
+#
+# Problem: the original `on.pull_request.paths: ['sprints/sprint-*.md']`
+# filter meant PRs that didn't touch sprint files never triggered this
+# workflow. Because `Audit Gate` is a *required* status check on main,
+# that turned into a permanent block — GitHub sees "Audit Gate" as a
+# missing required context and blocks merge forever (not "pending").
+#
+# Fix: remove the path filter so the workflow runs on every PR to main.
+# A guard step computes `has_sprint_changes` via `git diff` against the
+# merge-base. Sprint-path PRs run the full audit-gate validation logic
+# (unchanged). Non-sprint PRs short-circuit: the guard step writes the
+# success summary and all validation steps skip via `if:` conditions.
+# The job name stays `Audit Gate` in both cases, so branch protection's
+# required context is satisfied identically either way.
+#
+# Mirrors the pattern already used by `.github/workflows/verify.yml`
+# (S16.3-001): one job that always starts, with a guard computing a
+# boolean output and downstream steps `if:`-gated. Same reasoning — a
+# required check cannot use `paths:` at the workflow level without
+# deadlocking PRs that don't touch those paths.
 
 name: Audit Gate
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - 'sprints/sprint-*.md'
+    branches: [main]
 
 permissions:
   contents: read
@@ -35,17 +56,73 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Guard: decide whether this PR touches any `sprints/sprint-*.md`
+      # files and therefore needs full Audit Gate validation. We compare
+      # against `origin/${{ github.base_ref }}` (the PR's merge base proxy),
+      # NOT `github.sha` or `HEAD~1` — those can diverge from the actual
+      # base when PRs are multi-commit or when force-pushes shift the tip.
+      #
+      # Glob intentionally matches the original workflow-level path-filter
+      # exactly: `sprints/sprint-*.md` → regex `^sprints/sprint-.*\.md$`.
+      # If the PR added/modified even one such file, we fall through to
+      # full validation. Otherwise we short-circuit with success.
+      - name: Guard — detect sprint-file changes
+        id: guard
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          # Ensure we actually have the base branch locally (shallow clones
+          # only fetch the PR ref by default). fetch-depth:0 above should
+          # give us everything, but this is belt-and-suspenders.
+          git fetch --no-tags --depth=0 origin "$BASE_REF" 2>/dev/null || \
+            git fetch --no-tags origin "$BASE_REF" || true
+
+          # `origin/<base>...HEAD` is symmetric-three-dot: diff between
+          # merge-base and HEAD. This matches what GitHub's PR view shows.
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD" || true)
+          echo "Changed files:"
+          echo "$changed" | sed 's/^/  /'
+
+          # Exact glob parity with the original path-filter:
+          # on.pull_request.paths: ['sprints/sprint-*.md']
+          if echo "$changed" | grep -qE '^sprints/sprint-.*\.md$'; then
+            echo "has_sprint_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Sprint files changed — running full Audit Gate validation."
+          else
+            echo "has_sprint_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No sprint files changed — audit gate short-circuited."
+          fi
+
+      # Short-circuit branch: non-sprint PR. Write the exact success summary
+      # and let the job finish successfully. The `Audit Gate` check-run
+      # (named after this job) posts with conclusion=success, satisfying
+      # branch protection.
+      - name: Short-circuit — no sprint files changed
+        if: steps.guard.outputs.has_sprint_changes != 'true'
+        run: |
+          echo "## ✅ Audit Gate: SHORT-CIRCUIT" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "No sprint files changed — audit gate short-circuited." >> "$GITHUB_STEP_SUMMARY"
+          echo "No sprint files changed — audit gate short-circuited."
+
+      # Full-validation branch: PR touches a sprint file. All steps below
+      # are gated on has_sprint_changes == 'true' so the no-sprint-change
+      # path is a true skip — no partial validation, no side effects.
       - name: Set up Python
+        if: steps.guard.outputs.has_sprint_changes == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install PyJWT + cryptography
+        if: steps.guard.outputs.has_sprint_changes == 'true'
         run: |
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet 'PyJWT>=2.8' 'cryptography>=42'
 
       - name: Run Audit Gate
+        if: steps.guard.outputs.has_sprint_changes == 'true'
         env:
           BOLTZ_APP_ID: ${{ secrets.BOLTZ_APP_ID }}
           BOLTZ_APP_PRIVATE_KEY: ${{ secrets.BOLTZ_APP_PRIVATE_KEY }}

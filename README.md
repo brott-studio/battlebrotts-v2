@@ -33,6 +33,3 @@ _Last updated: 2026-04-20 15:38 UTC · [update log](../../actions/workflows/read
 - [Game Design Document](docs/gdd.md)
 - [Studio Framework](https://github.com/brott-studio/studio-framework)
 - [v1 Archive](https://github.com/brott-studio/battlebrotts) (16 sprints of history)
-
-## Status
-🚧 v2 — Starting fresh with pipeline-driven development

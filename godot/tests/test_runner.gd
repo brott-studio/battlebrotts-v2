@@ -60,6 +60,10 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s17_4_001_selected_row_pixels.gd",
 	"res://tests/test_s17_4_002_tray_scroll_anchor.gd",
 	"res://tests/test_sprint21_1.gd",
+	# [S21.2] UX bundle (#103, #104, #107) tests — added by Nutts T1/T2/T3.
+	"res://tests/test_s21_2_001_inline_captions.gd",
+	"res://tests/test_s21_2_002_scroll_wrappers.gd",
+	"res://tests/test_s21_2_003_first_encounter_overlays.gd",
 ]
 
 var file_pass_count := 0

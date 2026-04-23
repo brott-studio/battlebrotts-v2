@@ -5,6 +5,26 @@ extends Node2D
 const ARENA_OFFSET := Vector2(384, 60)
 const TICKS_PER_SEC := 10
 
+# [S21.2 / #107] First-encounter overlay keys, parameterizing the S17.1-004
+# FirstRunState scaffolding to 4 surfaces total. `energy_explainer` is the
+# original S17.1-004 key (reused so existing player saves carry the dismissal
+# forward into the real-flow combat entry). Keep these as flat strings; the
+# autoload schema is keyless beyond the [seen] section.
+const FE_KEY_SHOP := "shop_first_visit"
+const FE_KEY_BROTTBRAIN := "brottbrain_first_visit"
+const FE_KEY_OPPONENT := "opponent_first_visit"
+const FE_KEY_ENERGY := "energy_explainer"
+
+# [S21.2 / #107] Plain-language overlay copy per surface. <=2 short sentences,
+# BrottBrain voice. Anchored top-center of the screen.
+const FE_COPY := {
+	"shop_first_visit": "🛍️ Welcome to the Shop. Spend Bolts on chassis, weapons, armor, and modules — then head to Loadout.",
+	"brottbrain_first_visit": "🧠 BrottBrain teaches your bot what to do. Build WHEN → THEN rules from the tray below.",
+	"opponent_first_visit": "⚔️ Pick an opponent to fight. Beating all 3 in this league unlocks the next tier.",
+	"energy_explainer": "⚡ The blue bar is your Energy — it powers your weapons and regenerates over time.",
+}
+const FE_TICK_BUDGET := 360  # ~6 seconds @ 60 fps before auto-dismiss
+
 var game_flow: GameFlow
 var sim: CombatSim
 var player_brain: BrottBrain
@@ -68,6 +88,14 @@ func _clear_screen() -> void:
 	if arena_renderer:
 		arena_renderer.queue_free()
 		arena_renderer = null
+	# [S21.2 / #107] Tear down any active first-encounter overlay so it does
+	# not leak across screen transitions. Mark-seen still happens via the
+	# dismiss path; here we just clean the orphan node.
+	if _fe_overlay != null:
+		_fe_overlay.queue_free()
+		_fe_overlay = null
+		_fe_ticks = 0
+		_fe_active_key = ""
 	# Clear HUD labels
 	for child in get_children():
 		if child is Label:
@@ -136,6 +164,7 @@ func _show_shop() -> void:
 	_wrap_in_scroll(shop)
 	shop.setup(game_flow.game_state)
 	shop.continue_pressed.connect(_show_loadout)
+	_maybe_spawn_first_encounter(FE_KEY_SHOP)
 
 func _show_loadout() -> void:
 	_clear_screen()
@@ -161,6 +190,7 @@ func _show_brottbrain() -> void:
 		_show_opponent_select()
 	)
 	brain_screen.back_pressed.connect(_show_loadout)
+	_maybe_spawn_first_encounter(FE_KEY_BROTTBRAIN)
 
 func _show_opponent_select() -> void:
 	_clear_screen()
@@ -170,6 +200,7 @@ func _show_opponent_select() -> void:
 	opp_screen.setup(game_flow.game_state)
 	opp_screen.opponent_selected.connect(_start_match)
 	opp_screen.back_pressed.connect(_show_loadout)
+	_maybe_spawn_first_encounter(FE_KEY_OPPONENT)
 
 func _start_demo_match() -> void:
 	## Start a hardcoded demo match for URL-param routing (?screen=battle).
@@ -286,6 +317,9 @@ func _create_arena_hud() -> void:
 	concede.flat = true
 	concede.pressed.connect(_on_concede_pressed)
 	add_child(concede)
+	# [S21.2 / #107] Combat-entry energy explainer — reuses the S17.1-004
+	# `energy_explainer` key so any prior demo dismissal carries forward.
+	_maybe_spawn_first_encounter(FE_KEY_ENERGY)
 
 func _on_concede_pressed() -> void:
 	if not in_arena or sim == null or sim.match_over:
@@ -336,6 +370,12 @@ func _show_result() -> void:
 	result.rematch_pressed.connect(func(): _start_match(game_flow.selected_opponent_index))
 
 func _process(delta: float) -> void:
+	# [S21.2 / #107] Tick-budget auto-dismiss for any active first-encounter
+	# overlay (parameterized version of S17.1-004's _energy_explainer_ticks).
+	if _fe_overlay != null:
+		_fe_ticks += 1
+		if _fe_ticks >= FE_TICK_BUDGET:
+			_dismiss_first_encounter()
 	if not in_arena or sim == null or sim.match_over:
 		return
 	
@@ -379,3 +419,72 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_1: speed_multiplier = 1.0
 			KEY_2: speed_multiplier = 2.0
 			KEY_5: speed_multiplier = 5.0
+
+# [S21.2 / #107] Generic first-encounter overlay scaffolding. Parameterized
+# from S17.1-004's _spawn_energy_explainer pattern. Spawns a dismiss-only
+# panel anchored top-center if FirstRunState[key] is unset; marks-seen on
+# either button press or tick-budget expiry. Only one overlay active at a
+# time — repeat calls while one is up are no-ops.
+var _fe_overlay: Control = null
+var _fe_ticks: int = 0
+var _fe_active_key: String = ""
+
+func _maybe_spawn_first_encounter(key: String) -> void:
+	if _fe_overlay != null:
+		return
+	if not FE_COPY.has(key):
+		push_warning("[FirstEncounter] no copy registered for key=%s" % key)
+		return
+	if not Engine.has_singleton("FirstRunState") and get_node_or_null("/root/FirstRunState") == null:
+		# Headless/test path with no autoload — silently skip.
+		return
+	var frs: Node = get_node_or_null("/root/FirstRunState")
+	if frs == null:
+		return
+	if frs.call("has_seen", key):
+		return
+	_spawn_first_encounter(key, String(FE_COPY[key]))
+
+func _spawn_first_encounter(key: String, copy: String) -> void:
+	var panel := Panel.new()
+	panel.name = "FirstEncounterOverlay_" + key
+	panel.position = Vector2(330, 60)
+	panel.size = Vector2(620, 100)
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	
+	var body := Label.new()
+	body.name = "Body"
+	body.text = copy
+	body.add_theme_font_size_override("font_size", 14)
+	body.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.position = Vector2(16, 12)
+	body.size = Vector2(580, 56)
+	panel.add_child(body)
+	
+	var btn := Button.new()
+	btn.name = "GotItButton"
+	btn.text = "Got it!"
+	btn.position = Vector2(508, 64)
+	btn.size = Vector2(96, 28)
+	btn.pressed.connect(_on_first_encounter_dismissed)
+	panel.add_child(btn)
+	
+	add_child(panel)
+	_fe_overlay = panel
+	_fe_ticks = 0
+	_fe_active_key = key
+
+func _dismiss_first_encounter() -> void:
+	if _fe_overlay == null:
+		return
+	var frs: Node = get_node_or_null("/root/FirstRunState")
+	if frs != null and _fe_active_key != "":
+		frs.call("mark_seen", _fe_active_key)
+	_fe_overlay.queue_free()
+	_fe_overlay = null
+	_fe_ticks = 0
+	_fe_active_key = ""
+
+func _on_first_encounter_dismissed() -> void:
+	_dismiss_first_encounter()

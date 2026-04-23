@@ -196,6 +196,18 @@ func _build_weight_bar(validation: Dictionary, ch: Dictionary) -> void:
 	_weight_label.size = Vector2(200, 20)
 	add_child(_weight_label)
 
+	# [S21.2 / #103 #4] Inline visible-by-default weight caption. Explains the
+	# kg / weight-cap meaning, the >100% penalty, and surfaces the headroom or
+	# overage delta. Sits to the right of the weight label, above the bar.
+	var wcap := Label.new()
+	wcap.name = "weight_caption"
+	wcap.text = _weight_caption_text(total_weight, weight_cap)
+	wcap.add_theme_font_size_override("font_size", 11)
+	wcap.add_theme_color_override("font_color", _weight_caption_color(total_weight, weight_cap))
+	wcap.position = Vector2(225, 52)
+	wcap.size = Vector2(420, 18)
+	add_child(wcap)
+
 	# Weight bar
 	_weight_bar = ProgressBar.new()
 	_weight_bar.name = "WeightBar"
@@ -432,3 +444,21 @@ func _trigger_loadout_anims(new_weapons: Array[int], new_armor: int, new_modules
 	for i in range(_prev_modules.size()):
 		if i >= new_modules.size():
 			_bot_preview.play_unequip_anim("module_%d" % i)
+
+# [S21.2 / #103 #4] Plain-language weight caption shown beside the weight label.
+# Reads weight + cap; calls out headroom (under), at-cap, or over-cap penalty.
+func _weight_caption_text(total: int, cap: int) -> String:
+	if cap <= 0:
+		return ""
+	if total > cap:
+		return "Over by %d kg — speed/turn penalty applies." % (total - cap)
+	if total == cap:
+		return "At capacity. No headroom for swaps."
+	return "%d kg headroom before slowdown." % (cap - total)
+
+func _weight_caption_color(total: int, cap: int) -> Color:
+	if cap <= 0:
+		return Color(0.65, 0.65, 0.65)
+	if total > cap:
+		return Color(1.0, 0.5, 0.4)
+	return Color(0.65, 0.65, 0.65)

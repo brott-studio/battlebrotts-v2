@@ -90,8 +90,18 @@ func _abs_rect(screen: BrottBrainScreen, c: Control) -> Rect2:
 	return Rect2(origin, c.size)
 
 # Find the tray header Label "── Available Cards ──" — its y position is
-# the tray's anchor point. Children of the screen (not nested).
+# the tray's anchor point. After S21.2 the header lives inside
+# TrayScroll/tray_content; fall back to direct children for pre-S21.2 builds.
 func _find_tray_header(screen: BrottBrainScreen) -> Label:
+	# Primary: look inside TrayScroll/tray_content (S21.2+ layout).
+	var tray_content := screen.get_node_or_null("TrayScroll/tray_content")
+	if tray_content != null:
+		for child in tray_content.get_children():
+			if child is Label and not child.is_queued_for_deletion():
+				var lbl: Label = child
+				if lbl.text == "── Available Cards ──":
+					return lbl
+	# Fallback: direct children (pre-S21.2 layout).
 	for child in screen.get_children():
 		if child is Label and not child.is_queued_for_deletion():
 			var lbl: Label = child
@@ -183,11 +193,11 @@ func _test_tray_decoupled_from_card_count_ac4() -> void:
 	_assert(absf(end_0 - end_8) <= 5.0,
 		"AC4: tray end-y at 0 cards (%.1f) matches tray end-y at 8 cards (%.1f) within ±5px (delta=%.1f)"
 			% [end_0, end_8, absf(end_0 - end_8)])
-	# Extra: math-verified target from spec — tray end-y ≈ 505, well
-	# under nav y=650. Give +/- 40px of tolerance for tray-button
-	# wrapping / row-height variance.
-	_assert(end_8 < 600.0,
-		"Tray end-y at 8 cards (%.1f) is clear of nav (y=650), below 600" % end_8)
+	# S21.2 updated: TrayScroll sits at (0, 365), size (1280, 280), so tray bottom
+	# is 645 — just under nav y=650. Old S17.4 threshold of 600 is no longer valid.
+	# The structural invariant is clearance from nav (< 650); use 648 for 2px margin.
+	_assert(end_8 < 648.0,
+		"Tray end-y at 8 cards (%.1f) clears nav (y=650)" % end_8)
 	_assert(end_8 > 370.0,
 		"Tray end-y at 8 cards (%.1f) is below the tray header anchor (y=370)" % end_8)
 

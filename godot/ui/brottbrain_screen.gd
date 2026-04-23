@@ -13,35 +13,36 @@ var game_state: GameState
 var brain: BrottBrain
 var tutorial_dismissed: bool = false  # persists per session; ideally save to disk
 
-# Trigger display data: [emoji, label, param_type, default_param]
+# Trigger display data: [emoji, label, param_type, default_param, summary]
 # param_type: "pct" (0-100% slider), "tiles" (distance), "seconds" (time), "module" (dropdown), "none", "tiles_per_sec" (S14.2)
 # Display table is indexed by Trigger enum value — entries must stay aligned with BrottBrain.Trigger.
 # HIDDEN_TRIGGERS lists enum values that remain in the table (so existing saves render) but are omitted from the Available Cards tray.
+# [S21.2 / #103] summary slot is the visible-by-default caption (≤8 words, BrottBrain voice).
 const TRIGGER_DISPLAY := [
-	["💔", "When I'm Hurt", "pct", 0.4],
-	["💪", "When I'm Healthy", "pct", 0.7],
-	["🔋", "When I'm Low on Energy", "pct", 0.3],
-	["⚡", "When I'm Charged Up", "pct", 0.8],
-	["💔", "When They're Hurt", "pct", 0.3],
-	["📏", "When They're Close", "tiles", 3],
-	["📏", "When They're Far", "tiles", 8],
-	["🧱", "When They're In Cover", "none", 0],
-	["✅", "When Gadget Is Ready", "module", ""],
-	["⏱️", "When the Clock Says", "seconds", 30],  # S14.2: hidden from tray (see HIDDEN_TRIGGERS), retained for save-compat.
-	["🏃", "When They're Running", "tiles_per_sec", 4],  # S14.2 Slice B
-	["🎯", "When I Just Hit Them", "seconds", 2],       # S14.2 Slice B
+	["💔", "When I'm Hurt", "pct", 0.4, "Fires when HP drops below threshold"],
+	["💪", "When I'm Healthy", "pct", 0.7, "Fires while HP stays above threshold"],
+	["🔋", "When I'm Low on Energy", "pct", 0.3, "Fires when energy drops below threshold"],
+	["⚡", "When I'm Charged Up", "pct", 0.8, "Fires while energy stays above threshold"],
+	["💔", "When They're Hurt", "pct", 0.3, "Fires when target HP drops below threshold"],
+	["📏", "When They're Close", "tiles", 3, "Fires when target is within tile range"],
+	["📏", "When They're Far", "tiles", 8, "Fires when target is beyond tile range"],
+	["🧱", "When They're In Cover", "none", 0, "Fires while target stands in cover"],
+	["✅", "When Gadget Is Ready", "module", "", "Fires when chosen gadget is off cooldown"],
+	["⏱️", "When the Clock Says", "seconds", 30, "Fires after match clock passes time"],  # S14.2: hidden from tray (see HIDDEN_TRIGGERS), retained for save-compat.
+	["🏃", "When They're Running", "tiles_per_sec", 4, "Fires while target moves above speed"],  # S14.2 Slice B
+	["🎯", "When I Just Hit Them", "seconds", 2, "Fires within seconds of landing a hit"],       # S14.2 Slice B
 ]
 
-# Action display data: [emoji, label, param_type, default_param]
+# Action display data: [emoji, label, param_type, default_param, summary]
 const ACTION_DISPLAY := [
-	["🔄", "Switch Stance", "stance", 0],
-	["🔧", "Use Gadget", "module", ""],
-	["🎯", "Pick a Target", "target", "nearest"],
-	["🔫", "Weapons", "weapon_mode", "all_fire"],
-	["🧱", "Get to Cover", "none", null],       # S14.2: hidden from tray (see HIDDEN_ACTIONS), retained for save-compat.
-	["📍", "Hold the Center", "none", null],
-	["🏃", "Chase Them", "none", null],         # S14.2 Slice B
-	["🎯", "Focus the Weakest", "none", null],   # S14.2 Slice B
+	["🔄", "Switch Stance", "stance", 0, "Change stance to picked behavior"],
+	["🔧", "Use Gadget", "module", "", "Activate equipped module gadget"],
+	["🎯", "Pick a Target", "target", "nearest", "Re-prioritize who to attack"],
+	["🔫", "Weapons", "weapon_mode", "all_fire", "Set fire-control mode for weapons"],
+	["🧱", "Get to Cover", "none", null, "Move toward nearest cover tile"],       # S14.2: hidden from tray (see HIDDEN_ACTIONS), retained for save-compat.
+	["📍", "Hold the Center", "none", null, "Move toward arena center"],
+	["🏃", "Chase Them", "none", null, "Pursue current target aggressively"],         # S14.2 Slice B
+	["🎯", "Focus the Weakest", "none", null, "Switch target to lowest-HP enemy"],   # S14.2 Slice B
 ]
 
 # S14.2 Slices B/C: enum values intentionally omitted from the Available Cards tray.
@@ -51,6 +52,14 @@ const HIDDEN_TRIGGERS := [BrottBrain.Trigger.WHEN_CLOCK_SAYS]
 const HIDDEN_ACTIONS := [BrottBrain.Action.GET_TO_COVER]
 
 const STANCE_NAMES := ["🔥 Go Get 'Em!", "🛡️ Play it Safe", "🔄 Hit & Run", "🕳️ Lie in Wait"]
+# [S21.2 / #103 #5] Default-stance plain-language summaries shown beneath the
+# stance OptionButton. Index-aligned with STANCE_NAMES.
+const STANCE_SUMMARIES := [
+	"Aggressive: charge enemies and brawl up close.",
+	"Defensive: hold position and trade carefully.",
+	"Kiting: keep distance and chip away.",
+	"Ambush: stay still until enemies come close.",
+]
 const TARGET_MODES := ["nearest", "weakest", "biggest_threat"]
 const WEAPON_MODES := ["all_fire", "conserve", "hold_fire"]
 
@@ -108,8 +117,22 @@ func _build_ui() -> void:
 	stance_opt.selected = brain.default_stance
 	stance_opt.position = Vector2(160, 55)
 	stance_opt.size = Vector2(220, 30)
-	stance_opt.item_selected.connect(func(idx: int): brain.default_stance = idx)
 	add_child(stance_opt)
+	
+	# [S21.2 / #103 #5] Inline caption beneath the stance OptionButton —
+	# updates on item_selected.
+	var stance_cap := Label.new()
+	stance_cap.name = "stance_caption"
+	stance_cap.text = _stance_summary(brain.default_stance)
+	stance_cap.add_theme_font_size_override("font_size", 11)
+	stance_cap.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65))
+	stance_cap.position = Vector2(160, 90)
+	stance_cap.size = Vector2(420, 16)
+	add_child(stance_cap)
+	stance_opt.item_selected.connect(func(idx: int):
+		brain.default_stance = idx
+		stance_cap.text = _stance_summary(idx)
+	)
 	
 	# Tutorial banner for smart defaults
 	var banner := Label.new()
@@ -240,11 +263,22 @@ func _build_ui() -> void:
 		tbtn.size = Vector2(110, 24)
 		tbtn.pressed.connect(_start_add_trigger.bind(i))
 		tray_content.add_child(tbtn)
+		# [S21.2 / #103 #1] Inline visible-by-default caption beneath the
+		# trigger button. Copy from TRIGGER_DISPLAY[i] slot 4.
+		var trig_cap := Label.new()
+		trig_cap.name = "trigger_caption_%d" % i
+		trig_cap.text = String(td[4]) if td.size() > 4 else ""
+		trig_cap.add_theme_font_size_override("font_size", 9)
+		trig_cap.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65))
+		trig_cap.position = Vector2(tx, tray_y + 22)
+		trig_cap.size = Vector2(115, 28)
+		trig_cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tray_content.add_child(trig_cap)
 		tx += 115
 		if tx > 700:
 			tx = 80
-			tray_y += 28
-	tray_y += 30
+			tray_y += 56  # was 28; +28 for caption row (allows 2-line wrap)
+	tray_y += 58
 	
 	# Action cards
 	var act_lbl := Label.new()
@@ -267,11 +301,21 @@ func _build_ui() -> void:
 		abtn.size = Vector2(120, 24)
 		abtn.pressed.connect(_start_add_action.bind(i))
 		tray_content.add_child(abtn)
+		# [S21.2 / #103 #2] Inline caption beneath action button.
+		var act_cap := Label.new()
+		act_cap.name = "action_caption_%d" % i
+		act_cap.text = String(ad[4]) if ad.size() > 4 else ""
+		act_cap.add_theme_font_size_override("font_size", 9)
+		act_cap.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65))
+		act_cap.position = Vector2(ax, tray_y + 22)
+		act_cap.size = Vector2(125, 28)
+		act_cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tray_content.add_child(act_cap)
 		ax += 125
 		if ax > 700:
 			ax = 80
-			tray_y += 28
-	tray_y += 28  # bottom padding
+			tray_y += 56
+	tray_y += 56  # bottom padding
 	
 	# Set the tray_content scroll extent now that we know the final tray_y.
 	tray_content.custom_minimum_size = Vector2(1260, max(tray_y, 0))
@@ -548,3 +592,9 @@ func _show_tutorial() -> void:
 
 func get_brain() -> BrottBrain:
 	return brain
+
+# [S21.2 / #103 #5] Plain-language summary for the default-stance picker.
+func _stance_summary(idx: int) -> String:
+	if idx < 0 or idx >= STANCE_SUMMARIES.size():
+		return ""
+	return STANCE_SUMMARIES[idx]

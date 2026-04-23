@@ -46,6 +46,19 @@ func _build_ui() -> void:
 	info.size = Vector2(400, 200)
 	add_child(info)
 	
+	# [S21.2 / #103 #6] League progress caption — plain-language progress meter
+	# beneath the bolts info. Visible by default, no hover. Surfaces league +
+	# beat count + remaining count or unlock-pending state.
+	var progress := Label.new()
+	progress.name = "league_progress_caption"
+	progress.text = _progress_caption_text()
+	progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	progress.add_theme_font_size_override("font_size", 13)
+	progress.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
+	progress.position = Vector2(390, 380)
+	progress.size = Vector2(500, 30)
+	add_child(progress)
+	
 	# Bronze unlock message
 	if game_state.bronze_unlocked and game_state.brottbrain_unlocked:
 		var unlock := Label.new()
@@ -73,3 +86,27 @@ func _build_ui() -> void:
 	cont_btn.add_theme_font_size_override("font_size", 18)
 	cont_btn.pressed.connect(func(): continue_pressed.emit())
 	add_child(cont_btn)
+
+# [S21.2 / #103 #6] League-progress caption text. Counts opponents beaten in
+# the current league and reports remaining unlocks; mentions BrottBrain
+# unlock-pending when the bronze gate is one win away.
+func _progress_caption_text() -> String:
+	if game_state == null:
+		return ""
+	var league: String = game_state.current_league
+	var opponents: Array = OpponentData.get_league_opponents(league)
+	var total: int = opponents.size()
+	var beat: int = 0
+	for opp in opponents:
+		if String(opp.get("id", "")) in game_state.opponents_beaten:
+			beat += 1
+	var remaining: int = max(total - beat, 0)
+	var suffix: String = ""
+	if league == "scrapyard" and not game_state.bronze_unlocked:
+		if remaining == 0:
+			suffix = " — Bronze League ready to unlock."
+		elif remaining == 1:
+			suffix = " — 1 win to Bronze + BrottBrain."
+		else:
+			suffix = " — %d wins to Bronze." % remaining
+	return "%s League: %d/%d opponents beaten.%s" % [league.capitalize(), beat, total, suffix]

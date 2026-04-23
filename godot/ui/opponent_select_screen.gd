@@ -87,6 +87,17 @@ func _build_ui() -> void:
 		info_lbl.size = Vector2(600, 25)
 		list_content.add_child(info_lbl)
 		
+		# [S21.2 / #103 #3] Inline opponent-archetype subtitle. Visible by
+		# default; <=10 words; summarizes threat profile from stance + chassis.
+		var subtitle := Label.new()
+		subtitle.name = "opponent_subtitle_%d" % i
+		subtitle.text = _opponent_subtitle(opp)
+		subtitle.add_theme_font_size_override("font_size", 11)
+		subtitle.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
+		subtitle.position = Vector2(60, y + 65)
+		subtitle.size = Vector2(480, 20)
+		list_content.add_child(subtitle)
+		
 		# Fight button
 		var btn := Button.new()
 		btn.text = "FIGHT!" if not beaten else "REMATCH"
@@ -105,3 +116,28 @@ func _build_ui() -> void:
 	back_btn.size = Vector2(150, 50)
 	back_btn.pressed.connect(func(): back_pressed.emit())
 	add_child(back_btn)
+
+# [S21.2 / #103 #3] Opponent threat-profile subtitle. Reads the opp dict's
+# stance + chassis to produce a <=10-word plain-language summary, kept tonally
+# adjacent to STANCE_NAMES voice without copying it verbatim.
+func _opponent_subtitle(opp: Dictionary) -> String:
+	var stance: int = int(opp.get("stance", 0))
+	var chassis: int = int(opp.get("chassis", -1))
+	var stance_blurb := ""
+	match stance:
+		0:
+			stance_blurb = "Aggressive — closes fast and brawls."
+		1:
+			stance_blurb = "Defensive — holds ground, trades carefully."
+		2:
+			stance_blurb = "Kiting — keeps distance, chips you down."
+		3:
+			stance_blurb = "Ambush — waits for you to come close."
+		_:
+			stance_blurb = "Unknown stance."
+	var chassis_blurb := ""
+	if chassis == ChassisData.ChassisType.SCOUT:
+		chassis_blurb = " Light frame."
+	elif chassis == ChassisData.ChassisType.BRAWLER:
+		chassis_blurb = " Heavy frame."
+	return stance_blurb + chassis_blurb

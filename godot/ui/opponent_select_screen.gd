@@ -23,7 +23,32 @@ func _build_ui() -> void:
 	add_child(header)
 	
 	var opponents := OpponentData.get_league_opponents(game_state.current_league)
-	var y := 80
+	
+	# [S21.2 / #104] Wrap opponent panel list in ScrollContainer mirroring the
+	# S17.1-002 LoadoutScreen pattern, so high-count leagues (5–6 opponents) +
+	# the S21.2 / #103 inline subtitles do not push panels into the back-button
+	# at y=650. Spec from design/2026-04-23-s21.2-ux-bundle.md §Issue #104:
+	#   - ListScroll position (0, 60), size (1280, 580), vertical-only.
+	#   - Content sized Vector2(1260, 40 + count * 130) (panel pitch is 140 in
+	#     S21.2 due to subtitle inflation; we keep 140 to match #103 below).
+	#   - Back button stays sibling of ListScroll, anchored at (20, 650).
+	var list_scroll := ScrollContainer.new()
+	list_scroll.name = "ListScroll"
+	list_scroll.position = Vector2(0, 60)
+	list_scroll.size = Vector2(1280, 580)
+	list_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	list_scroll.follow_focus = true
+	add_child(list_scroll)
+	
+	var list_content := Control.new()
+	list_content.name = "list_content"
+	list_content.custom_minimum_size = Vector2(1260, max(40 + opponents.size() * 140, 0))
+	list_scroll.add_child(list_content)
+	
+	# Panels are positioned relative to list_content; first panel at y=20
+	# (was y=80 absolute, now y=20 inside the scroll which itself starts at y=60).
+	var y := 20
 	
 	for i in range(opponents.size()):
 		var opp: Dictionary = opponents[i]
@@ -33,7 +58,7 @@ func _build_ui() -> void:
 		var panel := Panel.new()
 		panel.position = Vector2(40, y)
 		panel.size = Vector2(700, 120)
-		add_child(panel)
+		list_content.add_child(panel)
 		
 		# Name
 		var name_lbl := Label.new()
@@ -41,7 +66,7 @@ func _build_ui() -> void:
 		name_lbl.add_theme_font_size_override("font_size", 22)
 		name_lbl.position = Vector2(60, y + 10)
 		name_lbl.size = Vector2(400, 30)
-		add_child(name_lbl)
+		list_content.add_child(name_lbl)
 		
 		# Loadout info
 		var ch := ChassisData.get_chassis(opp["chassis"])
@@ -60,7 +85,7 @@ func _build_ui() -> void:
 		info_lbl.text = "%s | Weapons: %s | Armor: %s" % [ch["name"], weapons_str, armor_str]
 		info_lbl.position = Vector2(60, y + 40)
 		info_lbl.size = Vector2(600, 25)
-		add_child(info_lbl)
+		list_content.add_child(info_lbl)
 		
 		# Fight button
 		var btn := Button.new()
@@ -69,7 +94,7 @@ func _build_ui() -> void:
 		btn.size = Vector2(150, 35)
 		btn.add_theme_font_size_override("font_size", 16)
 		btn.pressed.connect(func(): opponent_selected.emit(i))
-		add_child(btn)
+		list_content.add_child(btn)
 		
 		y += 140
 	

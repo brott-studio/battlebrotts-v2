@@ -188,17 +188,35 @@ func _build_ui() -> void:
 	move_down.pressed.connect(_move_card_down)
 	add_child(move_down)
 	
-	# Available cards tray — [S17.4-002] tray_y_base fixed at 370,
-	# independent of cards.size(). This is the other half of the #206 fix:
-	# previously `maxi(y + 15, 380)` grew with card count and collided
-	# with nav at y=650 when MAX_CARDS==8.
-	var tray_y: int = 370
+	# Available cards tray — [S21.2 / #104] wrapped in TrayScroll so the WHEN/
+	# THEN rows + #103 inline captions can grow without colliding with the
+	# back/Fight buttons at y=650. Spec from
+	# design/2026-04-23-s21.2-ux-bundle.md §Issue #104:
+	#   - TrayScroll position (0, 365), size (1280, 280), vertical-only.
+	#   - tray_hdr + trigger row + action row become children of an inner
+	#     Control content node; tray_y is content-relative (was 370 absolute).
+	#   - Footer buttons (back/Fight!) stay siblings of TrayScroll.
+	var tray_scroll := ScrollContainer.new()
+	tray_scroll.name = "TrayScroll"
+	tray_scroll.position = Vector2(0, 365)
+	tray_scroll.size = Vector2(1280, 280)
+	tray_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	tray_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tray_scroll.follow_focus = true
+	add_child(tray_scroll)
+	
+	var tray_content := Control.new()
+	tray_content.name = "tray_content"
+	tray_scroll.add_child(tray_content)
+	
+	# tray_y is now relative to tray_content (was absolute, starting at 370).
+	var tray_y: int = 5
 	var tray_hdr := Label.new()
 	tray_hdr.text = "── Available Cards ──"
 	tray_hdr.add_theme_font_size_override("font_size", 14)
 	tray_hdr.position = Vector2(20, tray_y)
 	tray_hdr.size = Vector2(400, 22)
-	add_child(tray_hdr)
+	tray_content.add_child(tray_hdr)
 	tray_y += 25
 	
 	# Trigger cards
@@ -208,7 +226,7 @@ func _build_ui() -> void:
 	trig_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	trig_lbl.position = Vector2(25, tray_y)
 	trig_lbl.size = Vector2(50, 20)
-	add_child(trig_lbl)
+	tray_content.add_child(trig_lbl)
 	
 	var tx := 80
 	for i in range(TRIGGER_DISPLAY.size()):
@@ -221,7 +239,7 @@ func _build_ui() -> void:
 		tbtn.position = Vector2(tx, tray_y)
 		tbtn.size = Vector2(110, 24)
 		tbtn.pressed.connect(_start_add_trigger.bind(i))
-		add_child(tbtn)
+		tray_content.add_child(tbtn)
 		tx += 115
 		if tx > 700:
 			tx = 80
@@ -235,7 +253,7 @@ func _build_ui() -> void:
 	act_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	act_lbl.position = Vector2(25, tray_y)
 	act_lbl.size = Vector2(50, 20)
-	add_child(act_lbl)
+	tray_content.add_child(act_lbl)
 	
 	var ax := 80
 	for i in range(ACTION_DISPLAY.size()):
@@ -248,11 +266,15 @@ func _build_ui() -> void:
 		abtn.position = Vector2(ax, tray_y)
 		abtn.size = Vector2(120, 24)
 		abtn.pressed.connect(_start_add_action.bind(i))
-		add_child(abtn)
+		tray_content.add_child(abtn)
 		ax += 125
 		if ax > 700:
 			ax = 80
 			tray_y += 28
+	tray_y += 28  # bottom padding
+	
+	# Set the tray_content scroll extent now that we know the final tray_y.
+	tray_content.custom_minimum_size = Vector2(1260, max(tray_y, 0))
 	
 	# Navigation
 	var back_btn := Button.new()

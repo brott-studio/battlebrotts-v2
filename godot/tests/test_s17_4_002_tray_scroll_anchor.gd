@@ -193,11 +193,11 @@ func _test_tray_decoupled_from_card_count_ac4() -> void:
 	_assert(absf(end_0 - end_8) <= 5.0,
 		"AC4: tray end-y at 0 cards (%.1f) matches tray end-y at 8 cards (%.1f) within ±5px (delta=%.1f)"
 			% [end_0, end_8, absf(end_0 - end_8)])
-	# Extra: math-verified target from spec — tray end-y ≈ 505, well
-	# under nav y=650. Give +/- 40px of tolerance for tray-button
-	# wrapping / row-height variance.
-	_assert(end_8 < 600.0,
-		"Tray end-y at 8 cards (%.1f) is clear of nav (y=650), below 600" % end_8)
+	# S21.2 updated: TrayScroll sits at (0, 365), size (1280, 280), so tray bottom
+	# is 645 — just under nav y=650. Old S17.4 threshold of 600 is no longer valid.
+	# The structural invariant is clearance from nav (< 650); use 648 for 2px margin.
+	_assert(end_8 < 648.0,
+		"Tray end-y at 8 cards (%.1f) clears nav (y=650)" % end_8)
 	_assert(end_8 > 370.0,
 		"Tray end-y at 8 cards (%.1f) is below the tray header anchor (y=370)" % end_8)
 

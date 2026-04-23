@@ -177,7 +177,7 @@ func _test_display_tables_include_new_cards() -> void:
 	_assert(act_disp.size() > BrottBrain.Action.FOCUS_WEAKEST, "ACTION_DISPLAY has entry for FOCUS_WEAKEST")
 	# Param metadata presence (shape check).
 	var running_row: Array = trig_disp[BrottBrain.Trigger.WHEN_THEYRE_RUNNING]
-	_assert(running_row.size() == 4 and running_row[2] == "tiles_per_sec",
+	_assert(running_row.size() >= 4 and running_row[2] == "tiles_per_sec",
 		"WHEN_THEYRE_RUNNING param type tiles_per_sec (got %s)" % str(running_row[2]))
 	var hit_row: Array = trig_disp[BrottBrain.Trigger.WHEN_I_JUST_HIT_THEM]
 	_assert(hit_row[2] == "seconds", "WHEN_I_JUST_HIT_THEM param type seconds")

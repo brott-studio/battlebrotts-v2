@@ -90,8 +90,18 @@ func _abs_rect(screen: BrottBrainScreen, c: Control) -> Rect2:
 	return Rect2(origin, c.size)
 
 # Find the tray header Label "── Available Cards ──" — its y position is
-# the tray's anchor point. Children of the screen (not nested).
+# the tray's anchor point. After S21.2 the header lives inside
+# TrayScroll/tray_content; fall back to direct children for pre-S21.2 builds.
 func _find_tray_header(screen: BrottBrainScreen) -> Label:
+	# Primary: look inside TrayScroll/tray_content (S21.2+ layout).
+	var tray_content := screen.get_node_or_null("TrayScroll/tray_content")
+	if tray_content != null:
+		for child in tray_content.get_children():
+			if child is Label and not child.is_queued_for_deletion():
+				var lbl: Label = child
+				if lbl.text == "── Available Cards ──":
+					return lbl
+	# Fallback: direct children (pre-S21.2 layout).
 	for child in screen.get_children():
 		if child is Label and not child.is_queued_for_deletion():
 			var lbl: Label = child

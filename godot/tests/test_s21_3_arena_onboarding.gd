@@ -94,7 +94,7 @@ func _make_game_main_with_hud() -> Node2D:
 	pi.position = Vector2(20.0, 10.0)
 	pi.size = Vector2(300.0, 30.0)
 	gm.add_child(pi)
-	gm.player_info = pi
+	gm.set("player_info", pi)
 
 	# TimeLabel
 	var tl := Label.new()
@@ -102,7 +102,7 @@ func _make_game_main_with_hud() -> Node2D:
 	tl.position = Vector2(600.0, 10.0)
 	tl.size = Vector2(100.0, 30.0)
 	gm.add_child(tl)
-	gm.time_label = tl
+	gm.set("time_label", tl)
 
 	# ConcedeButton
 	var cb := Button.new()
@@ -141,7 +141,7 @@ func _test_arena_sequence_constants() -> void:
 func _test_anchor_node_type_energy_explainer() -> void:
 	print("--- Anchor node-type: energy_explainer ---")
 	var gm := _make_game_main_with_hud()
-	var overlay := gm._spawn_arena_first_encounter("energy_explainer")
+	var overlay: Control = gm.call("_spawn_arena_first_encounter", "energy_explainer") as Control
 	_assert(overlay != null, "energy_explainer: overlay spawned")
 	if overlay == null:
 		gm.queue_free(); return
@@ -163,7 +163,7 @@ func _test_anchor_node_type_energy_explainer() -> void:
 func _test_anchor_node_type_combatants_explainer() -> void:
 	print("--- Anchor node-type: combatants_explainer ---")
 	var gm := _make_game_main_with_hud()
-	var overlay := gm._spawn_arena_first_encounter("combatants_explainer")
+	var overlay: Control = gm.call("_spawn_arena_first_encounter", "combatants_explainer") as Control
 	_assert(overlay != null, "combatants_explainer: overlay spawned")
 	if overlay == null:
 		gm.queue_free(); return
@@ -185,7 +185,7 @@ func _test_anchor_node_type_combatants_explainer() -> void:
 func _test_anchor_node_type_time_explainer() -> void:
 	print("--- Anchor node-type: time_explainer ---")
 	var gm := _make_game_main_with_hud()
-	var overlay := gm._spawn_arena_first_encounter("time_explainer")
+	var overlay: Control = gm.call("_spawn_arena_first_encounter", "time_explainer") as Control
 	_assert(overlay != null, "time_explainer: overlay spawned")
 	if overlay == null:
 		gm.queue_free(); return
@@ -204,7 +204,7 @@ func _test_anchor_node_type_time_explainer() -> void:
 func _test_anchor_node_type_concede_explainer() -> void:
 	print("--- Anchor node-type: concede_explainer ---")
 	var gm := _make_game_main_with_hud()
-	var overlay := gm._spawn_arena_first_encounter("concede_explainer")
+	var overlay: Control = gm.call("_spawn_arena_first_encounter", "concede_explainer") as Control
 	_assert(overlay != null, "concede_explainer: overlay spawned")
 	if overlay == null:
 		gm.queue_free(); return
@@ -236,12 +236,12 @@ func _test_sequencing_order() -> void:
 	for _entry in range(4):
 		var gm := _make_game_main_with_hud()
 		# Simulate arena entry: call _start_arena_onboarding.
-		gm._start_arena_onboarding()
-		var ov := gm._arena_fe_overlay
+		gm.call("_start_arena_onboarding")
+		var ov: Variant = gm.get("_arena_fe_overlay")
 		if ov != null:
-			shown.append(gm._arena_fe_active_key)
+			shown.append(str(gm.get("_arena_fe_active_key")))
 			# Mark-seen simulates dismiss so next entry advances.
-			frs.call("mark_seen", gm._arena_fe_active_key)
+			frs.call("mark_seen", str(gm.get("_arena_fe_active_key")))
 		gm.queue_free()
 
 	_assert_eq(shown.size(), 4,
@@ -267,7 +267,7 @@ func _test_one_per_entry() -> void:
 		frs.call("reset", k)
 
 	var gm := _make_game_main_with_hud()
-	gm._start_arena_onboarding()
+	gm.call("_start_arena_onboarding")
 	# Count active overlays by iterating children.
 	var overlay_count := 0
 	for child in gm.get_children():
@@ -277,7 +277,7 @@ func _test_one_per_entry() -> void:
 		"one-per-entry: exactly 1 arena overlay after first arena entry (got %d)" % overlay_count)
 
 	# Calling _start_arena_onboarding again (simulating duplicate entry) must be a no-op.
-	gm._start_arena_onboarding()
+	gm.call("_start_arena_onboarding")
 	var overlay_count2 := 0
 	for child in gm.get_children():
 		if child.name.begins_with("ArenaFEOverlay_"):
@@ -303,8 +303,8 @@ func _test_save_carryforward() -> void:
 	frs.call("mark_seen", "energy_explainer")
 
 	var gm := _make_game_main_with_hud()
-	gm._start_arena_onboarding()
-	var active_key: String = gm._arena_fe_active_key
+	gm.call("_start_arena_onboarding")
+	var active_key: String = str(gm.get("_arena_fe_active_key"))
 	_assert(active_key != "energy_explainer",
 		"save-carryforward: energy_explainer NOT re-shown when already seen")
 	_assert_eq(active_key, "combatants_explainer",
@@ -319,11 +319,11 @@ func _test_pointer_presence() -> void:
 	print("--- Pointer presence (AnchorArrow) ---")
 	for key in GameMainScript.ARENA_SEQUENCE:
 		var gm := _make_game_main_with_hud()
-		var overlay := gm._spawn_arena_first_encounter(key)
+		var overlay: Control = gm.call("_spawn_arena_first_encounter", key) as Control
 		_assert(overlay != null,
 			"pointer[%s]: overlay spawned" % key)
 		if overlay != null:
-			var arrow := overlay.get_node_or_null("AnchorArrow")
+			var arrow: Node = overlay.get_node_or_null("AnchorArrow")
 			_assert(arrow != null,
 				"pointer[%s]: AnchorArrow child present" % key)
 			if arrow != null:
@@ -352,28 +352,29 @@ func _test_trigger_arena_entry_only() -> void:
 	var gm: Node2D = GameMainScript.new()
 	# Call the screen-overlay path directly (simulates _show_shop etc).
 	# None of the arena keys should be spawned.
-	gm._maybe_spawn_first_encounter(GameMainScript.FE_KEY_SHOP)
-	gm._maybe_spawn_first_encounter(GameMainScript.FE_KEY_BROTTBRAIN)
-	gm._maybe_spawn_first_encounter(GameMainScript.FE_KEY_OPPONENT)
+	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_SHOP)
+	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_BROTTBRAIN)
+	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_OPPONENT)
 
 	# Arena onboarding overlay (_arena_fe_overlay) must be nil here.
-	_assert(gm._arena_fe_overlay == null,
+	_assert(gm.get("_arena_fe_overlay") == null,
 		"trigger: arena onboarding overlay is NOT spawned by screen-entry hooks")
-	_assert(gm._arena_fe_active_key == "",
+	_assert(gm.get("_arena_fe_active_key") == "",
 		"trigger: arena active key remains empty after screen transitions")
 
 	# Now confirm arena overlays DO spawn when _start_arena_onboarding is called.
-	gm.player_info = Label.new()
-	gm.player_info.name = "PlayerInfo"
-	gm.player_info.position = Vector2(20.0, 10.0)
-	gm.player_info.size = Vector2(300.0, 30.0)
-	gm.add_child(gm.player_info)
+	var pi2 := Label.new()
+	pi2.name = "PlayerInfo"
+	pi2.position = Vector2(20.0, 10.0)
+	pi2.size = Vector2(300.0, 30.0)
+	gm.add_child(pi2)
+	gm.set("player_info", pi2)
 	var tl := Label.new()
 	tl.name = "TimeLabel"
 	tl.position = Vector2(600.0, 10.0)
 	tl.size = Vector2(100.0, 30.0)
 	gm.add_child(tl)
-	gm.time_label = tl
+	gm.set("time_label", tl)
 	var el := Label.new()
 	el.name = "EnergyLegend"
 	el.position = Vector2(20.0, 42.0)
@@ -385,8 +386,8 @@ func _test_trigger_arena_entry_only() -> void:
 	cb.size = Vector2(80.0, 24.0)
 	gm.add_child(cb)
 
-	gm._start_arena_onboarding()
-	_assert(gm._arena_fe_overlay != null,
+	gm.call("_start_arena_onboarding")
+	_assert(gm.get("_arena_fe_overlay") != null,
 		"trigger: arena overlay IS spawned by _start_arena_onboarding (arena-entry hook)")
 
 	gm.queue_free()
@@ -399,7 +400,7 @@ func _test_placement_not_top_center() -> void:
 	print("--- Placement: not top-center; relative to anchor ---")
 	for key in GameMainScript.ARENA_SEQUENCE:
 		var gm := _make_game_main_with_hud()
-		var overlay := gm._spawn_arena_first_encounter(key)
+		var overlay: Control = gm.call("_spawn_arena_first_encounter", key) as Control
 		_assert(overlay != null,
 			"placement[%s]: overlay spawned" % key)
 		if overlay == null:

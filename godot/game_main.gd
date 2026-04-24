@@ -554,7 +554,14 @@ func _start_arena_onboarding() -> void:
 	# Guard: if an overlay is somehow already active (re-entrant call), skip.
 	if _arena_fe_overlay != null:
 		return
+	# FRS lookup: try direct path first (in-tree node), then fall back to
+	# Engine.get_main_loop().root (works even when this node is not in the tree,
+	# e.g. headless test instantiation).
 	var frs: Node = get_node_or_null("/root/FirstRunState")
+	if frs == null:
+		var ml := Engine.get_main_loop() as SceneTree
+		if ml != null and ml.root != null:
+			frs = ml.root.get_node_or_null("FirstRunState")
 	if frs == null:
 		return
 	# Advance to next unseen key in ARENA_SEQUENCE.

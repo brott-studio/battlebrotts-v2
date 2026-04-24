@@ -21,6 +21,22 @@ func _build_ui() -> void:
 	header.position = Vector2(20, 10)
 	header.size = Vector2(800, 40)
 	add_child(header)
+
+	# [S21.4 / #108] LeagueProgressIndicator — pre-match league-progression
+	# surfacing. Visible when player is in a league-progressed state (has
+	# beaten at least one full league). Anchored to OpponentSelectScreen
+	# as a sibling of the header, above ListScroll, so it's always visible
+	# even when the list is scrolled. Shows current league context so the
+	# player sees their progression status on the pre-match surface.
+	var league_prog := Label.new()
+	league_prog.name = "LeagueProgressIndicator"
+	league_prog.text = _league_progress_indicator_text()
+	league_prog.add_theme_font_size_override("font_size", 13)
+	league_prog.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	league_prog.position = Vector2(820, 18)
+	league_prog.size = Vector2(440, 24)
+	league_prog.visible = game_state != null and game_state.bronze_unlocked
+	add_child(league_prog)
 	
 	var opponents := OpponentData.get_league_opponents(game_state.current_league)
 	
@@ -116,6 +132,15 @@ func _build_ui() -> void:
 	back_btn.size = Vector2(150, 50)
 	back_btn.pressed.connect(func(): back_pressed.emit())
 	add_child(back_btn)
+
+# [S21.4 / #108] League progression indicator text for LeagueProgressIndicator.
+# Returns display text when player is in a league-progressed state.
+# Shown only when bronze_unlocked is true (at least one prior league beaten).
+func _league_progress_indicator_text() -> String:
+	if game_state == null or not game_state.bronze_unlocked:
+		return ""
+	var league: String = game_state.current_league
+	return "🏅 League Progression: %s" % league.capitalize()
 
 # [S21.2 / #103 #3] Opponent threat-profile subtitle. Reads the opp dict's
 # stance + chassis to produce a <=10-word plain-language summary, kept tonally

@@ -58,6 +58,21 @@ func _build_ui() -> void:
 	progress.position = Vector2(390, 380)
 	progress.size = Vector2(500, 30)
 	add_child(progress)
+
+	# [S21.4 / #108] NextLeaguePathIndicator — post-match league progression
+	# surfacing. Visible only when the just-completed match was the league
+	# final win (bronze_unlocked edge). Shows the next-league path to the
+	# player immediately on the result screen, before the ceremony modal.
+	var next_league := Label.new()
+	next_league.name = "NextLeaguePathIndicator"
+	next_league.text = _next_league_path_text()
+	next_league.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	next_league.add_theme_font_size_override("font_size", 16)
+	next_league.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	next_league.position = Vector2(390, 418)
+	next_league.size = Vector2(500, 30)
+	next_league.visible = game_state != null and game_state.bronze_unlocked
+	add_child(next_league)
 	
 	# Bronze unlock message
 	if game_state.bronze_unlocked and game_state.brottbrain_unlocked:
@@ -90,6 +105,17 @@ func _build_ui() -> void:
 # [S21.2 / #103 #6] League-progress caption text. Counts opponents beaten in
 # the current league and reports remaining unlocks; mentions BrottBrain
 # unlock-pending when the bronze gate is one win away.
+# [S21.4 / #108] Next-league path text for NextLeaguePathIndicator.
+# Returns the display text for the next league after a final-win unlock.
+# Minimal copy — uses league name if available in progression chain.
+func _next_league_path_text() -> String:
+	if game_state == null or not game_state.bronze_unlocked:
+		return ""
+	# Scrapyard final win unlocks Bronze — show the next path.
+	if game_state.current_league == "scrapyard" or game_state.current_league == "bronze":
+		return "🏅 Next League: Bronze"
+	return ""
+
 func _progress_caption_text() -> String:
 	if game_state == null:
 		return ""

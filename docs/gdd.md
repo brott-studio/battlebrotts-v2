@@ -374,7 +374,7 @@ chassis, weapons, armor, modules, and stance.
 | `bruiser_enforcer` | Enforcer | BRUISER | 3 | Silver | Brawler + Minigun + Arc Emitter + Plating + Shield Projector + Overclock |
 | `control_disruptor` | Disruptor | CONTROLLER | 4 | Silver | Brawler + Arc Emitter + Flak Cannon + Reactive + Shield Projector + Sensor Array |
 | `tank_aegis` | Aegis | TANK | 4 | Silver | Brawler + Railgun + Minigun + Reactive + Shield Projector + Repair Nanites |
-| `glass_chrono` | Chrono | GLASS_CANNON | 4 | Silver | Scout + Railgun + Reactive + Sensor Array + Overclock |
+| `glass_chrono` | Chrono | GLASS_CANNON | 4 | Silver | Scout + Railgun + None + Sensor Array + Overclock |
 
 **Difficulty tier mapping** (`OpponentLoadouts.difficulty_for(league, index)`):
 

@@ -432,11 +432,12 @@ const TEMPLATES: Array[Dictionary] = [
 		"tier": 4,
 		"chassis": ChassisData.ChassisType.SCOUT,
 		"weapons": [WeaponData.WeaponType.RAILGUN],
-		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"armor": ArmorData.ArmorType.NONE,
 		"modules": [ModuleData.ModuleType.SENSOR_ARRAY, ModuleData.ModuleType.OVERCLOCK],
 		"stance": 3,  # Ambush
 		"unlock_league": "silver",
-		# weight: 9 (Railgun) + 8 (Reactive) + 4 (Sensor) + 5 (Overclock) = 26 <= 30 (Scout)
+		# weight: 15 (Railgun) + 0 (None) + 4 (Sensor) + 5 (Overclock) = 24 <= 30 (Scout)
+		# Note: was REACTIVE_MESH (8 kg) — exceeded 30 kg cap; swapped to NONE (glass cannon identity)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_beyond_tiles", "value": 7},

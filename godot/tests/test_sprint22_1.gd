@@ -52,7 +52,8 @@ const SILVER_MODULES := [
 	ModuleData.ModuleType.REPAIR_NANITES,
 	ModuleData.ModuleType.SHIELD_PROJECTOR,
 	ModuleData.ModuleType.SENSOR_ARRAY,
-	# Afterburner, EMP Charge are Gold+ — NOT Silver-legal
+	ModuleData.ModuleType.AFTERBURNER,  # Silver-legal: used by glass_sniper (S22.1) + skirmish_harrier (S22.2b-p2)
+	# EMP Charge is Gold+ — NOT Silver-legal
 ]
 
 const SILVER_IDS := [
@@ -184,8 +185,9 @@ func _t3_silver_legality() -> void:
 		for m in t["modules"]:
 			if not SILVER_MODULES.has(m):
 				modules_ok = false
-		# GDD sec6.2 "full loadouts": Silver module count = 2 (exception: glass_chrono is 1 per S22.2b)
-		var min_modules: int = 1 if t.get("id", "") == "glass_chrono" else 2
+		# GDD sec6.2 "full loadouts": Silver module count >= 1 (glass_chrono=2; Scout max-slot=3)
+		var min_modules: int = 1
+		var max_modules: int = 3  # Scout chassis allows 3 module slots
 		var module_count_ok: bool = t["modules"].size() >= min_modules
 		var unlock_ok: bool = t.get("unlock_league", "") == "silver"
 		if not (chassis_ok and weapons_ok and armor_ok and modules_ok and module_count_ok and unlock_ok):

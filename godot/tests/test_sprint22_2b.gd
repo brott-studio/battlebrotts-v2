@@ -44,7 +44,7 @@ const REMOVED_MODULES_PASS2 := {
 }
 
 func _initialize() -> void:
-	print("=== Sprint 22.2b Silver retune tests (pass-2) ===\n")
+	print("=== Sprint 22.2b Silver retune tests (pass-3) ===\n")
 	_run_all()
 	print("\n=== Results: %d passed, %d failed, %d total ===" % [pass_count, fail_count, test_count])
 	quit(1 if fail_count > 0 else 0)
@@ -107,15 +107,16 @@ func _run_all() -> void:
 	_t3_armor_changes_pass2()
 	_t4_stances_pass2()
 	_t5_chrono_weight_and_modules()
-	_t6_harrier_afterburner()
+	_t6_harrier_repair_nanites()
 	_t7_trueshot_unchanged()
 	_t8_bcard_no_orphan_pass2()
 	_t9_bcard_pass2_triggers()
 	_t10_trueshot_bcard_intact()
+	_t11_pass3_plating_and_no_change()
 
 func _t1_weight_budget_all_silver() -> void:
-	# All 6 pass-2 retuned templates must be within their chassis weight cap.
-	# Expected weights: Bulwark=44, Enforcer=44, Disruptor=41, Aegis=47, Chrono=24, Harrier=28
+	# All 6 pass-3 retuned templates must be within their chassis weight cap.
+	# Expected weights: Bulwark=51, Enforcer=51, Disruptor=48, Aegis=54, Chrono=24, Harrier=29
 	print("T1 weight_budget_all_silver")
 	var found := 0
 	for id in RETUNED_IDS_PASS2:
@@ -129,19 +130,19 @@ func _t1_weight_budget_all_silver() -> void:
 		assert_true(total <= cap,
 			"T1 weight_budget %s: total=%.0f <= cap=%.0f" % [id, total, cap])
 	assert_eq(found, 6, "T1 found all 6 retuned templates in TEMPLATES")
-	# Spot-check exact weights per Gizmo pass-2 §2
+	# Spot-check exact weights per Gizmo pass-3 §2
 	var bulwark   := _get_template("tank_bulwark")
 	var enforcer  := _get_template("bruiser_enforcer")
 	var disruptor := _get_template("control_disruptor")
 	var aegis     := _get_template("tank_aegis")
 	var chrono    := _get_template("glass_chrono")
 	var harrier   := _get_template("skirmish_harrier")
-	assert_eq(int(_template_total_weight(bulwark)),   44, "T1 bulwark weight == 44")
-	assert_eq(int(_template_total_weight(enforcer)),  44, "T1 enforcer weight == 44")
-	assert_eq(int(_template_total_weight(disruptor)), 41, "T1 disruptor weight == 41")
-	assert_eq(int(_template_total_weight(aegis)),     47, "T1 aegis weight == 47")
-	assert_eq(int(_template_total_weight(chrono)),    24, "T1 chrono weight == 24 (Reactive reverted + Overclock restored)")
-	assert_eq(int(_template_total_weight(harrier)),   28, "T1 harrier weight == 28 (Reactive removed + Afterburner added)")
+	assert_eq(int(_template_total_weight(bulwark)),   51, "T1 bulwark weight == 51 (Reactive 8->Plating 15)")
+	assert_eq(int(_template_total_weight(enforcer)),  51, "T1 enforcer weight == 51 (Reactive 8->Plating 15)")
+	assert_eq(int(_template_total_weight(disruptor)), 48, "T1 disruptor weight == 48 (Reactive 8->Plating 15)")
+	assert_eq(int(_template_total_weight(aegis)),     54, "T1 aegis weight == 54 (Reactive 8->Plating 15; 1kg under 55 cap)")
+	assert_eq(int(_template_total_weight(chrono)),    24, "T1 chrono weight == 24 (no change; pass-3 NO-CHANGE)")
+	assert_eq(int(_template_total_weight(harrier)),   29, "T1 harrier weight == 29 (Afterburner 6->Repair Nanites 7)")
 
 func _t2_module_presence_pass2() -> void:
 	# Per pass-2 spec §2 module state for all 6 templates.
@@ -189,40 +190,42 @@ func _t2_module_presence_pass2() -> void:
 		"T2 chrono has OVERCLOCK (restored in pass-2)")
 	assert_eq(chrono.get("modules", []).size(), 2, "T2 chrono exactly 2 modules")
 
-	# skirmish_harrier: SENSOR_ARRAY + OVERCLOCK + AFTERBURNER; 3 modules
+	# skirmish_harrier: SENSOR_ARRAY + OVERCLOCK + REPAIR_NANITES; 3 modules (pass-3: Afterburner→Repair Nanites)
 	var harrier := _get_template("skirmish_harrier")
 	assert_true(harrier.get("modules", []).has(ModuleData.ModuleType.SENSOR_ARRAY),
 		"T2 harrier has SENSOR_ARRAY")
 	assert_true(harrier.get("modules", []).has(ModuleData.ModuleType.OVERCLOCK),
 		"T2 harrier has OVERCLOCK")
-	assert_true(harrier.get("modules", []).has(ModuleData.ModuleType.AFTERBURNER),
-		"T2 harrier has AFTERBURNER (added in pass-2)")
+	assert_true(harrier.get("modules", []).has(ModuleData.ModuleType.REPAIR_NANITES),
+		"T2 harrier has REPAIR_NANITES (pass-3: Afterburner replaced by Repair Nanites)")
+	assert_false(harrier.get("modules", []).has(ModuleData.ModuleType.AFTERBURNER),
+		"T2 harrier no AFTERBURNER (replaced in pass-3)")
 	assert_eq(harrier.get("modules", []).size(), 3, "T2 harrier exactly 3 modules (Scout slot cap)")
 
 func _t3_armor_changes_pass2() -> void:
-	# pass-2 armor state:
-	#   bruiser_enforcer: REACTIVE_MESH (unchanged from pass-1)
-	#   glass_chrono: NONE (reverted from pass-1 Reactive Mesh — reflect-trap fix)
-	#   skirmish_harrier: NONE (was Reactive Mesh; reflect-trap prevention per §0.2)
+	# pass-3 armor state:
+	#   bruiser_enforcer: PLATING (Reactive Mesh removed — reflect-loop fix, pass-3)
+	#   glass_chrono: NONE (reverted from pass-1 Reactive Mesh; no change in pass-3)
+	#   skirmish_harrier: NONE (Reactive removed in pass-2; no change in pass-3)
 	print("T3 armor_changes_pass2")
 	var enforcer := _get_template("bruiser_enforcer")
-	assert_eq(enforcer.get("armor", -1), ArmorData.ArmorType.REACTIVE_MESH,
-		"T3 enforcer armor == REACTIVE_MESH")
+	assert_eq(enforcer.get("armor", -1), ArmorData.ArmorType.PLATING,
+		"T3 enforcer armor == PLATING (Reactive Mesh removed in pass-3)")
 	var chrono := _get_template("glass_chrono")
 	assert_eq(chrono.get("armor", -1), ArmorData.ArmorType.NONE,
-		"T3 chrono armor == NONE (Reactive reverted in pass-2)")
+		"T3 chrono armor == NONE (Reactive reverted in pass-2; no change pass-3)")
 	var harrier := _get_template("skirmish_harrier")
 	assert_eq(harrier.get("armor", -1), ArmorData.ArmorType.NONE,
-		"T3 harrier armor == NONE (Reactive removed in pass-2)")
+		"T3 harrier armor == NONE (Reactive removed in pass-2; no change pass-3)")
 
 func _t4_stances_pass2() -> void:
-	# pass-2 stance values per Gizmo spec §2:
-	#   Bulwark:   0 Aggressive (was 1 Defensive)
-	#   Disruptor: 2 Kiting     (was 1 Defensive)
-	#   Aegis:     2 Kiting     (was 1 Defensive)
-	#   Enforcer:  2 Kiting     (was 1 Defensive)
-	#   Chrono:    2 Kiting     (was 3 Ambush)
-	#   Harrier:   2 Kiting     (unchanged)
+	# pass-3 stance values (pass-2 base + pass-3 updates):
+	#   Bulwark:   0 Aggressive (pass-2; unchanged pass-3)
+	#   Disruptor: 2 Kiting     (pass-2; unchanged pass-3)
+	#   Aegis:     0 Aggressive (pass-3: Kiting→Aggressive; pulls to 3.25-tile brawl range)
+	#   Enforcer:  0 Aggressive (pass-3: Kiting→Aggressive; bruiser-archetypal with Plating)
+	#   Chrono:    2 Kiting     (pass-2; no change pass-3)
+	#   Harrier:   2 Kiting     (unchanged across all passes)
 	print("T4 stances_pass2")
 	var bulwark   := _get_template("tank_bulwark")
 	var disruptor := _get_template("control_disruptor")
@@ -230,11 +233,11 @@ func _t4_stances_pass2() -> void:
 	var enforcer  := _get_template("bruiser_enforcer")
 	var chrono    := _get_template("glass_chrono")
 	var harrier   := _get_template("skirmish_harrier")
-	assert_eq(bulwark.get("stance", -1),   0, "T4 bulwark stance == 0 (Aggressive)")
-	assert_eq(disruptor.get("stance", -1), 2, "T4 disruptor stance == 2 (Kiting)")
-	assert_eq(aegis.get("stance", -1),     2, "T4 aegis stance == 2 (Kiting)")
-	assert_eq(enforcer.get("stance", -1),  2, "T4 enforcer stance == 2 (Kiting)")
-	assert_eq(chrono.get("stance", -1),    2, "T4 chrono stance == 2 (Kiting; was Ambush)")
+	assert_eq(bulwark.get("stance", -1),   0, "T4 bulwark stance == 0 (Aggressive; unchanged from pass-2)")
+	assert_eq(disruptor.get("stance", -1), 2, "T4 disruptor stance == 2 (Kiting; unchanged from pass-2)")
+	assert_eq(aegis.get("stance", -1),     0, "T4 aegis stance == 0 (Aggressive; Kiting→Aggressive in pass-3)")
+	assert_eq(enforcer.get("stance", -1),  0, "T4 enforcer stance == 0 (Aggressive; Kiting→Aggressive in pass-3)")
+	assert_eq(chrono.get("stance", -1),    2, "T4 chrono stance == 2 (Kiting; no change pass-3)")
 	assert_eq(harrier.get("stance", -1),   2, "T4 harrier stance == 2 (Kiting; unchanged)")
 
 func _t5_chrono_weight_and_modules() -> void:
@@ -252,20 +255,23 @@ func _t5_chrono_weight_and_modules() -> void:
 	assert_eq(chrono.get("armor", -1), ArmorData.ArmorType.NONE,
 		"T5 chrono armor == NONE")
 
-func _t6_harrier_afterburner() -> void:
-	# Harrier pass-2: Scout · Flak(13) · None(0) · Sensor(4)+Overclock(5)+Afterburner(6) = 28kg <= 30kg
-	print("T6 harrier_afterburner")
+func _t6_harrier_repair_nanites() -> void:
+	# Harrier pass-3: Scout · Flak(13) · None(0) · Sensor(4)+Overclock(5)+Repair Nanites(7) = 29kg <= 30kg
+	# Afterburner(6) replaced by Repair Nanites(7); passive 3HP/s sustain; no reflect trap.
+	print("T6 harrier_repair_nanites")
 	var harrier := _get_template("skirmish_harrier")
 	assert_false(harrier.is_empty(), "T6 harrier template found")
 	var total: float = _template_total_weight(harrier)
 	var cap: float = _chassis_cap(harrier["chassis"])
 	assert_true(total <= cap, "T6 harrier weight %.0f <= Scout cap %.0f" % [total, cap])
-	assert_eq(int(total), 28, "T6 harrier exact weight == 28")
-	assert_true(harrier.get("modules", []).has(ModuleData.ModuleType.AFTERBURNER),
-		"T6 harrier has AFTERBURNER (added in pass-2)")
+	assert_eq(int(total), 29, "T6 harrier exact weight == 29 (Afterburner 6->Repair Nanites 7)")
+	assert_true(harrier.get("modules", []).has(ModuleData.ModuleType.REPAIR_NANITES),
+		"T6 harrier has REPAIR_NANITES (pass-3 sustain fix)")
+	assert_false(harrier.get("modules", []).has(ModuleData.ModuleType.AFTERBURNER),
+		"T6 harrier no AFTERBURNER (replaced by Repair Nanites in pass-3)")
 	assert_eq(harrier.get("modules", []).size(), 3, "T6 harrier 3 modules (Scout slot cap)")
 	assert_eq(harrier.get("armor", -1), ArmorData.ArmorType.NONE,
-		"T6 harrier armor == NONE")
+		"T6 harrier armor == NONE (unchanged; no reflect trap)")
 
 func _t7_trueshot_unchanged() -> void:
 	# glass_trueshot must be entirely unchanged from S22.1 / pass-1 state.
@@ -392,3 +398,76 @@ func _t10_trueshot_bcard_intact() -> void:
 	assert_true(has_stance,   "T10 trueshot has enemy_within_tiles:3->switch_stance BCard")
 	assert_eq(trueshot.get("behavior_cards", []).size(), 3,
 		"T10 trueshot has exactly 3 BCards (unchanged)")
+
+func _t11_pass3_plating_and_no_change() -> void:
+	# Pass-3 structural assertions (>=10 new assertions):
+	#   - Plating on all 4 Brawler walls (Bulwark, Disruptor, Aegis, Enforcer)
+	#   - Reactive Mesh absent from those 4 templates
+	#   - Aggressive stance on Aegis + Enforcer
+	#   - Repair Nanites on Harrier; Afterburner absent
+	#   - Harrier weight <= 30kg
+	#   - Chrono NO-CHANGE meta (armor=None, stance=Kiting, modules=Sensor+Overclock)
+	#   - Trueshot NO-CHANGE meta (armor=None, stance=Kiting, modules=Sensor+Overclock)
+	print("T11 pass3_plating_and_no_change")
+	var bulwark   := _get_template("tank_bulwark")
+	var disruptor := _get_template("control_disruptor")
+	var aegis     := _get_template("tank_aegis")
+	var enforcer  := _get_template("bruiser_enforcer")
+	var harrier   := _get_template("skirmish_harrier")
+	var chrono    := _get_template("glass_chrono")
+	var trueshot  := _get_template("glass_trueshot")
+
+	# Plating on all 4 Brawler walls
+	assert_eq(bulwark.get("armor", -1), ArmorData.ArmorType.PLATING,
+		"T11 bulwark armor == PLATING (pass-3 reflect-loop fix; combat_sim.gd:1272-1277)")
+	assert_eq(disruptor.get("armor", -1), ArmorData.ArmorType.PLATING,
+		"T11 disruptor armor == PLATING (pass-3 reflect-loop fix)")
+	assert_eq(aegis.get("armor", -1), ArmorData.ArmorType.PLATING,
+		"T11 aegis armor == PLATING (pass-3 reflect-loop fix; 54kg vs 55kg cap)")
+	assert_eq(enforcer.get("armor", -1), ArmorData.ArmorType.PLATING,
+		"T11 enforcer armor == PLATING (pass-3 reflect-loop fix)")
+
+	# Reactive Mesh absent from 4 Brawler walls
+	assert_true(bulwark.get("armor", -1) != ArmorData.ArmorType.REACTIVE_MESH,
+		"T11 bulwark armor != REACTIVE_MESH (Reactive recreates reflect-loop)")
+	assert_true(disruptor.get("armor", -1) != ArmorData.ArmorType.REACTIVE_MESH,
+		"T11 disruptor armor != REACTIVE_MESH (Reactive recreates reflect-loop)")
+	assert_true(aegis.get("armor", -1) != ArmorData.ArmorType.REACTIVE_MESH,
+		"T11 aegis armor != REACTIVE_MESH (Reactive recreates reflect-loop)")
+	assert_true(enforcer.get("armor", -1) != ArmorData.ArmorType.REACTIVE_MESH,
+		"T11 enforcer armor != REACTIVE_MESH (Reactive recreates reflect-loop)")
+
+	# Aggressive stance on Aegis + Enforcer (pass-3 changes)
+	assert_eq(aegis.get("stance", -1), 0,
+		"T11 aegis stance == 0 Aggressive (Kiting->Aggressive; pulls to 3.25-tile brawl range)")
+	assert_eq(enforcer.get("stance", -1), 0,
+		"T11 enforcer stance == 0 Aggressive (Kiting->Aggressive; bruiser-archetypal with Plating)")
+
+	# Repair Nanites on Harrier; Afterburner absent
+	assert_true(harrier.get("modules", []).has(ModuleData.ModuleType.REPAIR_NANITES),
+		"T11 harrier has REPAIR_NANITES (pass-3 sustain fix; passive 3HP/s)")
+	assert_false(harrier.get("modules", []).has(ModuleData.ModuleType.AFTERBURNER),
+		"T11 harrier no AFTERBURNER (dead BCard target per #243; replaced by Repair Nanites)")
+
+	# Harrier weight <= 30kg Scout cap
+	var harrier_wt: float = _template_total_weight(harrier)
+	assert_true(harrier_wt <= 30.0,
+		"T11 harrier weight %.0fkg <= 30kg Scout cap (Repair Nanites 7kg total 29kg)" % harrier_wt)
+
+	# Chrono NO-CHANGE meta-assertion (natural-experiment control condition)
+	assert_eq(chrono.get("armor", -1), ArmorData.ArmorType.NONE,
+		"T11 chrono armor == NONE (NO-CHANGE; control condition for reflect-loop proof)")
+	assert_eq(chrono.get("stance", -1), 2,
+		"T11 chrono stance == 2 Kiting (NO-CHANGE; pass-2 landing in-band)")
+	assert_true(chrono.get("modules", []).has(ModuleData.ModuleType.SENSOR_ARRAY)
+			and chrono.get("modules", []).has(ModuleData.ModuleType.OVERCLOCK),
+		"T11 chrono modules == Sensor+Overclock (NO-CHANGE; restored in pass-2)")
+
+	# Trueshot NO-CHANGE meta-assertion (stable across all three passes)
+	assert_eq(trueshot.get("armor", -1), ArmorData.ArmorType.NONE,
+		"T11 trueshot armor == NONE (NO-CHANGE; stable 36.5-47% across passes)")
+	assert_eq(trueshot.get("stance", -1), 2,
+		"T11 trueshot stance == 2 Kiting (NO-CHANGE; untouched all passes)")
+	assert_true(trueshot.get("modules", []).has(ModuleData.ModuleType.SENSOR_ARRAY)
+			and trueshot.get("modules", []).has(ModuleData.ModuleType.OVERCLOCK),
+		"T11 trueshot modules == Sensor+Overclock (NO-CHANGE; must remain identical to pass-1)")

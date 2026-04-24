@@ -48,7 +48,10 @@ func select_opponent(index: int) -> void:
 
 func finish_match(won: bool) -> void:
 	last_match_won = won
-	var opp_id: String = "scrapyard_%d" % selected_opponent_index
+	## S22.2c: narrow fix for battlebrotts-v2#260 — construct opp_id using the
+	## current league prefix instead of hardcoding "scrapyard_". Full generalization
+	## of league helpers deferred to Arc F per Ett plan.
+	var opp_id: String = "%s_%d" % [game_state.current_league, selected_opponent_index]
 	last_bolts_earned = game_state.apply_match_result(won, opp_id)
 	current_screen = Screen.RESULT
 

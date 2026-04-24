@@ -2,6 +2,15 @@
 ## Usage: godot --headless --script tests/test_runner.gd
 extends SceneTree
 
+# [S23.4] Structural floor -- if the whole suite runs fewer than this many
+# total assertions, CI fails loudly. Catches parse-errors or runner
+# regressions that silently skip test files (closes #258).
+# NOTE: Ett plan S3 estimated ~2694 based on CI run 24894353223, but local
+# measurement on current main HEAD shows 1347 (72 inline + 1275 subprocess).
+# Floor set at 1200 (~11% headroom below 1347) per S3 tuning guidance.
+# Boltz: if you prefer a tighter floor, single-line edit here.
+const MIN_TOTAL_ASSERTIONS := 1200
+
 var pass_count := 0
 var fail_count := 0
 var test_count := 0
@@ -88,6 +97,7 @@ const SPRINT_TEST_FILES := [
 
 var file_pass_count := 0
 var file_fail_count := 0
+var subprocess_assert_count := 0  # [S23.4] Accumulated assertion count from sprint-file subprocesses
 var failed_files: Array[String] = []
 
 func _init() -> void:
@@ -123,8 +133,28 @@ func _init() -> void:
 		"PASS" if files_ok else "FAIL",
 	])
 	
-	if inline_ok and files_ok:
+	# [S23.4] Structural no-op detection: if the suite ran fewer total
+	# assertions than the floor, OR zero sprint files passed, fail loudly
+	# with exit 2 (distinct from the exit-1 "tests failed" signal so CI logs
+	# can be grepped for "ASSERTION FLOOR" or exit 2 specifically).
+	var total_asserts := test_count + subprocess_assert_count
+	var floor_ok := total_asserts >= MIN_TOTAL_ASSERTIONS
+	var files_nonzero := file_pass_count > 0
+
+	print("\ntotal assertions run: %d" % total_asserts)
+
+	if not floor_ok:
+		print("\n!!! ASSERTION FLOOR VIOLATED !!!")
+		print("!!! total assertions run: %d (floor: %d)" % [total_asserts, MIN_TOTAL_ASSERTIONS])
+		print("!!! CI failing loudly -- see battlebrotts-v2#258 for context.")
+	if not files_nonzero:
+		print("\n!!! ZERO SPRINT FILES PASSED !!!")
+		print("!!! Likely a runner or parse-error regression. CI failing loudly.")
+
+	if inline_ok and files_ok and floor_ok and files_nonzero:
 		quit(0)
+	elif not floor_ok or not files_nonzero:
+		quit(2)
 	else:
 		quit(1)
 
@@ -148,6 +178,9 @@ func _run_sprint_test_file(res_path: String) -> void:
 		# out[0] is a single concatenated string of stdout+stderr when
 		# read_stderr=true. Print verbatim so CI logs remain readable.
 		print(out[0])
+	# [S23.4] Accumulate subprocess assertion counts so the end-of-run floor
+	# check reflects the full suite, not just the inline tests.
+	subprocess_assert_count += _parse_subprocess_assertions(out[0] if out.size() > 0 else "")
 	if exit_code == 0:
 		file_pass_count += 1
 		print("  [PASS] %s (exit 0)" % file_name)
@@ -155,6 +188,18 @@ func _run_sprint_test_file(res_path: String) -> void:
 		file_fail_count += 1
 		failed_files.append(file_name)
 		print("  [FAIL] %s (exit %d)" % [file_name, exit_code])
+
+# [S23.4] Parse assertion counts from a sprint-file subprocess stdout string.
+# Matches both "=== Results: N passed, M failed, T total ===" and bare
+# "N passed, M failed" formats. Returns the sum of all pass counts found,
+# or 0 if no match.
+func _parse_subprocess_assertions(stdout: String) -> int:
+	var total := 0
+	var regex := RegEx.new()
+	regex.compile("(\\d+)\\s+passed,\\s+\\d+\\s+failed")
+	for m in regex.search_all(stdout):
+		total += int(m.get_string(1))
+	return total
 
 func assert_eq(a: Variant, b: Variant, msg: String) -> void:
 	test_count += 1

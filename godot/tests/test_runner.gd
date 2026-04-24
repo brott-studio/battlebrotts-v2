@@ -82,6 +82,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s21_5_004_mute_toggle.gd",
 	# [S22.1] Silver league content — 7 templates + tier-4 + preview-opponent precondition fix.
 	"res://tests/test_sprint22_1.gd",
+	# [S22.2c] per-league reflect-damage lever unit tests (6 tests / 8 assertions).
+	"res://tests/test_sprint22_2c.gd",
 ]
 
 var file_pass_count := 0

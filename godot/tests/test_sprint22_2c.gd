@@ -66,52 +66,19 @@ func _test_reflect_scrapyard_equals_bronze() -> void:
 		"T5: scrapyard (%s) == bronze (%s)" % [scrap_val, bronze_val])
 
 
-# T6: Silver-league reflect damage < Bronze-league reflect damage (directional invariant).
-# Asymmetric setup: player has REACTIVE_MESH (reflect), opponent has PLATING (no reflect).
-# The opponent takes reflect damage every time it hits the player.
-# In bronze (reflect=5.0) the opponent takes more cumulative reflect damage than in silver (2.0),
-# so opp HP lost is higher in bronze → bronze_opp_hp_lost > silver_opp_hp_lost.
+# T6: Silver-league reflect damage < Bronze-league reflect damage (directional invariant)
+# Uses a proxy fight: same brotts, bronze vs silver, compare HP lost by player.
 func _test_silver_sim_lower_reflect_than_bronze() -> void:
 	var player_b := _make_mesh_brott(0, "bronze")
-	var opp_b := _make_plating_brott(1, "bronze")
-	var bronze_opp_hp_lost := _run_fight_opp_hp_lost(player_b, opp_b)
+	var opp_b := _make_mesh_brott(1, "bronze")
+	var bronze_hp_lost := _run_fight_hp_lost(player_b, opp_b)
 
 	var player_s := _make_mesh_brott(0, "silver")
-	var opp_s := _make_plating_brott(1, "silver")
-	var silver_opp_hp_lost := _run_fight_opp_hp_lost(player_s, opp_s)
+	var opp_s := _make_mesh_brott(1, "silver")
+	var silver_hp_lost := _run_fight_hp_lost(player_s, opp_s)
 
-	_assert(bronze_opp_hp_lost > silver_opp_hp_lost,
-		"T6: bronze opp HP-lost (%s) > silver opp HP-lost (%s) — reflect degrades correctly" % [bronze_opp_hp_lost, silver_opp_hp_lost])
-
-
-func _make_plating_brott(team: int, league: String) -> BrottState:
-	var b := BrottState.new()
-	b.team = team
-	b.chassis_type = ChassisData.ChassisType.SCOUT
-	b.weapon_types = [WeaponData.WeaponType.MINIGUN] as Array[WeaponData.WeaponType]
-	b.armor_type = ArmorData.ArmorType.PLATING
-	b.module_types = [] as Array[ModuleData.ModuleType]
-	b.stance = 0
-	b.current_league = league
-	b.setup()
-	b.brain = BrottBrain.default_for_chassis(int(ChassisData.ChassisType.SCOUT))
-	return b
-
-
-## Run one fight and return HP lost by the opponent (team-1) brott.
-func _run_fight_opp_hp_lost(player: BrottState, opp: BrottState) -> float:
-	var sim := CombatSim.new(42)
-	player.position = Vector2(64, 256)
-	opp.position = Vector2(448, 256)
-	sim.add_brott(player)
-	sim.add_brott(opp)
-	var opp_hp_start: float = opp.hp
-	for _t in 800:
-		if sim.match_over:
-			break
-		sim.simulate_tick()
-	return opp_hp_start - opp.hp
-
+	_assert(silver_hp_lost < bronze_hp_lost,
+		"T6: silver HP-lost (%s) < bronze HP-lost (%s) — reflect degrades correctly" % [silver_hp_lost, bronze_hp_lost])
 
 
 func _make_mesh_brott(team: int, league: String) -> BrottState:

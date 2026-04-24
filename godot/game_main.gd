@@ -2,6 +2,10 @@
 ## Flow: Menu → Shop → Loadout → BrottBrain → Opponent → Arena → Result → loop
 extends Node2D
 
+## S22.2c: emitted after a league-ceremony modal is dismissed. Lets analytics
+## and tutorial hooks listen without coupling to the modal lifecycle.
+signal ceremony_complete(league_id: String)
+
 const ARENA_OFFSET := Vector2(384, 60)
 const TICKS_PER_SEC := 10
 
@@ -210,14 +214,24 @@ func _show_shop() -> void:
 	# S14.1: if a league just unlocked, the ceremony modal gates shop reveal.
 	# On Continue, modal calls GameState.advance_league() then emits
 	# modal_dismissed; we then proceed into the shop normally.
+	#
+	# S22.2c: for silver (and any future league), fire-once guard checked via
+	# FirstRunState before showing modal. ceremony_complete signal emitted on dismiss.
 	if _pending_league_ceremony != "":
 		var ceremony := _pending_league_ceremony
 		_pending_league_ceremony = ""
+		# S22.2c: fire-once guard for silver ceremony.
+		if ceremony == "silver":
+			var frs: Node = get_node_or_null("/root/FirstRunState")
+			if frs != null and frs.call("has_seen", "silver_unlocked_modal_seen"):
+				# Already seen — skip ceremony, go straight to shop.
+				_show_shop()
+				return
 		var modal_scene: PackedScene = load("res://ui/league_complete_modal.tscn")
 		var modal := modal_scene.instantiate()
-		modal.setup(game_flow.game_state)
+		modal.setup(game_flow.game_state, ceremony)
 		add_child(modal)
-		modal.modal_dismissed.connect(_show_shop)
+		modal.modal_dismissed.connect(_on_ceremony_dismissed.bind(ceremony))
 		return
 	_clear_screen()
 	var shop := ShopScreen.new()
@@ -226,6 +240,18 @@ func _show_shop() -> void:
 	shop.setup(game_flow.game_state)
 	shop.continue_pressed.connect(_show_loadout)
 	_maybe_spawn_first_encounter(FE_KEY_SHOP)
+
+## S22.2c: called when a league ceremony modal is dismissed (via modal_dismissed
+## signal). Marks silver ceremony seen (fire-once guard), emits ceremony_complete
+## signal, then proceeds to shop.
+func _on_ceremony_dismissed(league_id: String) -> void:
+	if league_id == "silver":
+		var frs: Node = get_node_or_null("/root/FirstRunState")
+		if frs != null:
+			frs.call("mark_seen", "silver_unlocked_modal_seen")
+	# Mirror Bronze: emit ceremony_complete so any listener (analytics, tutorial) can hook.
+	emit_signal("ceremony_complete", league_id)
+	_show_shop()
 
 func _show_loadout() -> void:
 	_clear_screen()

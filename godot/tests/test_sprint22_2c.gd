@@ -1,13 +1,13 @@
 ## S22.2c unit tests — per-league reflect-damage lever.
 ## 6 tests, 8 assertions per Gizmo §A.2.
 ## Register in test_runner.gd::SPRINT_TEST_FILES.
-extends Node
+extends SceneTree
 
 var pass_count := 0
 var fail_count := 0
 
 
-func _ready() -> void:
+func _initialize() -> void:
 	print("--- S22.2c unit tests ---")
 	_test_reflect_bronze()
 	_test_reflect_silver()
@@ -20,6 +20,7 @@ func _ready() -> void:
 		print("S22.2c FAIL")
 	else:
 		print("S22.2c PASS")
+	quit(1 if fail_count > 0 else 0)
 
 
 func _assert(cond: bool, msg: String) -> void:

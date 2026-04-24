@@ -256,13 +256,13 @@ const TEMPLATES: Array[Dictionary] = [
 		"name": "Bulwark",
 		"archetype": Archetype.TANK,
 		"tier": 3,
-		"chassis": ChassisData.ChassisType.FORTRESS,
+		"chassis": ChassisData.ChassisType.BRAWLER,
 		"weapons": [WeaponData.WeaponType.SHOTGUN, WeaponData.WeaponType.FLAK_CANNON],
 		"armor": ArmorData.ArmorType.REACTIVE_MESH,
 		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.REPAIR_NANITES],
 		"stance": 1,  # Defensive
 		"unlock_league": "silver",
-		# weight: 12 (Shotgun) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 54 <= 80 (Fortress)
+		# weight: 12 (Shotgun) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 54 <= 55 (Brawler)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_within_tiles", "value": 3},
@@ -364,13 +364,13 @@ const TEMPLATES: Array[Dictionary] = [
 		"name": "Disruptor",
 		"archetype": Archetype.CONTROLLER,
 		"tier": 4,
-		"chassis": ChassisData.ChassisType.FORTRESS,
+		"chassis": ChassisData.ChassisType.BRAWLER,
 		"weapons": [WeaponData.WeaponType.ARC_EMITTER, WeaponData.WeaponType.FLAK_CANNON],
 		"armor": ArmorData.ArmorType.REACTIVE_MESH,
 		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.SENSOR_ARRAY],
 		"stance": 1,  # Defensive
 		"unlock_league": "silver",
-		# weight: 11 (Arc) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 4 (Sensor) = 50 <= 80 (Fortress)
+		# weight: 11 (Arc) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 4 (Sensor) = 50 <= 55 (Brawler)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_within_tiles", "value": 3},
@@ -397,13 +397,13 @@ const TEMPLATES: Array[Dictionary] = [
 		"name": "Aegis",
 		"archetype": Archetype.TANK,
 		"tier": 4,
-		"chassis": ChassisData.ChassisType.FORTRESS,
+		"chassis": ChassisData.ChassisType.BRAWLER,
 		"weapons": [WeaponData.WeaponType.RAILGUN, WeaponData.WeaponType.MINIGUN],
 		"armor": ArmorData.ArmorType.REACTIVE_MESH,
 		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.REPAIR_NANITES],
 		"stance": 1,  # Defensive
 		"unlock_league": "silver",
-		# weight: 9 (Railgun) + 10 (Minigun) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 48 <= 80 (Fortress)
+		# weight: 9 (Railgun) + 10 (Minigun) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 48 <= 55 (Brawler)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_beyond_tiles", "value": 6},

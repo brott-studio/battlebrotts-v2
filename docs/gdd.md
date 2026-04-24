@@ -368,12 +368,12 @@ chassis, weapons, armor, modules, and stance.
 | `bruiser_clanker` | Clanker | BRUISER | 2 | Bronze | Brawler + Arc Emitter + Shotgun + Plating + Overclock |
 | `control_static` | Static | CONTROLLER | 3 | Bronze | Brawler + Arc Emitter + Shotgun + Reactive + Repair Nanites |
 | `control_prowler` | Prowler | CONTROLLER | 3 | Bronze | Scout + Arc Emitter + Reactive + Repair Nanites |
-| `tank_bulwark` | Bulwark | TANK | 3 | Silver | Fortress + Shotgun + Flak Cannon + Reactive + Shield Projector + Repair Nanites |
+| `tank_bulwark` | Bulwark | TANK | 3 | Silver | Brawler + Shotgun + Flak Cannon + Reactive + Shield Projector + Repair Nanites |
 | `glass_trueshot` | Trueshot | GLASS_CANNON | 3 | Silver | Scout + Railgun + Reactive + Sensor Array + Overclock |
 | `skirmish_harrier` | Harrier | SKIRMISHER | 3 | Silver | Scout + Flak Cannon + Reactive + Sensor Array + Overclock |
 | `bruiser_enforcer` | Enforcer | BRUISER | 3 | Silver | Brawler + Minigun + Arc Emitter + Plating + Shield Projector + Overclock |
-| `control_disruptor` | Disruptor | CONTROLLER | 4 | Silver | Fortress + Arc Emitter + Flak Cannon + Reactive + Shield Projector + Sensor Array |
-| `tank_aegis` | Aegis | TANK | 4 | Silver | Fortress + Railgun + Minigun + Reactive + Shield Projector + Repair Nanites |
+| `control_disruptor` | Disruptor | CONTROLLER | 4 | Silver | Brawler + Arc Emitter + Flak Cannon + Reactive + Shield Projector + Sensor Array |
+| `tank_aegis` | Aegis | TANK | 4 | Silver | Brawler + Railgun + Minigun + Reactive + Shield Projector + Repair Nanites |
 | `glass_chrono` | Chrono | GLASS_CANNON | 4 | Silver | Scout + Railgun + Reactive + Sensor Array + Overclock |
 
 **Difficulty tier mapping** (`OpponentLoadouts.difficulty_for(league, index)`):
@@ -408,9 +408,11 @@ naturally cleared by `GameFlow.new_game()` (fresh GameState per run).
   (data-only at S21.1; engine wiring tracked as carry-forward).
 - **Silver content (S22.1):** Silver's 7 new templates lean TANK + GLASS_CANNON
   (4/7), versus Bronze's lean on BRUISER + CONTROLLER. This is intentional —
-  Silver unlocks Fortress (TANK chassis), Railgun (GLASS_CANNON weapon), and
-  Flak Cannon (area-deny weapon), so Silver's tonal identity is "big chassis +
-  long range" where Bronze's was "mid-range commit." Silver also requires
+  Silver unlocks Fortress (available on grandfathered `tank_ironclad`), Railgun
+  (GLASS_CANNON weapon), and Flak Cannon (area-deny weapon), so Silver's tonal
+  identity is "specialist kit + long range" where Bronze's was "mid-range commit."
+  New Silver TANK templates (Bulwark, Aegis) use Brawler chassis to satisfy the
+  2-module-slot requirement; Fortress has only 1 module slot (engine-verified). Silver also requires
   `modules.size() == 2` per GDD §6.2 "full loadouts" rule; Bronze uses
   `modules.size() == 1`. Tier-4 is introduced at Silver for closing fights.
 

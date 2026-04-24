@@ -1,22 +1,50 @@
 ## S14.1 — League complete modal (bronze moment).
-## Fires on the ResultScreen \u2192 Shop transition when the player has just
+## Fires on the ResultScreen → Shop transition when the player has just
 ## cleared all three Scrapyard opponents. Fade-in, placeholder badge pulse,
 ## single "Continue" CTA. On Continue: tells GameState to advance league,
-## emits modal_dismissed, frees self. No audio this sprint (S14.1 plan \u00a73).
+## emits modal_dismissed, frees self. No audio this sprint (S14.1 plan §3).
+##
+## S22.2c: extended with LEAGUE_COPY dict, setup(state, league_id) overload,
+## and _apply_badge_color VFX beat (MESH_FAIL flash → SILVER settle for silver).
 class_name LeagueCompleteModal
 extends CanvasLayer
 
 signal modal_dismissed
 
-const BRONZE := Color(0.804, 0.498, 0.196)  ## #CD7F32-ish, muted bronze
-const FADE_MS := 400
+const BRONZE    := Color(0.804, 0.498, 0.196)  ## #CD7F32-ish, muted bronze
+const SILVER    := Color(0.72, 0.76, 0.80)     ## cold chrome
+const MESH_FAIL := Color(0.90, 0.25, 0.20)     ## hot red — "mesh burning out"
+const FLASH_DUR := 0.10
+const FADE_MS   := 400
+
+## S22.2c: extensible league copy dict. Fallback key is "bronze" on unknown league.
+const LEAGUE_COPY: Dictionary = {
+	"scrapyard": {
+		"header": "SCRAPYARD CLEARED",
+		"copy":   "Your brott earned it. Welcome to Bronze.",
+	},
+	"bronze": {
+		"header": "SCRAPYARD CLEARED",
+		"copy":   "Your brott earned it. Welcome to Bronze.",
+	},
+	"silver": {
+		"header": "BRONZE CLEARED",
+		"copy":   "Reactive mesh loses its teeth up here. Silver runs hotter.",
+	},
+}
 
 var _state: GameState
 var _overlay: ColorRect
 var _badge: ColorRect
+var _header_label: Label
+var _copy_label: Label
+var _league_id: String = "bronze"
 
-func setup(state: GameState) -> void:
+## S22.2c: accepts league_id to drive copy + VFX. Default "bronze" preserves
+## existing call-sites that pass only state (e.g. scrapyard ceremony).
+func setup(state: GameState, league_id: String = "bronze") -> void:
 	_state = state
+	_league_id = league_id
 
 func _ready() -> void:
 	layer = 110  # above any other modals/screens
@@ -41,13 +69,15 @@ func _ready() -> void:
 	vbox.add_theme_constant_override("separation", 18)
 	_overlay.add_child(vbox)
 
+	## S22.2c: header text is set after _ready via LEAGUE_COPY lookup.
 	var header := Label.new()
-	header.text = "SCRAPYARD CLEARED"
+	header.text = ""
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_theme_font_size_override("font_size", 28)
 	vbox.add_child(header)
+	_header_label = header
 
-	# Placeholder bronze badge \u2014 a ColorRect we pulse with a tween.
+	# Badge — a ColorRect; color driven by _apply_badge_color().
 	var badge_wrap := CenterContainer.new()
 	vbox.add_child(badge_wrap)
 	_badge = ColorRect.new()
@@ -55,12 +85,14 @@ func _ready() -> void:
 	_badge.color = BRONZE
 	badge_wrap.add_child(_badge)
 
+	## S22.2c: copy text is set after _ready via LEAGUE_COPY lookup.
 	var copy := Label.new()
-	copy.text = "Your brott earned it. Welcome to Bronze."
+	copy.text = ""
 	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD
 	copy.custom_minimum_size = Vector2(380, 0)
 	vbox.add_child(copy)
+	_copy_label = copy
 
 	var btn := Button.new()
 	btn.text = "Continue"
@@ -70,7 +102,23 @@ func _ready() -> void:
 	btn_row.add_child(btn)
 	vbox.add_child(btn_row)
 
+	## S22.2c: apply copy + VFX BEFORE fade-in animation.
+	var entry: Dictionary = LEAGUE_COPY.get(_league_id, LEAGUE_COPY["bronze"])
+	_header_label.text = entry["header"]
+	_copy_label.text   = entry["copy"]
+	_apply_badge_color(_league_id)
 	_animate_in()
+
+## S22.2c: Set badge color/VFX for the given league.
+## For silver: 0-dur snap to MESH_FAIL ("mesh burning out") then FLASH_DUR
+## settle to SILVER chrome. Called BEFORE _animate_in() in _ready().
+func _apply_badge_color(league_id: String) -> void:
+	if league_id != "silver":
+		_badge.modulate = BRONZE
+		return
+	var tw := create_tween()
+	tw.tween_property(_badge, "modulate", MESH_FAIL, 0.0)    # snap to red
+	tw.tween_property(_badge, "modulate", SILVER, FLASH_DUR)  # settle to chrome
 
 func _animate_in() -> void:
 	# Fade overlay to dim; pulse the badge subtly.

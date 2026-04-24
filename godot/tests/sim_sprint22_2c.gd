@@ -208,7 +208,7 @@ func _run_b1_silver_primary() -> void:
 
 	var b1_per_template_wr: Dictionary = {}
 	for tid in per_template_wins:
-		var d := per_template_wins[tid]
+		var d: Dictionary = per_template_wins[tid]
 		b1_per_template_wr[tid] = float(d["opp_wins"]) / float(d["total"]) if d["total"] > 0 else 0.0
 
 	print("B1 aggregate opp-WR: %.3f (gate [0.55, 0.70])" % b1_aggregate_wr)

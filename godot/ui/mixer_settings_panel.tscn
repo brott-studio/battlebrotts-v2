@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://mixer_settings_panel"]
+
+[ext_resource type="Script" path="res://ui/mixer_settings_panel.gd" id="1_mixerpanel"]
+
+[node name="MixerSettingsPanel" type="PanelContainer"]
+script = ExtResource("1_mixerpanel")

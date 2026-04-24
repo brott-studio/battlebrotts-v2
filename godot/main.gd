@@ -51,6 +51,10 @@ func _apply_audio_settings() -> void:
 		return
 	var muted: bool = frs.call("get_audio_muted")
 	AudioServer.set_bus_mute(0, muted)
+	# [S24.2] Apply persisted bus volumes (additive — mute logic above unchanged).
+	AudioServer.set_bus_volume_db(0, frs.call("get_master_db"))
+	AudioServer.set_bus_volume_db(1, frs.call("get_sfx_db"))
+	AudioServer.set_bus_volume_db(2, frs.call("get_music_db"))
 
 # [S17.1-003] Add a persistent HUD legend so the blue energy bar has a
 # visible-by-default meaning. Static label, set once, never updated.

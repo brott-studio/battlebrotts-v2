@@ -35,5 +35,37 @@ func _build_ui() -> void:
 	btn.pressed.connect(_on_new_game)
 	add_child(btn)
 
+	# [S24.2] Settings button — opens mixer panel as modal overlay.
+	var settings_btn := Button.new()
+	settings_btn.name = "SettingsButton"
+	settings_btn.text = "⚙ SETTINGS"
+	settings_btn.position = Vector2(515, 430)
+	settings_btn.size = Vector2(250, 60)
+	settings_btn.add_theme_font_size_override("font_size", 24)
+	settings_btn.pressed.connect(_on_settings)
+	add_child(settings_btn)
+
 func _on_new_game() -> void:
 	new_game_pressed.emit()
+
+# [S24.2] Open the mixer settings panel as a modal overlay on the main menu.
+func _on_settings() -> void:
+	# Guard: only one panel at a time.
+	if get_node_or_null("MixerSettingsPanel") != null:
+		return
+	var panel_scene: PackedScene = load("res://ui/mixer_settings_panel.tscn")
+	if panel_scene == null:
+		# Fallback: instantiate from script if scene not loadable in headless/test.
+		var panel := MixerSettingsPanel.new()
+		panel.name = "MixerSettingsPanel"
+		panel.set_anchors_preset(Control.PRESET_CENTER)
+		panel.position = Vector2(390, 200)
+		panel.size = Vector2(500, 400)
+		add_child(panel)
+		return
+	var panel := panel_scene.instantiate() as Control
+	panel.name = "MixerSettingsPanel"
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(390, 200)
+	panel.size = Vector2(500, 400)
+	add_child(panel)

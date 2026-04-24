@@ -62,3 +62,40 @@ func set_audio_muted(value: bool) -> void:
 	var err := _cfg.save(STORE_PATH)
 	if err != OK:
 		push_warning("[FirstRunState] save error %s for audio_muted" % err)
+
+# [S24.2] Volume persistence helpers — additive; do not rename "audio_muted" above.
+# Three float keys in [settings]: master_db (default 0.0), sfx_db (default 0.0),
+# music_db (default -6.0, matching default_bus_layout.tres Music bus initial volume).
+
+func get_master_db() -> float:
+	_ensure_loaded()
+	return float(_cfg.get_value(SETTINGS_SECTION, "master_db", 0.0))
+
+func set_master_db(value: float) -> void:
+	_ensure_loaded()
+	_cfg.set_value(SETTINGS_SECTION, "master_db", value)
+	var err := _cfg.save(STORE_PATH)
+	if err != OK:
+		push_warning("[FirstRunState] save error %s for master_db" % err)
+
+func get_sfx_db() -> float:
+	_ensure_loaded()
+	return float(_cfg.get_value(SETTINGS_SECTION, "sfx_db", 0.0))
+
+func set_sfx_db(value: float) -> void:
+	_ensure_loaded()
+	_cfg.set_value(SETTINGS_SECTION, "sfx_db", value)
+	var err := _cfg.save(STORE_PATH)
+	if err != OK:
+		push_warning("[FirstRunState] save error %s for sfx_db" % err)
+
+func get_music_db() -> float:
+	_ensure_loaded()
+	return float(_cfg.get_value(SETTINGS_SECTION, "music_db", -6.0))
+
+func set_music_db(value: float) -> void:
+	_ensure_loaded()
+	_cfg.set_value(SETTINGS_SECTION, "music_db", value)
+	var err := _cfg.save(STORE_PATH)
+	if err != OK:
+		push_warning("[FirstRunState] save error %s for music_db" % err)

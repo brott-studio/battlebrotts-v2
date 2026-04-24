@@ -44,8 +44,48 @@ static func get_league_opponents(league: String) -> Array:
 					"brain": null,
 				},
 			]
+		# S22.1 §10.A: Bronze and Silver were previously scrapyard-only in the
+		# match statement, causing get_league_opponents("bronze") and
+		# get_league_opponents("silver") to return [] — an unreported latent bug
+		# that blocks opponent-select screen rendering for Bronze/Silver players.
+		# Fix: build a 5-entry stable preview from the template pool via a
+		# deterministic per-(league, index) seed. Preview may differ from the
+		# actual fight draw (build_opponent_brott re-rolls) — this is display-
+		# only and consistent with the existing Bronze flow. See Gizmo spec §10.A.
+		# Scope: ONLY this match case + _build_preview_opponents. Do NOT touch
+		# result_screen.gd, opponent_select_screen.gd, or helper-text strings
+		# (#260 / Arc F).
+		"bronze", "silver":
+			return _build_preview_opponents(league)
 		_:
 			return []
+
+## Builds a 5-entry preview opponent list for league using the template pool.
+## Uses deterministic per-(league, index) seeding so the preview is stable
+## across loads within a run. Actual fight draw re-rolls via build_opponent_brott.
+## Size = 5 per GDD §6.1 (Bronze and Silver are both 5-opponent leagues).
+static func _build_preview_opponents(league: String) -> Array:
+	var out: Array = []
+	var size: int = 5  # GDD §6.1: Bronze and Silver are both 5-opponent leagues
+	for i in size:
+		var tier: int = OpponentLoadouts.difficulty_for(league, i)
+		# Deterministic seed per (league, index) — preview is stable across loads.
+		# Actual fight re-rolls via build_opponent_brott; this is display-only.
+		seed(hash("%s_%d" % [league, i]))
+		var template: Dictionary = OpponentLoadouts.pick_opponent_loadout(tier, league, -1)
+		if template.is_empty():
+			continue
+		out.append({
+			"id": "%s_%d" % [league, i],
+			"name": template["name"],
+			"chassis": template["chassis"],
+			"weapons": template["weapons"],
+			"armor": template["armor"],
+			"modules": template["modules"],
+			"stance": template["stance"],
+			"brain": null,
+		})
+	return out
 
 ## S13.9: Uses OpponentLoadouts picker (archetype templates + variety).
 ## Legacy get_opponent() retained for UI preview / back-compat reads.

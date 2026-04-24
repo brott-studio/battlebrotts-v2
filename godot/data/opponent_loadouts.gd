@@ -245,10 +245,225 @@ const TEMPLATES: Array[Dictionary] = [
 			},
 		],
 	},
+	# ── S22.1 Silver content drop (Gizmo spec §4) ────────────────────────────────────
+	# 7 new Silver-legal templates (4 tier-3 + 3 tier-4).
+	# Archetype distribution: TANK x2, GLASS_CANNON x2, SKIRMISHER x1, BRUISER x1, CONTROLLER x1.
+	# Stance distribution: Defensive x3, Kiting x2, Aggressive x1, Ambush x1.
+	# All use Silver-legal items only (GDD §6.1). Module count = 2 (GDD §6.2 "full loadouts").
+	# behavior_cards: data-only; engine ignores until #243 wiring (S21.1 §7 pattern).
+	{
+		"id": "tank_bulwark",
+		"name": "Bulwark",
+		"archetype": Archetype.TANK,
+		"tier": 3,
+		"chassis": ChassisData.ChassisType.FORTRESS,
+		"weapons": [WeaponData.WeaponType.SHOTGUN, WeaponData.WeaponType.FLAK_CANNON],
+		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.REPAIR_NANITES],
+		"stance": 1,  # Defensive
+		"unlock_league": "silver",
+		# weight: 12 (Shotgun) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 54 <= 80 (Fortress)
+		"behavior_cards": [
+			{
+				"trigger": {"kind": "enemy_within_tiles", "value": 3},
+				"action": {"kind": "weapons_all_fire"},
+			},
+			{
+				"trigger": {"kind": "self_hp_below_pct", "value": 50},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.SHIELD_PROJECTOR},
+			},
+			{
+				"trigger": {"kind": "enemy_beyond_tiles", "value": 6},
+				"action": {"kind": "switch_stance", "value": 3},
+			},
+		],
+	},
+	{
+		"id": "glass_trueshot",
+		"name": "Trueshot",
+		"archetype": Archetype.GLASS_CANNON,
+		"tier": 3,
+		"chassis": ChassisData.ChassisType.SCOUT,
+		"weapons": [WeaponData.WeaponType.RAILGUN],
+		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"modules": [ModuleData.ModuleType.SENSOR_ARRAY, ModuleData.ModuleType.OVERCLOCK],
+		"stance": 2,  # Kiting
+		"unlock_league": "silver",
+		# weight: 9 (Railgun) + 8 (Reactive) + 4 (Sensor) + 5 (Overclock) = 26 <= 30 (Scout)
+		"behavior_cards": [
+			{
+				"trigger": {"kind": "enemy_beyond_tiles", "value": 6},
+				"action": {"kind": "pick_target", "value": "weakest"},
+			},
+			{
+				"trigger": {"kind": "enemy_within_tiles", "value": 3},
+				"action": {"kind": "switch_stance", "value": 2},
+			},
+			{
+				"trigger": {"kind": "self_energy_above_pct", "value": 70},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.OVERCLOCK},
+			},
+		],
+	},
+	{
+		"id": "skirmish_harrier",
+		"name": "Harrier",
+		"archetype": Archetype.SKIRMISHER,
+		"tier": 3,
+		"chassis": ChassisData.ChassisType.SCOUT,
+		"weapons": [WeaponData.WeaponType.FLAK_CANNON],
+		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"modules": [ModuleData.ModuleType.SENSOR_ARRAY, ModuleData.ModuleType.OVERCLOCK],
+		"stance": 2,  # Kiting
+		"unlock_league": "silver",
+		# weight: 13 (Flak) + 8 (Reactive) + 4 (Sensor) + 5 (Overclock) = 30 <= 30 (Scout, exactly at cap)
+		"behavior_cards": [
+			{
+				"trigger": {"kind": "enemy_beyond_tiles", "value": 5},
+				"action": {"kind": "switch_stance", "value": 0},
+			},
+			{
+				"trigger": {"kind": "enemy_within_tiles", "value": 2},
+				"action": {"kind": "switch_stance", "value": 2},
+			},
+			{
+				"trigger": {"kind": "self_hp_below_pct", "value": 40},
+				"action": {"kind": "pick_target", "value": "farthest"},
+			},
+		],
+	},
+	{
+		"id": "bruiser_enforcer",
+		"name": "Enforcer",
+		"archetype": Archetype.BRUISER,
+		"tier": 3,
+		"chassis": ChassisData.ChassisType.BRAWLER,
+		"weapons": [WeaponData.WeaponType.MINIGUN, WeaponData.WeaponType.ARC_EMITTER],
+		"armor": ArmorData.ArmorType.PLATING,
+		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.OVERCLOCK],
+		"stance": 0,  # Aggressive
+		"unlock_league": "silver",
+		# weight: 10 (Minigun) + 11 (Arc) + 15 (Plating) + 14 (Shield) + 5 (Overclock) = 55 <= 55 (Brawler)
+		"behavior_cards": [
+			{
+				"trigger": {"kind": "enemy_within_tiles", "value": 4},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.OVERCLOCK},
+			},
+			{
+				"trigger": {"kind": "self_hp_below_pct", "value": 60},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.SHIELD_PROJECTOR},
+			},
+			{
+				"trigger": {"kind": "enemy_hp_below_pct", "value": 40},
+				"action": {"kind": "pick_target", "value": "weakest"},
+			},
+		],
+	},
+	{
+		"id": "control_disruptor",
+		"name": "Disruptor",
+		"archetype": Archetype.CONTROLLER,
+		"tier": 4,
+		"chassis": ChassisData.ChassisType.FORTRESS,
+		"weapons": [WeaponData.WeaponType.ARC_EMITTER, WeaponData.WeaponType.FLAK_CANNON],
+		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.SENSOR_ARRAY],
+		"stance": 1,  # Defensive
+		"unlock_league": "silver",
+		# weight: 11 (Arc) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 4 (Sensor) = 50 <= 80 (Fortress)
+		"behavior_cards": [
+			{
+				"trigger": {"kind": "enemy_within_tiles", "value": 3},
+				"action": {"kind": "weapons_all_fire"},
+			},
+			{
+				# "When They're Medium (3-5 tiles)" -- substitute enemy_beyond_tiles per sec10.B note
+				# (enemy_within_range schema unconfirmed; engine ignores BCards today per #243)
+				"trigger": {"kind": "enemy_beyond_tiles", "value": 3},
+				"action": {"kind": "weapons_fire_primary"},
+			},
+			{
+				"trigger": {"kind": "self_hp_below_pct", "value": 50},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.SHIELD_PROJECTOR},
+			},
+			{
+				"trigger": {"kind": "enemy_using_gadget"},
+				"action": {"kind": "pick_target", "value": "same"},
+			},
+		],
+	},
+	{
+		"id": "tank_aegis",
+		"name": "Aegis",
+		"archetype": Archetype.TANK,
+		"tier": 4,
+		"chassis": ChassisData.ChassisType.FORTRESS,
+		"weapons": [WeaponData.WeaponType.RAILGUN, WeaponData.WeaponType.MINIGUN],
+		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.REPAIR_NANITES],
+		"stance": 1,  # Defensive
+		"unlock_league": "silver",
+		# weight: 9 (Railgun) + 10 (Minigun) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 48 <= 80 (Fortress)
+		"behavior_cards": [
+			{
+				"trigger": {"kind": "enemy_beyond_tiles", "value": 6},
+				"action": {"kind": "weapons_fire_primary"},
+			},
+			{
+				# "When They're Medium (3-6 tiles)" -- substitute enemy_beyond_tiles per sec10.B note
+				"trigger": {"kind": "enemy_beyond_tiles", "value": 3},
+				"action": {"kind": "weapons_fire_secondary"},
+			},
+			{
+				"trigger": {"kind": "self_hp_below_pct", "value": 60},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.SHIELD_PROJECTOR},
+			},
+			{
+				"trigger": {"kind": "self_hp_below_pct", "value": 30},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.REPAIR_NANITES},
+			},
+		],
+	},
+	{
+		"id": "glass_chrono",
+		"name": "Chrono",
+		"archetype": Archetype.GLASS_CANNON,
+		"tier": 4,
+		"chassis": ChassisData.ChassisType.SCOUT,
+		"weapons": [WeaponData.WeaponType.RAILGUN],
+		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"modules": [ModuleData.ModuleType.SENSOR_ARRAY, ModuleData.ModuleType.OVERCLOCK],
+		"stance": 3,  # Ambush
+		"unlock_league": "silver",
+		# weight: 9 (Railgun) + 8 (Reactive) + 4 (Sensor) + 5 (Overclock) = 26 <= 30 (Scout)
+		"behavior_cards": [
+			{
+				"trigger": {"kind": "enemy_beyond_tiles", "value": 7},
+				"action": {"kind": "pick_target", "value": "strongest"},
+			},
+			{
+				"trigger": {"kind": "self_energy_above_pct", "value": 80},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.OVERCLOCK},
+			},
+			{
+				"trigger": {"kind": "enemy_within_tiles", "value": 2},
+				"action": {"kind": "switch_stance", "value": 2},
+			},
+			{
+				"trigger": {"kind": "self_hp_below_pct", "value": 30},
+				"action": {"kind": "switch_stance", "value": 1},
+			},
+		],
+	},
 ]
 
 ## §4.1 — maps (league, index) to a difficulty tier.
 ## S21.1: Bronze expanded to 5-slot curve [2,2,2,3,3] — tier-2 openers, tier-3 closers.
+## S22.1: Silver populated with [3,3,3,4,4] — tier-3 openers, tier-4 closers.
+##        Tier-4 is introduced at Silver (Silver's "closing wall").
+##        Archetype distribution: 4 TANK/GLASS_CANNON (big chassis + long range),
+##        3 SKIRMISHER/BRUISER/CONTROLLER — Silver leans range+specialization
+##        vs Bronze's close-range-commit lean.
 static func difficulty_for(league: String, index: int) -> int:
 	match league:
 		"scrapyard":
@@ -257,6 +472,9 @@ static func difficulty_for(league: String, index: int) -> int:
 		"bronze":
 			var tiers := [2, 2, 2, 3, 3]
 			return tiers[index] if index >= 0 and index < tiers.size() else 2
+		"silver":  # S22.1: tier-3 openers, tier-4 closers; introduces tier-4
+			var tiers := [3, 3, 3, 4, 4]
+			return tiers[index] if index >= 0 and index < tiers.size() else 3
 		_:
 			return 1
 

@@ -352,7 +352,7 @@ chassis, weapons, armor, modules, and stance.
 - **BRUISER** — Medium armor, dual weapons, aggressive stance. Midrange pressure; rewards TCR-window commitment.
 - **CONTROLLER** — Disruption (jammer / EMP / arc emitter), defensive stance. Punishes module-reliant player builds.
 
-**Template pool** (12 total; 7 Bronze-legal, 5 Silver+):
+**Template pool** (19 total; 7 Bronze-legal, 7 Silver-new, 5 Silver+-grandfathered):
 
 | ID | Name | Archetype | Tier | Unlock | Composition |
 |---|---|---|---|---|---|
@@ -368,11 +368,19 @@ chassis, weapons, armor, modules, and stance.
 | `bruiser_clanker` | Clanker | BRUISER | 2 | Bronze | Brawler + Arc Emitter + Shotgun + Plating + Overclock |
 | `control_static` | Static | CONTROLLER | 3 | Bronze | Brawler + Arc Emitter + Shotgun + Reactive + Repair Nanites |
 | `control_prowler` | Prowler | CONTROLLER | 3 | Bronze | Scout + Arc Emitter + Reactive + Repair Nanites |
+| `tank_bulwark` | Bulwark | TANK | 3 | Silver | Fortress + Shotgun + Flak Cannon + Reactive + Shield Projector + Repair Nanites |
+| `glass_trueshot` | Trueshot | GLASS_CANNON | 3 | Silver | Scout + Railgun + Reactive + Sensor Array + Overclock |
+| `skirmish_harrier` | Harrier | SKIRMISHER | 3 | Silver | Scout + Flak Cannon + Reactive + Sensor Array + Overclock |
+| `bruiser_enforcer` | Enforcer | BRUISER | 3 | Silver | Brawler + Minigun + Arc Emitter + Plating + Shield Projector + Overclock |
+| `control_disruptor` | Disruptor | CONTROLLER | 4 | Silver | Fortress + Arc Emitter + Flak Cannon + Reactive + Shield Projector + Sensor Array |
+| `tank_aegis` | Aegis | TANK | 4 | Silver | Fortress + Railgun + Minigun + Reactive + Shield Projector + Repair Nanites |
+| `glass_chrono` | Chrono | GLASS_CANNON | 4 | Silver | Scout + Railgun + Reactive + Sensor Array + Overclock |
 
 **Difficulty tier mapping** (`OpponentLoadouts.difficulty_for(league, index)`):
 
 - **Scrapyard** indices 0, 1, 2 → tiers **1, 1, 2**
 - **Bronze** indices 0, 1, 2, 3, 4 → tiers **2, 2, 2, 3, 3** (populated at S21.1 — 5-opponent curve, tier-2 openers → tier-3 closers)
+- **Silver** indices 0, 1, 2, 3, 4 → tiers **3, 3, 3, 4, 4** (populated at S22.1 — tier-3 openers, tier-4 closers; Silver introduces tier-4)
 
 Picker fallback: when a tier's pool has fewer than 2 entries, tier-1-lower
 templates are added. The variety strip (`last_archetype != pick.archetype`)
@@ -398,6 +406,13 @@ naturally cleared by `GameFlow.new_game()` (fresh GameState per run).
   is how the Scrapyard path continues to draw from the grandfathered
   tier-2 pool. Opponent templates also carry a `behavior_cards` field
   (data-only at S21.1; engine wiring tracked as carry-forward).
+- **Silver content (S22.1):** Silver's 7 new templates lean TANK + GLASS_CANNON
+  (4/7), versus Bronze's lean on BRUISER + CONTROLLER. This is intentional —
+  Silver unlocks Fortress (TANK chassis), Railgun (GLASS_CANNON weapon), and
+  Flak Cannon (area-deny weapon), so Silver's tonal identity is "big chassis +
+  long range" where Bronze's was "mid-range commit." Silver also requires
+  `modules.size() == 2` per GDD §6.2 "full loadouts" rule; Bronze uses
+  `modules.size() == 1`. Tier-4 is introduced at Silver for closing fights.
 
 ---
 

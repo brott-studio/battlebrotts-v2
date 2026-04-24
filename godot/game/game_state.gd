@@ -31,6 +31,7 @@ var _last_opponent_archetype: int = -1
 var opponents_beaten: Array[String] = []  # "scrapyard_0", "scrapyard_1", etc.
 var first_wins: Array[String] = []  # Tracks first-win bonus
 var bronze_unlocked: bool = false
+var silver_unlocked: bool = false  ## S22.2c: edge-detect flag for silver ceremony.
 var brottbrain_unlocked: bool = false
 
 ## S13.6: BrottBrain Trick Choice (Scrapyard)
@@ -164,13 +165,28 @@ func _check_progression() -> void:
 			brottbrain_unlocked = true
 			if not was_unlocked:
 				emit_signal("league_unlocked", "bronze")
+	## S22.2c: silver unlock — fires once when all 7 Bronze opponents are beaten.
+	if current_league == "bronze":
+		var was_silver_unlocked := silver_unlocked
+		var all_bronze_beaten := true
+		for i in 7:  # 7 Silver templates from S22.1
+			if ("bronze_%d" % i) not in opponents_beaten:
+				all_bronze_beaten = false
+				break
+		if all_bronze_beaten:
+			silver_unlocked = true
+			if not was_silver_unlocked:
+				emit_signal("league_unlocked", "silver")
 
 ## S14.1: transition current_league past scrapyard once the bronze moment
 ## ceremony has been shown. Caller (game_main) also clears its pending-
 ## ceremony flag; we no-op if already advanced.
+## S22.2c: extended to advance bronze → silver once silver_unlocked is true.
 func advance_league() -> void:
 	if current_league == "scrapyard" and bronze_unlocked:
 		current_league = "bronze"
+	elif current_league == "bronze" and silver_unlocked:
+		current_league = "silver"
 
 ## S13.6: Apply a resolved trick choice (data-driven). Caller owns the modal
 ## lifecycle; GameState only mutates session state.

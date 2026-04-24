@@ -70,6 +70,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s21_4_001_scroll_position.gd",
 	# [S21.4 T2] Random-event popup redesign — named anchor + skip button + dampening (#106).
 	"res://tests/test_s21_4_002_event_popup.gd",
+	# [S21.4 T3] League progression surfacing on two surfaces — ResultScreen + OpponentSelectScreen (#108).
+	"res://tests/test_s21_4_003_league_surface.gd",
 ]
 
 var file_pass_count := 0

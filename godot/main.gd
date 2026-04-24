@@ -39,7 +39,18 @@ var tick_accumulator: float = 0.0
 func _ready() -> void:
 	_setup_energy_legend()
 	_maybe_spawn_energy_explainer()
+	_apply_audio_settings()
 	_setup_match()
+
+# [S21.5] Apply persisted mute state from FirstRunState on scene load.
+# Called after _maybe_spawn_energy_explainer() so autoload guard pattern
+# is consistent. Mutes/unmutes the Master bus (bus 0) globally.
+func _apply_audio_settings() -> void:
+	var frs := get_node_or_null("/root/FirstRunState")
+	if frs == null:
+		return
+	var muted: bool = frs.call("get_audio_muted")
+	AudioServer.set_bus_mute(0, muted)
 
 # [S17.1-003] Add a persistent HUD legend so the blue energy bar has a
 # visible-by-default meaning. Static label, set once, never updated.

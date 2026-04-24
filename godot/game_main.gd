@@ -92,9 +92,14 @@ var _concede_confirm: AcceptDialog = null
 var _re_popup: Control = null
 var _re_last_shown_time: float = -INF
 
+# [S21.5] Popup whoosh SFX — reused long-lived player to avoid node leaks.
+const POPUP_WHOOSH: AudioStream = preload("res://assets/audio/sfx/popup_whoosh.ogg")
+var _popup_whoosh_player: AudioStreamPlayer = null
+
 func _ready() -> void:
 	game_flow = GameFlow.new()
 	_connect_league_signal()
+	_apply_audio_settings()  # [S21.5] apply persisted mute on canonical main-flow entry
 	# URL parameter routing for web builds (enables Playwright screen tests)
 	if OS.has_feature("web"):
 		var screen_param = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('screen')")
@@ -111,6 +116,16 @@ func _ready() -> void:
 			return
 	# Default: show main menu (also handles ?screen=menu and ?screen=dashboard)
 	_show_main_menu()
+
+# [S21.5] Mirrors main.gd — applies persisted mute state from FirstRunState to
+# the Master bus (bus 0) on scene load. Called from _ready() so mute state is
+# honoured on the canonical game flow (Menu → Shop → … → Arena).
+func _apply_audio_settings() -> void:
+	var frs := get_node_or_null("/root/FirstRunState")
+	if frs == null:
+		return
+	var muted: bool = frs.call("get_audio_muted")
+	AudioServer.set_bus_mute(0, muted)
 
 func _clear_screen() -> void:
 	if ui_scroll:
@@ -782,8 +797,21 @@ func show_random_event(event_data: Dictionary = {}) -> void:
 	if _re_popup != null and is_instance_valid(_re_popup):
 		return
 	_re_last_shown_time = now
+	# [S21.5] Play popup whoosh BEFORE building and adding popup node.
+	_play_popup_whoosh()
 	_re_popup = _build_random_event_popup(event_data)
 	add_child(_re_popup)
+
+# [S21.5] Play popup whoosh via a single long-lived AudioStreamPlayer.
+# Reuses the player instance to avoid accumulating nodes on rapid calls.
+func _play_popup_whoosh() -> void:
+	if _popup_whoosh_player == null or not is_instance_valid(_popup_whoosh_player):
+		_popup_whoosh_player = AudioStreamPlayer.new()
+		_popup_whoosh_player.name = "PopupWhooshPlayer"
+		_popup_whoosh_player.stream = POPUP_WHOOSH
+		_popup_whoosh_player.bus = "SFX"
+		add_child(_popup_whoosh_player)
+	_popup_whoosh_player.play()
 
 ## Build the popup node subtree.
 ## Returns a Panel with: TitleLabel, BodyLabel, SkipButton, anchor_target metadata.

@@ -24,6 +24,10 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

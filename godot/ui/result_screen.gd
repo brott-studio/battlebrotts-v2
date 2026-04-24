@@ -5,15 +5,39 @@ extends Control
 signal continue_pressed
 signal rematch_pressed
 
+# [S21.5] Win chime — played once on victory, silent on defeat.
+const WIN_CHIME: AudioStream = preload("res://assets/audio/sfx/win_chime.ogg")
+
 var won: bool = false
 var bolts_earned: int = 0
 var game_state: GameState
+var _chime_played: bool = false
 
 func setup(state: GameState, match_won: bool, earned: int) -> void:
 	game_state = state
 	won = match_won
 	bolts_earned = earned
+	_chime_played = false
 	_build_ui()
+	_maybe_play_win_chime()
+
+# [S21.5] Play win chime exactly once per victory.
+# Guard: won must be true AND _chime_played must be false.
+# Creates a transient AudioStreamPlayer that frees itself on finish.
+func _maybe_play_win_chime() -> void:
+	if not won:
+		return
+	if _chime_played:
+		return
+	_chime_played = true
+	var player := AudioStreamPlayer.new()
+	player.name = "WinChimePlayer"
+	player.stream = WIN_CHIME
+	player.bus = "SFX"
+	player.autoplay = false
+	add_child(player)
+	player.play()
+	player.finished.connect(func(): player.queue_free())
 
 func _build_ui() -> void:
 	for c in get_children():

@@ -72,6 +72,14 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s21_4_002_event_popup.gd",
 	# [S21.4 T3] League progression surfacing on two surfaces — ResultScreen + OpponentSelectScreen (#108).
 	"res://tests/test_s21_4_003_league_surface.gd",
+	# [S21.5 T1] Audio bus layout — 3 buses in order: Master/SFX/Music (I1).
+	"res://tests/test_s21_5_001_audio_bus_layout.gd",
+	# [S21.5 T2] Audio asset presence — OGG files + ATTRIBUTION.md exist (I2).
+	"res://tests/test_s21_5_002_audio_assets.gd",
+	# [S21.5 T3] SFX bus routing — WinChimePlayer + PopupWhooshPlayer both use bus "SFX" (I3).
+	"res://tests/test_s21_5_003_sfx_routing.gd",
+	# [S21.5 T4] Mute toggle — FirstRunState.set_audio_muted() + AudioServer.is_bus_mute() (I4).
+	"res://tests/test_s21_5_004_mute_toggle.gd",
 ]
 
 var file_pass_count := 0

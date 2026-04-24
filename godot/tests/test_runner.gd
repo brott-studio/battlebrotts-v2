@@ -64,6 +64,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s21_2_001_inline_captions.gd",
 	"res://tests/test_s21_2_002_scroll_wrappers.gd",
 	"res://tests/test_s21_2_003_first_encounter_overlays.gd",
+	# [S21.3] Arena onboarding HUD-element overlays (#245, #107) — added by Nutts S21.3-001.
+	"res://tests/test_s21_3_arena_onboarding.gd",
 ]
 
 var file_pass_count := 0

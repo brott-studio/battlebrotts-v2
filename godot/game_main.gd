@@ -15,15 +15,38 @@ const FE_KEY_BROTTBRAIN := "brottbrain_first_visit"
 const FE_KEY_OPPONENT := "opponent_first_visit"
 const FE_KEY_ENERGY := "energy_explainer"
 
+# [S21.3 / #245 / #107] Arena onboarding keys — in-arena HUD-element overlays.
+# Fixed order: energy → combatants → time → concede (one per arena entry).
+# `energy_explainer` reuses the S17.1-004 key for save-carryforward.
+const FE_KEY_COMBATANTS := "combatants_explainer"
+const FE_KEY_TIME := "time_explainer"
+const FE_KEY_CONCEDE := "concede_explainer"
+
+# Fixed arena sequence — order is invariant, do not reorder.
+const ARENA_SEQUENCE: Array = ["energy_explainer", "combatants_explainer", "time_explainer", "concede_explainer"]
+
+# ~12 s at 60 fps for arena overlays (vs 6 s for screen overlays).
+const ARENA_FE_TICK_BUDGET := 720
+
 # [S21.2 / #107] Plain-language overlay copy per surface. <=2 short sentences,
-# BrottBrain voice. Anchored top-center of the screen.
+# BrottBrain voice. Screen overlays anchored top-center; arena overlays use
+# ARENA_FE_COPY (below).
 const FE_COPY := {
 	"shop_first_visit": "🛍️ Welcome to the Shop. Spend Bolts on chassis, weapons, armor, and modules — then head to Loadout.",
 	"brottbrain_first_visit": "🧠 BrottBrain teaches your bot what to do. Build WHEN → THEN rules from the tray below.",
 	"opponent_first_visit": "⚔️ Pick an opponent to fight. Beating all 3 in this league unlocks the next tier.",
 	"energy_explainer": "⚡ The blue bar is your Energy — it powers your weapons and regenerates over time.",
 }
-const FE_TICK_BUDGET := 360  # ~6 seconds @ 60 fps before auto-dismiss
+const FE_TICK_BUDGET := 360  # ~6 seconds @ 60 fps before auto-dismiss (screen overlays)
+
+# [S21.3 / #245 / #107] Arena onboarding copy — 4 keys in ARENA_SEQUENCE order.
+# Kept separate from FE_COPY to preserve the S21.2 FE_COPY.size()==4 invariant.
+const ARENA_FE_COPY := {
+	"energy_explainer": "⚡ The blue bar is your Energy — it powers your weapons and regenerates over time.",
+	"combatants_explainer": "⚔️ These panels show each fighter's HP and Energy. The first to reach zero loses.",
+	"time_explainer": "⏱️ The match timer counts up. Damage leader wins if neither bot is destroyed before 100s.",
+	"concede_explainer": "🏳️ Tap Concede to forfeit the fight. Use it when the match is clearly lost.",
+}
 
 var game_flow: GameFlow
 var sim: CombatSim
@@ -96,6 +119,13 @@ func _clear_screen() -> void:
 		_fe_overlay = null
 		_fe_ticks = 0
 		_fe_active_key = ""
+	# [S21.3 / #245] Tear down any active arena first-encounter overlay.
+	if _arena_fe_overlay != null:
+		_arena_fe_overlay.queue_free()
+		_arena_fe_overlay = null
+		_arena_fe_ticks = 0
+		_arena_fe_active_key = ""
+		speed_multiplier = _arena_fe_pre_slowdown_speed
 	# Clear HUD labels
 	for child in get_children():
 		if child is Label:
@@ -317,9 +347,22 @@ func _create_arena_hud() -> void:
 	concede.flat = true
 	concede.pressed.connect(_on_concede_pressed)
 	add_child(concede)
-	# [S21.2 / #107] Combat-entry energy explainer — reuses the S17.1-004
-	# `energy_explainer` key so any prior demo dismissal carries forward.
-	_maybe_spawn_first_encounter(FE_KEY_ENERGY)
+	# [S21.3 / #245 / #107] Create a named EnergyLegend anchor label so the
+	# arena onboarding sequencer can anchor the energy_explainer overlay to a
+	# real HUD element node (not a CanvasLayer). Reuses S17.1-003/004 copy.
+	var energy_legend := Label.new()
+	energy_legend.name = "EnergyLegend"
+	energy_legend.text = "⚡ Energy"
+	energy_legend.add_theme_font_size_override("font_size", 13)
+	energy_legend.add_theme_color_override("font_color", Color(0.2, 0.7, 1.0))
+	energy_legend.position = Vector2(20.0, 42.0)
+	energy_legend.size = Vector2(120.0, 20.0)
+	add_child(energy_legend)
+	# [S21.3 / #245 / #107] Start the arena-entry onboarding sequence.
+	# This is the arena-entry hook (per-match entry, not screen show/enter).
+	# Replaces the S21.2 per-screen FE_KEY_ENERGY spawn so the overlay
+	# anchors to the real EnergyLegend HUD node rather than top-center.
+	_start_arena_onboarding()
 
 func _on_concede_pressed() -> void:
 	if not in_arena or sim == null or sim.match_over:
@@ -376,6 +419,11 @@ func _process(delta: float) -> void:
 		_fe_ticks += 1
 		if _fe_ticks >= FE_TICK_BUDGET:
 			_dismiss_first_encounter()
+	# [S21.3 / #245] Tick-budget auto-dismiss for arena onboarding overlay.
+	if _arena_fe_overlay != null:
+		_arena_fe_ticks += 1
+		if _arena_fe_ticks >= ARENA_FE_TICK_BUDGET:
+			_dismiss_arena_first_encounter()
 	if not in_arena or sim == null or sim.match_over:
 		return
 	
@@ -488,3 +536,192 @@ func _dismiss_first_encounter() -> void:
 
 func _on_first_encounter_dismissed() -> void:
 	_dismiss_first_encounter()
+
+# [S21.3 / #245 / #107] Arena-entry onboarding sequencer.
+# Called once per arena entry (from _create_arena_hud) — NOT from
+# _ready or screen show/enter callbacks. Advances through ARENA_SEQUENCE
+# to the next unseen key and spawns that overlay anchored to the matching
+# HUD element node. One overlay per arena entry maximum.
+#
+# sim-slowdown: 0.25× while overlay visible, restored on dismiss.
+# tick-budget: ARENA_FE_TICK_BUDGET (~12 s) auto-dismiss.
+var _arena_fe_overlay: Control = null
+var _arena_fe_ticks: int = 0
+var _arena_fe_active_key: String = ""
+var _arena_fe_pre_slowdown_speed: float = 1.0
+
+func _start_arena_onboarding() -> void:
+	# Guard: if an overlay is somehow already active (re-entrant call), skip.
+	if _arena_fe_overlay != null:
+		return
+	# FRS lookup: try direct path first (in-tree node), then fall back to
+	# Engine.get_main_loop().root (works even when this node is not in the tree,
+	# e.g. headless test instantiation).
+	var frs: Node = get_node_or_null("/root/FirstRunState")
+	if frs == null:
+		var ml := Engine.get_main_loop() as SceneTree
+		if ml != null and ml.root != null:
+			frs = ml.root.get_node_or_null("FirstRunState")
+	if frs == null:
+		return
+	# Advance to next unseen key in ARENA_SEQUENCE.
+	for key in ARENA_SEQUENCE:
+		if not frs.call("has_seen", key):
+			_spawn_arena_first_encounter(key)
+			return
+	# All keys seen — nothing to show.
+
+func _spawn_arena_first_encounter(key: String) -> Control:
+	# Resolve anchor: the HUD element node for this key.
+	# anchor_target is a real Node reference, not a CanvasLayer / screen root.
+	var anchor: Control = null
+	match key:
+		"energy_explainer":
+			anchor = _resolve_energy_legend_node()
+		"combatants_explainer":
+			anchor = _resolve_combatants_panel_node()
+		"time_explainer":
+			anchor = time_label
+		"concede_explainer":
+			anchor = _find_concede_button()
+
+	if anchor == null:
+		# Anchor not found (e.g. concede button missing) — skip this key
+		# gracefully so remaining overlays still fire.
+		# The concede-button absence is handled by the caller (backlog issue filed).
+		return null
+
+	# Build overlay positioned relative to the anchor's global rect.
+	var panel := Panel.new()
+	panel.name = "ArenaFEOverlay_" + key
+	panel.z_index = 10
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	# Panel is 400 × 110; we position it below (or above if near bottom) the anchor.
+	var panel_w := 400.0
+	var panel_h := 110.0
+	var anchor_global := anchor.get_global_rect()
+	var anchor_center_x := anchor_global.position.x + anchor_global.size.x * 0.5
+
+	# Default: position panel left edge so it centres on the anchor (clamped to viewport).
+	var vp := get_viewport()
+	var viewport_size := vp.get_visible_rect().size if vp != null else Vector2(1280.0, 720.0)
+	var panel_x := clampf(anchor_center_x - panel_w * 0.5, 8.0, viewport_size.x - panel_w - 8.0)
+
+	# Default: panel sits BELOW the anchor (pointer ▲ points up at anchor).
+	# If the anchor is in the bottom half, flip to above.
+	var ARROW_H := 18.0
+	var panel_y: float
+	var arrow_text: String
+	var arrow_inside_y: float
+	if anchor_global.position.y > viewport_size.y * 0.5:
+		# Anchor is in bottom half — panel goes ABOVE. ▼ pointer at bottom of panel.
+		panel_y = anchor_global.position.y - panel_h - ARROW_H - 4.0
+		arrow_text = "▼"
+		arrow_inside_y = panel_h - 2.0
+	else:
+		# Panel goes BELOW anchor. ▲ pointer at top of panel.
+		panel_y = anchor_global.position.y + anchor_global.size.y + ARROW_H + 4.0
+		arrow_text = "▲"
+		arrow_inside_y = -ARROW_H
+
+	panel.position = Vector2(panel_x, panel_y)
+	panel.size = Vector2(panel_w, panel_h)
+
+	# ▲/▼ pointer — anchor arrow node (stable name for tests: "AnchorArrow").
+	var arrow := Label.new()
+	arrow.name = "AnchorArrow"
+	arrow.text = arrow_text
+	arrow.add_theme_font_size_override("font_size", 18)
+	arrow.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	# Position: horizontally centred on the anchor within the panel's local space.
+	var arrow_local_x := clampf(
+		(anchor_center_x - panel_x) - 10.0, 8.0, panel_w - 24.0)
+	arrow.position = Vector2(arrow_local_x, arrow_inside_y)
+	arrow.size = Vector2(20.0, ARROW_H)
+	panel.add_child(arrow)
+
+	# Body copy.
+	var body := Label.new()
+	body.name = "Body"
+	body.text = String(ARENA_FE_COPY.get(key, ""))
+	body.add_theme_font_size_override("font_size", 14)
+	body.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.position = Vector2(12.0, 10.0)
+	body.size = Vector2(panel_w - 24.0, 60.0)
+	panel.add_child(body)
+
+	# "Got it!" dismiss button.
+	var btn := Button.new()
+	btn.name = "GotItButton"
+	btn.text = "Got it!"
+	btn.position = Vector2(panel_w - 104.0, panel_h - 36.0)
+	btn.size = Vector2(96.0, 28.0)
+	btn.pressed.connect(_on_arena_fe_dismissed)
+	panel.add_child(btn)
+
+	# Store anchor reference as metadata so tests can read it.
+	panel.set_meta("anchor_target", anchor)
+
+	add_child(panel)
+	_arena_fe_overlay = panel
+	_arena_fe_ticks = 0
+	_arena_fe_active_key = key
+
+	# Apply 0.25× sim slowdown.
+	_arena_fe_pre_slowdown_speed = speed_multiplier
+	speed_multiplier *= 0.25
+	return panel
+
+func _dismiss_arena_first_encounter() -> void:
+	if _arena_fe_overlay == null:
+		return
+	var frs: Node = get_node_or_null("/root/FirstRunState")
+	if frs != null and _arena_fe_active_key != "":
+		frs.call("mark_seen", _arena_fe_active_key)
+	_arena_fe_overlay.queue_free()
+	_arena_fe_overlay = null
+	_arena_fe_ticks = 0
+	_arena_fe_active_key = ""
+	# Restore sim speed.
+	speed_multiplier = _arena_fe_pre_slowdown_speed
+
+func _on_arena_fe_dismissed() -> void:
+	_dismiss_arena_first_encounter()
+
+# Resolve the EnergyLegend node. In game_main.gd it is created dynamically
+# inside _create_arena_hud as a child of this node (not inside a CanvasLayer).
+func _resolve_energy_legend_node() -> Control:
+	# Look for an existing EnergyLegend label child.
+	for child in get_children():
+		if child is Label and child.name == "EnergyLegend":
+			return child as Control
+	# Not yet created — synthesise one so we have a real anchor node.
+	# (In practice _create_arena_hud creates it before calling this.)
+	var legend := Label.new()
+	legend.name = "EnergyLegend"
+	legend.text = "⚡ Energy"
+	legend.position = Vector2(20.0, 42.0)
+	legend.size = Vector2(200.0, 20.0)
+	add_child(legend)
+	return legend
+
+# Resolve combatants panel: the PlayerInfo + EnemyInfo pair. We expose this
+# as the player_info label (left anchor) for overlay positioning; the
+# panel name is CombatantsPanel if we wrap them, or we use player_info directly.
+func _resolve_combatants_panel_node() -> Control:
+	# Try to find a named CombatantsPanel first (forward-compatible).
+	var cp: Node = get_node_or_null("CombatantsPanel")
+	if cp is Control:
+		return cp as Control
+	# Fall back to player_info (set by _create_arena_hud).
+	if player_info != null:
+		return player_info
+	return null
+
+func _find_concede_button() -> Control:
+	for child in get_children():
+		if child.name == "ConcedeButton" and child is Button:
+			return child as Control
+	return null

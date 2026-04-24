@@ -154,6 +154,7 @@ func _setup_match() -> void:
 	sim = CombatSim.new(42)  # deterministic seed
 	
 	# Player: Brawler with Shotgun + Minigun, Plating, Repair Nanites
+	# Demo route — league-agnostic; default "bronze" applies.
 	player_brott = BrottState.new()
 	player_brott.team = 0
 	player_brott.bot_name = "Player Bot"
@@ -166,6 +167,7 @@ func _setup_match() -> void:
 	player_brott.setup()
 	
 	# Enemy: Scout with Railgun + Plasma Cutter, Reactive Mesh, Afterburner + Shield Projector + Sensor Array
+	# Demo route — league-agnostic; default "bronze" applies.
 	enemy_brott = BrottState.new()
 	enemy_brott.team = 1
 	enemy_brott.bot_name = "Enemy Bot"

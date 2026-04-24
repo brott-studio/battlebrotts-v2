@@ -269,6 +269,7 @@ func _start_demo_match() -> void:
 	_clear_screen()
 	
 	# Player: Brawler with Shotgun + Minigun, Plating, Repair Nanites + Overclock
+	# Demo route — league-agnostic; default "bronze" applies.
 	player_brott = BrottState.new()
 	player_brott.team = 0
 	player_brott.bot_name = "Player Bot"
@@ -281,6 +282,7 @@ func _start_demo_match() -> void:
 	player_brott.setup()
 	
 	# Enemy: Scout with Railgun + Plasma Cutter, Reactive Mesh
+	# Demo route — league-agnostic; default "bronze" applies.
 	enemy_brott = BrottState.new()
 	enemy_brott.team = 1
 	enemy_brott.bot_name = "Enemy Bot"

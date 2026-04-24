@@ -184,9 +184,8 @@ func _t3_silver_legality() -> void:
 		for m in t["modules"]:
 			if not SILVER_MODULES.has(m):
 				modules_ok = false
-		# GDD sec6.2 "full loadouts": Silver module count = 2 (exception: glass_chrono is 1 per S22.2b)
-		var min_modules: int = 1 if t.get("id", "") == "glass_chrono" else 2
-		var module_count_ok: bool = t["modules"].size() >= min_modules
+		# GDD sec6.2 "full loadouts": Silver module count = 2
+		var module_count_ok: bool = t["modules"].size() == 2
 		var unlock_ok: bool = t.get("unlock_league", "") == "silver"
 		if not (chassis_ok and weapons_ok and armor_ok and modules_ok and module_count_ok and unlock_ok):
 			all_ok = false

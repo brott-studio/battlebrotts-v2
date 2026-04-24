@@ -259,19 +259,18 @@ const TEMPLATES: Array[Dictionary] = [
 		"chassis": ChassisData.ChassisType.BRAWLER,
 		"weapons": [WeaponData.WeaponType.SHOTGUN, WeaponData.WeaponType.FLAK_CANNON],
 		"armor": ArmorData.ArmorType.REACTIVE_MESH,
-		"modules": [ModuleData.ModuleType.REPAIR_NANITES, ModuleData.ModuleType.SENSOR_ARRAY],
+		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.REPAIR_NANITES],
 		"stance": 1,  # Defensive
 		"unlock_league": "silver",
-		# weight: 12 (Shotgun) + 13 (Flak) + 8 (Reactive) + 7 (Repair) + 4 (Sensor) = 44 <= 55 (Brawler)
-		# S22.2b: removed Shield Projector (broke Shield+Reactive+Defensive triangle); added Sensor Array.
+		# weight: 12 (Shotgun) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 54 <= 55 (Brawler)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_within_tiles", "value": 3},
 				"action": {"kind": "weapons_all_fire"},
 			},
 			{
-				"trigger": {"kind": "enemy_hp_below_pct", "value": 50},
-				"action": {"kind": "pick_target", "value": "weakest"},
+				"trigger": {"kind": "self_hp_below_pct", "value": 50},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.SHIELD_PROJECTOR},
 			},
 			{
 				"trigger": {"kind": "enemy_beyond_tiles", "value": 6},
@@ -341,12 +340,11 @@ const TEMPLATES: Array[Dictionary] = [
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.BRAWLER,
 		"weapons": [WeaponData.WeaponType.MINIGUN, WeaponData.WeaponType.ARC_EMITTER],
-		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"armor": ArmorData.ArmorType.PLATING,
 		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.OVERCLOCK],
-		"stance": 1,  # Defensive
+		"stance": 0,  # Aggressive
 		"unlock_league": "silver",
-		# weight: 10 (Minigun) + 11 (Arc) + 8 (Reactive) + 10 (Shield) + 5 (Overclock) = 44 <= 55 (Brawler)
-		# S22.2b: Plating→Reactive Mesh; stance Aggressive→Defensive. Patient pressure > charge-into-killbox.
+		# weight: 10 (Minigun) + 11 (Arc) + 15 (Plating) + 14 (Shield) + 5 (Overclock) = 55 <= 55 (Brawler)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_within_tiles", "value": 4},
@@ -370,11 +368,10 @@ const TEMPLATES: Array[Dictionary] = [
 		"chassis": ChassisData.ChassisType.BRAWLER,
 		"weapons": [WeaponData.WeaponType.ARC_EMITTER, WeaponData.WeaponType.FLAK_CANNON],
 		"armor": ArmorData.ArmorType.REACTIVE_MESH,
-		"modules": [ModuleData.ModuleType.OVERCLOCK, ModuleData.ModuleType.SENSOR_ARRAY],
+		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.SENSOR_ARRAY],
 		"stance": 1,  # Defensive
 		"unlock_league": "silver",
-		# weight: 11 (Arc) + 13 (Flak) + 8 (Reactive) + 5 (Overclock) + 4 (Sensor) = 41 <= 55 (Brawler)
-		# S22.2b: Shield Projector→Overclock; burst-DPS controller profile replaces absorb-wall.
+		# weight: 11 (Arc) + 13 (Flak) + 8 (Reactive) + 14 (Shield) + 4 (Sensor) = 50 <= 55 (Brawler)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_within_tiles", "value": 3},
@@ -387,8 +384,8 @@ const TEMPLATES: Array[Dictionary] = [
 				"action": {"kind": "weapons_fire_primary"},
 			},
 			{
-				"trigger": {"kind": "self_energy_above_pct", "value": 70},
-				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.OVERCLOCK},
+				"trigger": {"kind": "self_hp_below_pct", "value": 50},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.SHIELD_PROJECTOR},
 			},
 			{
 				"trigger": {"kind": "enemy_using_gadget"},
@@ -404,11 +401,10 @@ const TEMPLATES: Array[Dictionary] = [
 		"chassis": ChassisData.ChassisType.BRAWLER,
 		"weapons": [WeaponData.WeaponType.RAILGUN, WeaponData.WeaponType.MINIGUN],
 		"armor": ArmorData.ArmorType.REACTIVE_MESH,
-		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.SENSOR_ARRAY],
+		"modules": [ModuleData.ModuleType.SHIELD_PROJECTOR, ModuleData.ModuleType.REPAIR_NANITES],
 		"stance": 1,  # Defensive
 		"unlock_league": "silver",
-		# weight: 15 (Railgun) + 10 (Minigun) + 8 (Reactive) + 10 (Shield) + 4 (Sensor) = 47 <= 55 (Brawler)
-		# S22.2b: Repair Nanites→Sensor Array; keeps Shield identity but loses dual-sustain stack.
+		# weight: 9 (Railgun) + 10 (Minigun) + 8 (Reactive) + 14 (Shield) + 7 (Repair) = 48 <= 55 (Brawler)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_beyond_tiles", "value": 6},
@@ -424,8 +420,8 @@ const TEMPLATES: Array[Dictionary] = [
 				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.SHIELD_PROJECTOR},
 			},
 			{
-				"trigger": {"kind": "enemy_beyond_tiles", "value": 6},
-				"action": {"kind": "pick_target", "value": "weakest"},
+				"trigger": {"kind": "self_hp_below_pct", "value": 30},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.REPAIR_NANITES},
 			},
 		],
 	},
@@ -436,21 +432,20 @@ const TEMPLATES: Array[Dictionary] = [
 		"tier": 4,
 		"chassis": ChassisData.ChassisType.SCOUT,
 		"weapons": [WeaponData.WeaponType.RAILGUN],
-		"armor": ArmorData.ArmorType.REACTIVE_MESH,
-		"modules": [ModuleData.ModuleType.SENSOR_ARRAY],
+		"armor": ArmorData.ArmorType.NONE,
+		"modules": [ModuleData.ModuleType.SENSOR_ARRAY, ModuleData.ModuleType.OVERCLOCK],
 		"stance": 3,  # Ambush
 		"unlock_league": "silver",
-		# weight: 15 (Railgun) + 8 (Reactive) + 4 (Sensor) = 27 <= 30 (Scout)
-		# S22.2b: None→Reactive Mesh; dropped Overclock to fit cap. One-module Scout is loadout-legal.
-		# Ambush+Railgun sniper identity preserved; Reactive opens survival window vs Minigun+Shotgun burst.
+		# weight: 15 (Railgun) + 0 (None) + 4 (Sensor) + 5 (Overclock) = 24 <= 30 (Scout)
+		# Note: was REACTIVE_MESH (8 kg) — exceeded 30 kg cap; swapped to NONE (glass cannon identity)
 		"behavior_cards": [
 			{
 				"trigger": {"kind": "enemy_beyond_tiles", "value": 7},
 				"action": {"kind": "pick_target", "value": "strongest"},
 			},
 			{
-				"trigger": {"kind": "enemy_within_tiles", "value": 4},
-				"action": {"kind": "switch_stance", "value": 2},
+				"trigger": {"kind": "self_energy_above_pct", "value": 80},
+				"action": {"kind": "use_gadget", "value": ModuleData.ModuleType.OVERCLOCK},
 			},
 			{
 				"trigger": {"kind": "enemy_within_tiles", "value": 2},

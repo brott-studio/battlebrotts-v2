@@ -100,10 +100,21 @@ var _re_last_shown_time: float = -INF
 const POPUP_WHOOSH: AudioStream = preload("res://assets/audio/sfx/popup_whoosh.ogg")
 var _popup_whoosh_player: AudioStreamPlayer = null
 
+# [S24.3] Combat SFX — hit (on_damage) + projectile launch (on_projectile_spawned).
+const HIT_SFX: AudioStream = preload("res://assets/audio/sfx/hit.ogg")
+const PROJECTILE_LAUNCH_SFX: AudioStream = preload("res://assets/audio/sfx/projectile_launch.ogg")
+var _hit_sfx_player: AudioStreamPlayer = null
+var _projectile_launch_sfx_player: AudioStreamPlayer = null
+# Threshold guard: only play hit SFX for meaningful damage (≥5.0) to avoid
+# boundary-tick / splash / reflect spam (risk register §5 risk #1).
+const HIT_SFX_MIN_AMOUNT: float = 5.0
+
 func _ready() -> void:
 	game_flow = GameFlow.new()
 	_connect_league_signal()
 	_apply_audio_settings()  # [S21.5] apply persisted mute on canonical main-flow entry
+	# [S24.3] Initialize combat SFX players once at scene load.
+	_init_combat_sfx_players()
 	# URL parameter routing for web builds (enables Playwright screen tests)
 	if OS.has_feature("web"):
 		var screen_param = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('screen')")
@@ -329,6 +340,9 @@ func _start_demo_match() -> void:
 	sim.add_brott(player_brott)
 	sim.add_brott(enemy_brott)
 	sim.on_match_end.connect(_on_match_end)
+	# [S24.3] Wire combat SFX signals.
+	sim.on_damage.connect(_on_combat_damage)
+	sim.on_projectile_spawned.connect(_on_projectile_spawned)
 	
 	# Instantiate arena renderer from scene (KB: no set_script/Script.new in web)
 	arena_renderer = ArenaRendererScene.instantiate()
@@ -363,6 +377,9 @@ func _start_match(opponent_index: int) -> void:
 	sim.add_brott(player_brott)
 	sim.add_brott(enemy_brott)
 	sim.on_match_end.connect(_on_match_end)
+	# [S24.3] Wire combat SFX signals.
+	sim.on_damage.connect(_on_combat_damage)
+	sim.on_projectile_spawned.connect(_on_projectile_spawned)
 	
 	# Instantiate from scene so _draw() virtual is properly registered in web export
 	# (Script.new() and set_script() both fail to register _draw in HTML5 builds)
@@ -844,6 +861,32 @@ func _play_popup_whoosh() -> void:
 		_popup_whoosh_player.bus = "SFX"
 		add_child(_popup_whoosh_player)
 	_popup_whoosh_player.play()
+
+# [S24.3] Initialise combat SFX players once at scene load.
+# .bus = "SFX" is set BEFORE add_child per S21.5 ordering convention.
+func _init_combat_sfx_players() -> void:
+	_hit_sfx_player = AudioStreamPlayer.new()
+	_hit_sfx_player.name = "HitSfxPlayer"
+	_hit_sfx_player.bus = "SFX"
+	_hit_sfx_player.stream = HIT_SFX
+	add_child(_hit_sfx_player)
+
+	_projectile_launch_sfx_player = AudioStreamPlayer.new()
+	_projectile_launch_sfx_player.name = "ProjectileLaunchSfxPlayer"
+	_projectile_launch_sfx_player.bus = "SFX"
+	_projectile_launch_sfx_player.stream = PROJECTILE_LAUNCH_SFX
+	add_child(_projectile_launch_sfx_player)
+
+# [S24.3] Signal handler: on_damage — play hit SFX for meaningful hits.
+# Guard: amount >= HIT_SFX_MIN_AMOUNT to suppress boundary-tick / splash / reflect spam.
+func _on_combat_damage(_target, amount: float, _is_crit: bool, _pos: Vector2) -> void:
+	if amount >= HIT_SFX_MIN_AMOUNT and _hit_sfx_player != null and is_instance_valid(_hit_sfx_player):
+		_hit_sfx_player.play()
+
+# [S24.3] Signal handler: on_projectile_spawned — play launch SFX per projectile.
+func _on_projectile_spawned(_proj) -> void:
+	if _projectile_launch_sfx_player != null and is_instance_valid(_projectile_launch_sfx_player):
+		_projectile_launch_sfx_player.play()
 
 ## Build the popup node subtree.
 ## Returns a Panel with: TitleLabel, BodyLabel, SkipButton, anchor_target metadata.

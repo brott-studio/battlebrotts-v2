@@ -97,6 +97,10 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s24_2_001_slider_persist.gd",
 	"res://tests/test_s24_2_002_mute_integration.gd",
 	"res://tests/test_s24_2_003_bus_volume.gd",
+	# [S24.3] Combat SFX — hit + projectile routing to SFX bus.
+	"res://tests/test_s24_3_001_hit_sfx_routing.gd",
+	"res://tests/test_s24_3_002_projectile_sfx_routing.gd",
+	"res://tests/test_s24_3_003_sfx_assets.gd",
 ]
 
 var file_pass_count := 0

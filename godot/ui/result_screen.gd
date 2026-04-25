@@ -1,165 +1,109 @@
-## DEPRECATED S25.5 — league-era result screen. Kept for ?screen=battle demo route only.
-## Replaced by reward_pick_screen.gd + retry_prompt_screen.gd in roguelike flow.
-## Remove in Arc G cleanup.
-## Result screen — win/loss, Bolts earned, repair cost
-class_name ResultScreen
+## result_screen.gd — S25.8: BROTT DOWN screen (loss summary).
+## Formerly: league-era result screen (DEPRECATED, now fully replaced).
+## GDD §A.5: single "New Run" button; no "Return to Menu".
+class_name BrottDownScreen
 extends Control
 
-signal continue_pressed
-signal rematch_pressed
+signal new_run_pressed
 
-# [S21.5] Win chime — played once on victory, silent on defeat.
-const WIN_CHIME: AudioStream = preload("res://assets/audio/sfx/win_chime.ogg")
+var _battle_number: int = 0
 
-var won: bool = false
-var bolts_earned: int = 0
-var game_state: GameState
-var _chime_played: bool = false
+func setup(run_state: RunState, battle_number: int) -> void:
+	_battle_number = battle_number
+	_build_ui(run_state)
 
-func setup(state: GameState, match_won: bool, earned: int) -> void:
-	game_state = state
-	won = match_won
-	bolts_earned = earned
-	_chime_played = false
-	_build_ui()
-	_maybe_play_win_chime()
+func _build_ui(rs: RunState) -> void:
+	## Header
+	var title := Label.new()
+	title.text = "💀 BROTT DOWN"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+	title.position = Vector2(290, 60)
+	title.size = Vector2(700, 65)
+	add_child(title)
 
-# [S21.5] Play win chime exactly once per victory.
-# Guard: won must be true AND _chime_played must be false.
-# Creates a transient AudioStreamPlayer that frees itself on finish.
-func _maybe_play_win_chime() -> void:
-	if not won:
-		return
-	if _chime_played:
-		return
-	_chime_played = true
-	var player := AudioStreamPlayer.new()
-	player.name = "WinChimePlayer"
-	player.stream = WIN_CHIME
-	player.bus = "SFX"
-	player.autoplay = false
-	add_child(player)
-	player.play()
-	player.finished.connect(func(): player.queue_free())
+	var fell_lbl := Label.new()
+	fell_lbl.text = "Fell at Battle %d" % _battle_number
+	fell_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fell_lbl.add_theme_font_size_override("font_size", 18)
+	fell_lbl.position = Vector2(340, 135)
+	fell_lbl.size = Vector2(600, 30)
+	add_child(fell_lbl)
 
-func _build_ui() -> void:
-	for c in get_children():
-		c.queue_free()
-	
-	# Result banner
-	var banner := Label.new()
-	banner.text = "🏆 VICTORY!" if won else "💀 DEFEAT"
-	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	banner.add_theme_font_size_override("font_size", 48)
-	if won:
-		banner.add_theme_color_override("font_color", Color.GOLD)
-	else:
-		banner.add_theme_color_override("font_color", Color.RED)
-	banner.position = Vector2(340, 100)
-	banner.size = Vector2(600, 80)
-	add_child(banner)
-	
-	# Bolts info
-	var repair := 20 if won else 50
-	var gross := bolts_earned + repair
-	
-	var info := Label.new()
-	info.text = "Bolts earned: %d 🔩\nRepair cost: -%d 🔩\nNet: %d 🔩\n\nTotal Bolts: %d 🔩" % [
-		gross, repair, bolts_earned, game_state.bolts
+	## --- YOUR BUILD --- (inline build summary — identical structure to RunCompleteScreen)
+	## TODO(S25.9+): extract to BuildSummaryComponent — also reused by reward pick header.
+	var build_hdr := Label.new()
+	build_hdr.name = "BuildHeader"
+	build_hdr.text = "YOUR BUILD"
+	build_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	build_hdr.add_theme_font_size_override("font_size", 14)
+	build_hdr.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	build_hdr.position = Vector2(390, 180)
+	build_hdr.size = Vector2(500, 24)
+	add_child(build_hdr)
+
+	var chassis_names := ["Scout", "Brawler", "Fortress"]
+	var chassis_lbl := Label.new()
+	chassis_lbl.name = "ChassisLabel"
+	chassis_lbl.text = "⚙ %s" % (chassis_names[rs.equipped_chassis] if rs.equipped_chassis < chassis_names.size() else "Unknown")
+	chassis_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chassis_lbl.add_theme_font_size_override("font_size", 16)
+	chassis_lbl.position = Vector2(390, 208)
+	chassis_lbl.size = Vector2(500, 26)
+	add_child(chassis_lbl)
+
+	var weapon_names := ["Minigun", "Railgun", "Shotgun", "Missile Pod", "Plasma Cutter", "Arc Emitter", "Flak Cannon"]
+	var weapons_text := " | ".join(rs.equipped_weapons.map(func(w): return weapon_names[w] if w < weapon_names.size() else "?"))
+	var weapons_lbl := Label.new()
+	weapons_lbl.name = "WeaponsLabel"
+	weapons_lbl.text = "⚡ %s" % (weapons_text if weapons_text != "" else "—")
+	weapons_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	weapons_lbl.add_theme_font_size_override("font_size", 13)
+	weapons_lbl.position = Vector2(340, 236)
+	weapons_lbl.size = Vector2(600, 22)
+	add_child(weapons_lbl)
+
+	var armor_names := ["None", "Plating", "Reactive Mesh", "Ablative Shell"]
+	var armor_lbl := Label.new()
+	armor_lbl.name = "ArmorLabel"
+	armor_lbl.text = "🛡 %s" % (armor_names[rs.equipped_armor] if rs.equipped_armor < armor_names.size() else "None")
+	armor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	armor_lbl.add_theme_font_size_override("font_size", 13)
+	armor_lbl.position = Vector2(340, 260)
+	armor_lbl.size = Vector2(600, 22)
+	add_child(armor_lbl)
+
+	var module_names := ["Overclock", "Repair Nanites", "Shield Projector", "Sensor Array", "Afterburner", "EMP Charge"]
+	var mods_text := " | ".join(rs.equipped_modules.map(func(m): return module_names[m] if m < module_names.size() else "?"))
+	var modules_lbl := Label.new()
+	modules_lbl.name = "ModulesLabel"
+	modules_lbl.text = "🔩 %s" % (mods_text if mods_text != "" else "—")
+	modules_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	modules_lbl.add_theme_font_size_override("font_size", 13)
+	modules_lbl.position = Vector2(340, 284)
+	modules_lbl.size = Vector2(600, 22)
+	add_child(modules_lbl)
+
+	## Stats block
+	var stats_lbl := Label.new()
+	stats_lbl.name = "StatsLabel"
+	stats_lbl.text = "Battles Won: %d / 15    Retries Used: %d / 3    Farthest Threat: —" % [
+		rs.battles_won,
+		max(0, 3 - rs.retry_count)
 	]
-	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info.add_theme_font_size_override("font_size", 20)
-	info.position = Vector2(440, 220)
-	info.size = Vector2(400, 200)
-	add_child(info)
-	
-	# [S21.2 / #103 #6] League progress caption — plain-language progress meter
-	# beneath the bolts info. Visible by default, no hover. Surfaces league +
-	# beat count + remaining count or unlock-pending state.
-	var progress := Label.new()
-	progress.name = "league_progress_caption"
-	progress.text = _progress_caption_text()
-	progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	progress.add_theme_font_size_override("font_size", 13)
-	progress.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
-	progress.position = Vector2(390, 380)
-	progress.size = Vector2(500, 30)
-	add_child(progress)
+	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stats_lbl.add_theme_font_size_override("font_size", 15)
+	stats_lbl.position = Vector2(290, 326)
+	stats_lbl.size = Vector2(700, 28)
+	add_child(stats_lbl)
 
-	# [S21.4 / #108] NextLeaguePathIndicator — post-match league progression
-	# surfacing. Visible only when the just-completed match was the league
-	# final win (bronze_unlocked edge). Shows the next-league path to the
-	# player immediately on the result screen, before the ceremony modal.
-	var next_league := Label.new()
-	next_league.name = "NextLeaguePathIndicator"
-	next_league.text = _next_league_path_text()
-	next_league.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	next_league.add_theme_font_size_override("font_size", 16)
-	next_league.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
-	next_league.position = Vector2(390, 418)
-	next_league.size = Vector2(500, 30)
-	next_league.visible = game_state != null and game_state.bronze_unlocked
-	add_child(next_league)
-	
-	# Bronze unlock message
-	if game_state.bronze_unlocked and game_state.brottbrain_unlocked:
-		var unlock := Label.new()
-		unlock.text = "🧠 BrottBrain Editor UNLOCKED!\nNew items available in the shop!"
-		unlock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		unlock.add_theme_font_size_override("font_size", 18)
-		unlock.add_theme_color_override("font_color", Color.CYAN)
-		unlock.position = Vector2(390, 420)
-		unlock.size = Vector2(500, 60)
-		add_child(unlock)
-	
-	# Buttons
-	var rematch_btn := Button.new()
-	rematch_btn.text = "🔄 Rematch"
-	rematch_btn.position = Vector2(440, 530)
-	rematch_btn.size = Vector2(180, 50)
-	rematch_btn.add_theme_font_size_override("font_size", 18)
-	rematch_btn.pressed.connect(func(): rematch_pressed.emit())
-	add_child(rematch_btn)
-	
-	var cont_btn := Button.new()
-	cont_btn.text = "Continue →"
-	cont_btn.position = Vector2(660, 530)
-	cont_btn.size = Vector2(180, 50)
-	cont_btn.add_theme_font_size_override("font_size", 18)
-	cont_btn.pressed.connect(func(): continue_pressed.emit())
-	add_child(cont_btn)
-
-# [S21.2 / #103 #6] League-progress caption text. Counts opponents beaten in
-# the current league and reports remaining unlocks; mentions BrottBrain
-# unlock-pending when the bronze gate is one win away.
-# [S21.4 / #108] Next-league path text for NextLeaguePathIndicator.
-# Returns the display text for the next league after a final-win unlock.
-# Minimal copy — uses league name if available in progression chain.
-func _next_league_path_text() -> String:
-	if game_state == null or not game_state.bronze_unlocked:
-		return ""
-	# Scrapyard final win unlocks Bronze — show the next path.
-	if game_state.current_league == "scrapyard" or game_state.current_league == "bronze":
-		return "🏅 Next League: Bronze"
-	return ""
-
-func _progress_caption_text() -> String:
-	if game_state == null:
-		return ""
-	var league: String = game_state.current_league
-	var opponents: Array = OpponentData.get_league_opponents(league)
-	var total: int = opponents.size()
-	var beat: int = 0
-	for opp in opponents:
-		if String(opp.get("id", "")) in game_state.opponents_beaten:
-			beat += 1
-	var remaining: int = max(total - beat, 0)
-	var suffix: String = ""
-	if league == "scrapyard" and not game_state.bronze_unlocked:
-		if remaining == 0:
-			suffix = " — Bronze League ready to unlock."
-		elif remaining == 1:
-			suffix = " — 1 win to Bronze + BrottBrain."
-		else:
-			suffix = " — %d wins to Bronze." % remaining
-	return "%s League: %d/%d opponents beaten.%s" % [league.capitalize(), beat, total, suffix]
+	## New Run button (GDD §A.5: no "Return to Menu")
+	var btn := Button.new()
+	btn.name = "NewRunButton"
+	btn.text = "⚡ New Run"
+	btn.position = Vector2(465, 390)
+	btn.size = Vector2(350, 60)
+	btn.add_theme_font_size_override("font_size", 20)
+	btn.pressed.connect(func(): new_run_pressed.emit())
+	add_child(btn)

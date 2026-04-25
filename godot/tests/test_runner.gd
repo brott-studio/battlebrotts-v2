@@ -67,7 +67,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s17_4_002_tray_scroll_anchor.gd",
 	"res://tests/test_sprint21_1.gd",
 	# [S21.2] UX bundle (#103, #104, #107) tests — added by Nutts T1/T2/T3.
-	"res://tests/test_s21_2_001_inline_captions.gd",
+	# [S25.8] test_s21_2_001_inline_captions moved to ARC_G_PENDING (depends on retired ResultScreen).
 	"res://tests/test_s21_2_002_scroll_wrappers.gd",
 	"res://tests/test_s21_2_003_first_encounter_overlays.gd",
 	# [S21.3] Arena onboarding HUD-element overlays (#245, #107) — added by Nutts S21.3-001.
@@ -77,13 +77,13 @@ const SPRINT_TEST_FILES := [
 	# [S21.4 T2] Random-event popup redesign — named anchor + skip button + dampening (#106).
 	"res://tests/test_s21_4_002_event_popup.gd",
 	# [S21.4 T3] League progression surfacing on two surfaces — ResultScreen + OpponentSelectScreen (#108).
-	"res://tests/test_s21_4_003_league_surface.gd",
+	# [S25.8] Moved to ARC_G_PENDING — ResultScreen retired, replaced by BrottDownScreen.
 	# [S21.5 T1] Audio bus layout — 3 buses in order: Master/SFX/Music (I1).
 	"res://tests/test_s21_5_001_audio_bus_layout.gd",
 	# [S21.5 T2] Audio asset presence — OGG files + ATTRIBUTION.md exist (I2).
 	"res://tests/test_s21_5_002_audio_assets.gd",
 	# [S21.5 T3] SFX bus routing — WinChimePlayer + PopupWhooshPlayer both use bus "SFX" (I3).
-	"res://tests/test_s21_5_003_sfx_routing.gd",
+	# [S25.8] Moved to ARC_G_PENDING — ResultScreen retired.
 	# [S21.5 T4] Mute toggle — FirstRunState.set_audio_muted() + AudioServer.is_bus_mute() (I4).
 	"res://tests/test_s21_5_004_mute_toggle.gd",
 	# [S22.1] Silver league content — 7 templates + tier-4 + preview-opponent precondition fix.
@@ -114,6 +114,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_encounter_generator.gd",
 	# [S25.7] Battle-to-battle loop state machine — paths A/B/C (8 conditions).
 	"res://tests/test_run_loop.gd",
+	# [S25.8] Run-end screens (BROTT DOWN + RUN COMPLETE) + first-run tooltips.
+	"res://tests/test_run_end_screens.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F
@@ -128,6 +130,13 @@ const SPRINT_TEST_FILES_ARC_G_PENDING := [
 	# [S25.3] Card-eval loop retired (Arc F roguelike pivot). These card-behavior
 	# tests will be deleted in Arc G when the BehaviorCard class is removed.
 	"res://tests/test_sprint14_2_cards.gd",
+	# [S25.8] Tests depending on the retired league-era ResultScreen class.
+	# BrottDownScreen replaced ResultScreen; these tests reference league
+	# progression / win-chime routing on ResultScreen and need rewriting against
+	# BrottDownScreen + RunCompleteScreen in Arc G.
+	"res://tests/test_s21_2_001_inline_captions.gd",
+	"res://tests/test_s21_4_003_league_surface.gd",
+	"res://tests/test_s21_5_003_sfx_routing.gd",
 ]
 
 var file_pass_count := 0

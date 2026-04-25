@@ -52,7 +52,6 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_sprint13_9.gd",
 	"res://tests/test_sprint13_10.gd",
 	"res://tests/test_sprint14_1_nav.gd",
-	"res://tests/test_sprint14_2_cards.gd",
 	"res://tests/test_sprint17_1_shop_scroll.gd",
 	"res://tests/test_sprint17_1_loadout_overlap.gd",
 	"res://tests/test_sprint17_1_visible_tooltips.gd",
@@ -105,6 +104,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s24_5_002_menu_music_routing.gd",
 	"res://tests/test_run_state_init.gd",
 	"res://tests/test_arena_renderer_multi.gd",
+	# [S25.3] Hardcoded baseline AI — 9 conditions covering rule chain, hysteresis, module priority.
+	"res://tests/test_baseline_ai.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F
@@ -116,6 +117,9 @@ const SPRINT_TEST_FILES_ARC_G_PENDING := [
 	"res://tests/test_sprint3.gd",
 	"res://tests/test_sprint14_1.gd",
 	"res://tests/test_sprint22_2c.gd",
+	# [S25.3] Card-eval loop retired (Arc F roguelike pivot). These card-behavior
+	# tests will be deleted in Arc G when the BehaviorCard class is removed.
+	"res://tests/test_sprint14_2_cards.gd",
 ]
 
 var file_pass_count := 0

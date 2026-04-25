@@ -1270,14 +1270,6 @@ func _apply_damage(target: BrottState, base_dmg: float, is_crit: bool, source: B
 					_shots_hit_ids[proj.shot_id] = true
 					shots_hit[wn] = shots_hit.get(wn, 0) + 1
 	
-	var armor_data: Dictionary = ArmorData.get_armor(target.armor_type)
-	if str(armor_data["special"]) == "reflect" and source.alive:
-		var reflect_hp: float = ArmorData.reflect_damage_for_league(target.armor_type, target.current_league)
-		if reflect_hp > 0.0:
-			source.hp -= reflect_hp
-			if source.hp <= 0:
-				_kill_brott(source)
-	
 	if target.hp <= 0:
 		_kill_brott(target)
 

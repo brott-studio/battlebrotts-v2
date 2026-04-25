@@ -1,27 +1,63 @@
 ## Game flow manager — coordinates screens and game state
-## Flow: Menu → Shop → Loadout → BrottBrain → Opponent → Arena → Result → loop
+## S25.1: Reworked for roguelike run loop. League-era flow replaced.
+## Old Screen entries (SHOP, LOADOUT, BROTTBRAIN_EDITOR, OPPONENT_SELECT)
+## left as dormant enum values — Arc G removes them.
 class_name GameFlow
 extends RefCounted
 
 enum Screen {
 	MAIN_MENU,
-	SHOP,
-	LOADOUT,
-	BROTTBRAIN_EDITOR,
-	OPPONENT_SELECT,
+	SHOP,              # CUT: Arc G — dormant, do not route to
+	LOADOUT,           # CUT: Arc G — dormant, do not route to
+	BROTTBRAIN_EDITOR, # CUT: Arc G — dormant, do not route to
+	OPPONENT_SELECT,   # CUT: Arc G — dormant, do not route to
 	ARENA,
 	RESULT,
+	RUN_START,         # S25.1: new
 }
 
+## S25.1: RunState is the new source of truth for run-scoped data.
+var run_state: RunState = null
+
+## S25.1: GameState kept as dormant property — Arc G removes.
+## Active code paths in S25.1 do NOT reference this.
 var game_state: GameState
-var current_screen: int = Screen.MAIN_MENU
+
+## S25.1: kept as dormant fields — used by tools/test_harness.gd (Arc G removes).
 var selected_opponent_index: int = -1
-var last_match_won: bool = false
 var last_bolts_earned: int = 0
 
-func _init() -> void:
-	game_state = GameState.new()
+var current_screen: int = Screen.MAIN_MENU
+var last_match_won: bool = false
 
+func _init() -> void:
+	game_state = GameState.new()  # dormant — kept for Arc G cleanup
+
+## Start a new run with the given chassis selection.
+func start_run(chassis_type: int, rng_seed: int = 0) -> void:
+	run_state = RunState.new(chassis_type, rng_seed)
+	current_screen = Screen.ARENA
+
+## Increment battle index after a battle resolves.
+func advance_battle() -> void:
+	if run_state != null:
+		run_state.current_battle_index += 1
+
+## End the current run (returns to main menu state).
+func end_run() -> void:
+	run_state = null
+	current_screen = Screen.MAIN_MENU
+
+## True if a run is in progress this session.
+func has_active_run() -> bool:
+	return run_state != null
+
+## S25.1: go_to_run_start — route from main menu.
+func go_to_run_start() -> void:
+	current_screen = Screen.RUN_START
+
+## S25.1: dormant compatibility shims for tools/test_harness.gd.
+## These do not participate in the active S25.1 flow. Arc G removes.
 func new_game() -> void:
 	game_state = GameState.new()
 	current_screen = Screen.SHOP
@@ -33,11 +69,7 @@ func go_to_loadout() -> void:
 	current_screen = Screen.LOADOUT
 
 func go_to_brottbrain() -> void:
-	if game_state.brottbrain_unlocked:
-		current_screen = Screen.BROTTBRAIN_EDITOR
-	else:
-		# Skip to opponent select if brain not unlocked
-		go_to_opponent_select()
+	current_screen = Screen.BROTTBRAIN_EDITOR
 
 func go_to_opponent_select() -> void:
 	current_screen = Screen.OPPONENT_SELECT
@@ -48,12 +80,7 @@ func select_opponent(index: int) -> void:
 
 func finish_match(won: bool) -> void:
 	last_match_won = won
-	## S22.2c: narrow fix for battlebrotts-v2#260 — construct opp_id using the
-	## current league prefix instead of hardcoding "scrapyard_". Full generalization
-	## of league helpers deferred to Arc F per Ett plan.
-	var opp_id: String = "%s_%d" % [game_state.current_league, selected_opponent_index]
-	last_bolts_earned = game_state.apply_match_result(won, opp_id)
 	current_screen = Screen.RESULT
 
 func continue_from_result() -> void:
-	current_screen = Screen.SHOP
+	current_screen = Screen.MAIN_MENU

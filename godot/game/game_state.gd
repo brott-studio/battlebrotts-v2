@@ -319,8 +319,6 @@ func build_brott() -> BrottState:
 	for mt in equipped_modules:
 		b.module_types.append(mt)
 	b.stance = 0  # Default aggressive, brain will override
-	# S22.2c: Set player league so reflect-damage scales correctly.
-	b.current_league = current_league
 	b.setup()
 	# S13.6: Apply pending trick effects accumulated between matches.
 	# HP_DELTA shifts starting hp (and max_hp so the HUD bar matches);

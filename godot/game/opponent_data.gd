@@ -117,8 +117,6 @@ static func build_opponent_brott(league: String, index: int, game_state: GameSta
 	b.team = 1
 	b.bot_name = template["name"]
 	b.chassis_type = template["chassis"]
-	# S22.2c: Set league so reflect-damage scales correctly per tier.
-	b.current_league = league
 	for wt in template["weapons"]:
 		b.weapon_types.append(wt)
 	b.armor_type = template["armor"]

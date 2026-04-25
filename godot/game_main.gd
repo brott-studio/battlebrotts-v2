@@ -128,14 +128,6 @@ func _ready() -> void:
 		if screen_param == "battle":
 			_start_demo_match()
 			return
-		if screen_param == "shop":
-			# S13.4: route ?screen=shop for shop card grid screenshot tests.
-			game_flow.new_game()
-			var bolts_param = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('bolts')")
-			if typeof(bolts_param) == TYPE_STRING and String(bolts_param).is_valid_int():
-				game_flow.game_state.bolts = int(bolts_param)
-			_show_shop()
-			return
 	# Default: show main menu (also handles ?screen=menu and ?screen=dashboard)
 	_show_main_menu()
 
@@ -211,12 +203,85 @@ func _show_main_menu() -> void:
 	menu.new_game_pressed.connect(_on_new_game)
 
 func _on_new_game() -> void:
-	game_flow.new_game()
+	## S25.1: new-game now starts the roguelike run flow.
+	## Old league/BrottBrain state cleared; GameState left dormant.
 	player_brain = null
-	_league_signal_connected = false
 	_pending_league_ceremony = ""
-	_connect_league_signal()
-	_show_shop()
+	_show_run_start()
+
+func _show_run_start() -> void:
+	_clear_screen()
+	var run_start := RunStartScreen.new()
+	run_start.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wrap_in_scroll(run_start)
+	run_start.setup(0)  # time-based seed for production
+	run_start.start_run_requested.connect(_on_chassis_picked)
+
+func _on_chassis_picked(chassis_type: int) -> void:
+	game_flow.start_run(chassis_type)
+	_start_roguelike_match()
+
+func _start_roguelike_match() -> void:
+	## S25.1: Stub arena — builds player BrottState inline from RunState.
+	## Enemy uses OpponentData bronze/0 as stub; S25.4/S25.6 replaces.
+	_clear_screen()
+
+	# Build player BrottState inline from RunState (do NOT use game_state.build_brott())
+	player_brott = game_flow.run_state.build_player_brott()
+	player_brott.position = Vector2(4 * 32.0, 8 * 32.0)
+	player_brott.brain = BrottBrain.default_for_chassis(game_flow.run_state.equipped_chassis)
+
+	# Build enemy — stub: bronze tier 0 opponent
+	enemy_brott = OpponentData.build_opponent_brott("bronze", 0)
+	enemy_brott.position = Vector2(12 * 32.0, 8 * 32.0)
+
+	# Create sim
+	sim = CombatSim.new(randi())
+	sim.add_brott(player_brott)
+	sim.add_brott(enemy_brott)
+	sim.on_match_end.connect(_on_roguelike_match_end)
+	sim.on_damage.connect(_on_combat_damage)
+	sim.on_projectile_spawned.connect(_on_projectile_spawned)
+	sim.on_death.connect(_on_brott_death)
+
+	arena_renderer = ArenaRendererScene.instantiate()
+	add_child(arena_renderer)
+	arena_renderer.setup(sim, ARENA_OFFSET)
+
+	_create_arena_hud()
+
+	in_arena = true
+	speed_multiplier = 1.0
+	tick_accumulator = 0.0
+
+func _on_roguelike_match_end(winner_team: int) -> void:
+	var won := winner_team == 0
+	if won:
+		game_flow.advance_battle()
+	await get_tree().create_timer(1.0).timeout
+	_show_stub_result(won)
+
+func _show_stub_result(won: bool) -> void:
+	_clear_screen()
+	var result_lbl := Label.new()
+	result_lbl.text = "⚔️ %s\n\nBattle %d — Stub result.\nFull reward/retry flow arrives next sprint." % [
+		"VICTORY!" if won else "DEFEAT",
+		game_flow.run_state.current_battle_index if game_flow.run_state else 1
+	]
+	result_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	result_lbl.add_theme_font_size_override("font_size", 24)
+	result_lbl.position = Vector2(240, 200)
+	result_lbl.size = Vector2(800, 200)
+	add_child(result_lbl)
+
+	var btn := Button.new()
+	btn.text = "↩ Back to Menu"
+	btn.position = Vector2(515, 450)
+	btn.size = Vector2(250, 60)
+	btn.add_theme_font_size_override("font_size", 20)
+	btn.pressed.connect(_show_main_menu)
+	add_child(btn)
 
 ## S14.1: connect to GameState.league_unlocked so we can gate the next
 ## _show_shop call on a ceremony modal. GameState is re-instantiated on
@@ -509,7 +574,7 @@ func _show_result() -> void:
 	result.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wrap_in_scroll(result)
 	result.setup(game_flow.game_state, game_flow.last_match_won, game_flow.last_bolts_earned)
-	result.continue_pressed.connect(_show_shop)
+	result.continue_pressed.connect(_show_main_menu)
 	result.rematch_pressed.connect(func(): _start_match(game_flow.selected_opponent_index))
 
 func _process(delta: float) -> void:

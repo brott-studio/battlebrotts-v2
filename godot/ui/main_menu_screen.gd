@@ -59,9 +59,9 @@ func _build_ui() -> void:
 	subtitle.size = Vector2(400, 40)
 	add_child(subtitle)
 	
-	# New Game button
+	# New Run button — S25.1: roguelike entry point
 	var btn := Button.new()
-	btn.text = "⚡ NEW GAME"
+	btn.text = "⚡ NEW RUN"
 	btn.position = Vector2(515, 350)
 	btn.size = Vector2(250, 60)
 	btn.add_theme_font_size_override("font_size", 24)

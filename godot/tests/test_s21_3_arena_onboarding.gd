@@ -118,23 +118,29 @@ func _make_game_main_with_hud() -> Node2D:
 
 func _test_arena_sequence_constants() -> void:
 	print("--- Arena sequence constants ---")
-	_assert_eq(GameMainScript.ARENA_SEQUENCE.size(), 4,
-		"ARENA_SEQUENCE has exactly 4 keys")
-	_assert_eq(GameMainScript.ARENA_SEQUENCE[0], "energy_explainer",
-		"ARENA_SEQUENCE[0] = energy_explainer")
-	_assert_eq(GameMainScript.ARENA_SEQUENCE[1], "combatants_explainer",
-		"ARENA_SEQUENCE[1] = combatants_explainer")
-	_assert_eq(GameMainScript.ARENA_SEQUENCE[2], "time_explainer",
-		"ARENA_SEQUENCE[2] = time_explainer")
-	_assert_eq(GameMainScript.ARENA_SEQUENCE[3], "concede_explainer",
-		"ARENA_SEQUENCE[3] = concede_explainer")
-	# All 4 keys present in ARENA_FE_COPY.
+	# [S25.8] ARENA_SEQUENCE prepended with click_controls_explainer (5 keys total).
+	_assert_eq(GameMainScript.ARENA_SEQUENCE.size(), 5,
+		"ARENA_SEQUENCE has exactly 5 keys (S25.8: click_controls prepended)")
+	_assert_eq(GameMainScript.ARENA_SEQUENCE[0], "click_controls_explainer",
+		"ARENA_SEQUENCE[0] = click_controls_explainer (S25.8)")
+	_assert_eq(GameMainScript.ARENA_SEQUENCE[1], "energy_explainer",
+		"ARENA_SEQUENCE[1] = energy_explainer")
+	_assert_eq(GameMainScript.ARENA_SEQUENCE[2], "combatants_explainer",
+		"ARENA_SEQUENCE[2] = combatants_explainer")
+	_assert_eq(GameMainScript.ARENA_SEQUENCE[3], "time_explainer",
+		"ARENA_SEQUENCE[3] = time_explainer")
+	_assert_eq(GameMainScript.ARENA_SEQUENCE[4], "concede_explainer",
+		"ARENA_SEQUENCE[4] = concede_explainer")
+	# All 5 keys present in ARENA_FE_COPY.
 	for k in GameMainScript.ARENA_SEQUENCE:
 		_assert(GameMainScript.ARENA_FE_COPY.has(k),
 			"ARENA_FE_COPY has arena key: %s" % k)
 	# S17.1-004 save key unchanged.
 	_assert_eq(GameMainScript.FE_KEY_ENERGY, "energy_explainer",
 		"FE_KEY_ENERGY unchanged from S17.1-004")
+	# S25.8: click controls key constant.
+	_assert_eq(GameMainScript.FE_KEY_CLICK_CONTROLS, "click_controls_explainer",
+		"FE_KEY_CLICK_CONTROLS = click_controls_explainer (S25.8)")
 
 # ─── 1. Anchor node-type asserts ×4 keys ─────────────────────────────────────
 
@@ -223,7 +229,7 @@ func _test_anchor_node_type_concede_explainer() -> void:
 # ─── 2. Sequencing order ─────────────────────────────────────────────────────
 
 func _test_sequencing_order() -> void:
-	print("--- Sequencing order (4 arena entries, fresh save) ---")
+	print("--- Sequencing order (5 arena entries, fresh save) ---")
 	var frs: Node = get_root().get_node_or_null("FirstRunState")
 	if frs == null:
 		print("  SKIP: no FirstRunState autoload (headless without project autoloads)")
@@ -233,7 +239,7 @@ func _test_sequencing_order() -> void:
 		frs.call("reset", k)
 
 	var shown: Array = []
-	for _entry in range(4):
+	for _entry in range(5):  ## S25.8: 5 entries (click_controls prepended)
 		var gm := _make_game_main_with_hud()
 		# Simulate arena entry: call _start_arena_onboarding.
 		gm.call("_start_arena_onboarding")
@@ -244,13 +250,14 @@ func _test_sequencing_order() -> void:
 			frs.call("mark_seen", str(gm.get("_arena_fe_active_key")))
 		gm.queue_free()
 
-	_assert_eq(shown.size(), 4,
-		"sequencing: exactly 4 overlays shown across 4 arena entries (got %d)" % shown.size())
-	if shown.size() == 4:
-		_assert_eq(shown[0], "energy_explainer",   "sequencing: entry 1 = energy_explainer")
-		_assert_eq(shown[1], "combatants_explainer","sequencing: entry 2 = combatants_explainer")
-		_assert_eq(shown[2], "time_explainer",      "sequencing: entry 3 = time_explainer")
-		_assert_eq(shown[3], "concede_explainer",   "sequencing: entry 4 = concede_explainer")
+	_assert_eq(shown.size(), 5,
+		"sequencing: exactly 5 overlays shown across 5 arena entries (got %d)" % shown.size())
+	if shown.size() == 5:
+		_assert_eq(shown[0], "click_controls_explainer","sequencing: entry 1 = click_controls_explainer (S25.8)")
+		_assert_eq(shown[1], "energy_explainer",   "sequencing: entry 2 = energy_explainer")
+		_assert_eq(shown[2], "combatants_explainer","sequencing: entry 3 = combatants_explainer")
+		_assert_eq(shown[3], "time_explainer",      "sequencing: entry 4 = time_explainer")
+		_assert_eq(shown[4], "concede_explainer",   "sequencing: entry 5 = concede_explainer")
 	# Cleanup.
 	for k in GameMainScript.ARENA_SEQUENCE:
 		frs.call("reset", k)
@@ -299,7 +306,10 @@ func _test_save_carryforward() -> void:
 		return
 	for k in GameMainScript.ARENA_SEQUENCE:
 		frs.call("reset", k)
-	# Pre-seed energy_explainer as already seen (simulates S17.1-004 save).
+	# [S25.8] Pre-seed click_controls_explainer (S25.8 prepended) AND
+	# energy_explainer (S17.1-004 carry-forward). Sequencing should now start at
+	# combatants_explainer (the next unseen key after both).
+	frs.call("mark_seen", "click_controls_explainer")
 	frs.call("mark_seen", "energy_explainer")
 
 	var gm := _make_game_main_with_hud()
@@ -307,8 +317,10 @@ func _test_save_carryforward() -> void:
 	var active_key: String = str(gm.get("_arena_fe_active_key"))
 	_assert(active_key != "energy_explainer",
 		"save-carryforward: energy_explainer NOT re-shown when already seen")
+	_assert(active_key != "click_controls_explainer",
+		"save-carryforward: click_controls_explainer NOT re-shown when already seen (S25.8)")
 	_assert_eq(active_key, "combatants_explainer",
-		"save-carryforward: sequencing starts at combatants_explainer when energy seen")
+		"save-carryforward: sequencing starts at combatants_explainer when energy + click_controls seen")
 	gm.queue_free()
 	for k in GameMainScript.ARENA_SEQUENCE:
 		frs.call("reset", k)
@@ -352,9 +364,9 @@ func _test_trigger_arena_entry_only() -> void:
 	var gm: Node2D = GameMainScript.new()
 	# Call the screen-overlay path directly (simulates _show_shop etc).
 	# None of the arena keys should be spawned.
-	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_SHOP)
-	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_BROTTBRAIN)
-	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_OPPONENT)
+	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_RUN_START)        ## S25.8: was FE_KEY_SHOP
+	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_FIRST_REWARD_PICK)  ## S25.8: was FE_KEY_BROTTBRAIN
+	gm.call("_maybe_spawn_first_encounter", GameMainScript.FE_KEY_FIRST_RETRY_PROMPT) ## S25.8: was FE_KEY_OPPONENT
 
 	# Arena onboarding overlay (_arena_fe_overlay) must be nil here.
 	_assert(gm.get("_arena_fe_overlay") == null,

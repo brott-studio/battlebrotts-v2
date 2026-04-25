@@ -53,18 +53,30 @@ func _make_frs() -> Node:
 
 func _test_fe_copy_registry_has_all_4_keys() -> void:
 	# Read constants off the GameMain script to avoid scene instantiation.
+	# [S25.8] FE_COPY keys retargeted to roguelike surfaces:
+	# shop_first_visit → run_start_first_visit,
+	# brottbrain_first_visit → first_reward_pick,
+	# opponent_first_visit → first_retry_prompt,
+	# energy_explainer carry-forward unchanged.
 	var copy_dict: Dictionary = GameMainScript.FE_COPY
-	_assert(copy_dict.has("shop_first_visit"), "FE_COPY has shop_first_visit")
-	_assert(copy_dict.has("brottbrain_first_visit"), "FE_COPY has brottbrain_first_visit")
-	_assert(copy_dict.has("opponent_first_visit"), "FE_COPY has opponent_first_visit")
+	_assert(copy_dict.has("run_start_first_visit"), "FE_COPY has run_start_first_visit (S25.8)")
+	_assert(copy_dict.has("first_reward_pick"), "FE_COPY has first_reward_pick (S25.8)")
+	_assert(copy_dict.has("first_retry_prompt"), "FE_COPY has first_retry_prompt (S25.8)")
 	_assert(copy_dict.has("energy_explainer"), "FE_COPY has energy_explainer (S17.1-004 carry-forward)")
 	_assert(copy_dict.size() == 4, "FE_COPY has exactly 4 keys (got %d)" % copy_dict.size())
 
+	# Negative invariants: legacy league-era keys must NOT be present (S25.8).
+	_assert(not copy_dict.has("shop_first_visit"), "FE_COPY no longer has legacy shop_first_visit (S25.8)")
+	_assert(not copy_dict.has("brottbrain_first_visit"), "FE_COPY no longer has legacy brottbrain_first_visit (S25.8)")
+	_assert(not copy_dict.has("opponent_first_visit"), "FE_COPY no longer has legacy opponent_first_visit (S25.8)")
+
 func _test_fe_keys_are_distinct_strings() -> void:
+	# [S25.8] Constants renamed: FE_KEY_SHOP/BROTTBRAIN/OPPONENT →
+	# FE_KEY_RUN_START / FE_KEY_FIRST_REWARD_PICK / FE_KEY_FIRST_RETRY_PROMPT.
 	var keys: Array = [
-		GameMainScript.FE_KEY_SHOP,
-		GameMainScript.FE_KEY_BROTTBRAIN,
-		GameMainScript.FE_KEY_OPPONENT,
+		GameMainScript.FE_KEY_RUN_START,
+		GameMainScript.FE_KEY_FIRST_REWARD_PICK,
+		GameMainScript.FE_KEY_FIRST_RETRY_PROMPT,
 		GameMainScript.FE_KEY_ENERGY,
 	]
 	var unique := {}
@@ -95,14 +107,14 @@ func _test_first_run_state_fresh_save_all_unset() -> void:
 
 func _test_first_run_state_mark_seen_persists_per_key() -> void:
 	var frs: Node = _make_frs()
-	var k: String = GameMainScript.FE_KEY_SHOP
-	_assert(not frs.call("has_seen", k), "shop_first_visit unset before mark")
+	var k: String = GameMainScript.FE_KEY_RUN_START  ## S25.8: was FE_KEY_SHOP
+	_assert(not frs.call("has_seen", k), "run_start_first_visit unset before mark")
 	frs.call("mark_seen", k)
-	_assert(frs.call("has_seen", k), "shop_first_visit set after mark")
+	_assert(frs.call("has_seen", k), "run_start_first_visit set after mark")
 	# Re-instantiate to confirm persistence to disk survives across instances.
 	frs.queue_free()
 	var frs2: Node = _make_frs()
-	_assert(frs2.call("has_seen", k), "shop_first_visit persisted across reload")
+	_assert(frs2.call("has_seen", k), "run_start_first_visit persisted across reload")
 	# Reset for repeatability.
 	frs2.call("reset", k)
 	_assert(not frs2.call("has_seen", k), "reset clears the key")
@@ -113,11 +125,11 @@ func _test_first_run_state_keys_independent() -> void:
 	# Reset all to baseline.
 	for k in GameMainScript.FE_COPY:
 		frs.call("reset", k)
-	# Mark just brottbrain; assert others stay unset.
-	frs.call("mark_seen", GameMainScript.FE_KEY_BROTTBRAIN)
-	_assert(frs.call("has_seen", GameMainScript.FE_KEY_BROTTBRAIN), "brottbrain marked")
-	for k in [GameMainScript.FE_KEY_SHOP, GameMainScript.FE_KEY_OPPONENT, GameMainScript.FE_KEY_ENERGY]:
-		_assert(not frs.call("has_seen", k), "%s independent of brottbrain mark" % k)
+	# [S25.8] Mark just first_reward_pick; assert others stay unset.
+	frs.call("mark_seen", GameMainScript.FE_KEY_FIRST_REWARD_PICK)
+	_assert(frs.call("has_seen", GameMainScript.FE_KEY_FIRST_REWARD_PICK), "first_reward_pick marked")
+	for k in [GameMainScript.FE_KEY_RUN_START, GameMainScript.FE_KEY_FIRST_RETRY_PROMPT, GameMainScript.FE_KEY_ENERGY]:
+		_assert(not frs.call("has_seen", k), "%s independent of first_reward_pick mark" % k)
 	# Cleanup.
-	frs.call("reset", GameMainScript.FE_KEY_BROTTBRAIN)
+	frs.call("reset", GameMainScript.FE_KEY_FIRST_REWARD_PICK)
 	frs.queue_free()

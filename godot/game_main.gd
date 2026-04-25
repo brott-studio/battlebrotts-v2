@@ -18,20 +18,22 @@ const RANDOM_EVENT_MIN_INTERVAL_SEC := 15.0
 # original S17.1-004 key (reused so existing player saves carry the dismissal
 # forward into the real-flow combat entry). Keep these as flat strings; the
 # autoload schema is keyless beyond the [seen] section.
-const FE_KEY_SHOP := "shop_first_visit"
-const FE_KEY_BROTTBRAIN := "brottbrain_first_visit"
-const FE_KEY_OPPONENT := "opponent_first_visit"
+const FE_KEY_RUN_START := "run_start_first_visit"      ## S25.8: roguelike run start intro (was FE_KEY_SHOP)
+const FE_KEY_FIRST_REWARD_PICK := "first_reward_pick"  ## S25.8: first reward pick intro (was FE_KEY_BROTTBRAIN)
+const FE_KEY_FIRST_RETRY_PROMPT := "first_retry_prompt" ## S25.8: first retry prompt intro (was FE_KEY_OPPONENT)
 const FE_KEY_ENERGY := "energy_explainer"
 
 # [S21.3 / #245 / #107] Arena onboarding keys — in-arena HUD-element overlays.
-# Fixed order: energy → combatants → time → concede (one per arena entry).
+# Fixed order: click_controls → energy → combatants → time → concede (one per arena entry).
 # `energy_explainer` reuses the S17.1-004 key for save-carryforward.
+const FE_KEY_CLICK_CONTROLS := "click_controls_explainer"  ## S25.8: two-click affordances (first in sequence)
 const FE_KEY_COMBATANTS := "combatants_explainer"
 const FE_KEY_TIME := "time_explainer"
 const FE_KEY_CONCEDE := "concede_explainer"
 
 # Fixed arena sequence — order is invariant, do not reorder.
-const ARENA_SEQUENCE: Array = ["energy_explainer", "combatants_explainer", "time_explainer", "concede_explainer"]
+# S25.8: click_controls_explainer prepended as the first arena overlay.
+const ARENA_SEQUENCE: Array = ["click_controls_explainer", "energy_explainer", "combatants_explainer", "time_explainer", "concede_explainer"]
 
 # ~12 s at 60 fps for arena overlays (vs 6 s for screen overlays).
 const ARENA_FE_TICK_BUDGET := 720
@@ -40,9 +42,9 @@ const ARENA_FE_TICK_BUDGET := 720
 # BrottBrain voice. Screen overlays anchored top-center; arena overlays use
 # ARENA_FE_COPY (below).
 const FE_COPY := {
-	"shop_first_visit": "🛍️ Welcome to the Shop. Spend Bolts on chassis, weapons, armor, and modules — then head to Loadout.",
-	"brottbrain_first_visit": "🧠 BrottBrain teaches your bot what to do. Build WHEN → THEN rules from the tray below.",
-	"opponent_first_visit": "⚔️ Pick an opponent to fight. Beating all 3 in this league unlocks the next tier.",
+	"run_start_first_visit": "⚔️ A new run begins. Pick your chassis — that's your bot's body. Weapons and armor come from rewards you earn in battle.",
+	"first_reward_pick": "🎁 You won! Pick one reward to add to your build. It stays with you for the whole run.",
+	"first_retry_prompt": "💀 Your Brott went down. You have retries — use them to try that battle again with the same build. No retries left? The run is over.",
 	"energy_explainer": "⚡ The blue bar is your Energy — it powers your weapons and regenerates over time.",
 }
 const FE_TICK_BUDGET := 360  # ~6 seconds @ 60 fps before auto-dismiss (screen overlays)
@@ -50,6 +52,7 @@ const FE_TICK_BUDGET := 360  # ~6 seconds @ 60 fps before auto-dismiss (screen o
 # [S21.3 / #245 / #107] Arena onboarding copy — 4 keys in ARENA_SEQUENCE order.
 # Kept separate from FE_COPY to preserve the S21.2 FE_COPY.size()==4 invariant.
 const ARENA_FE_COPY := {
+	"click_controls_explainer": "👆 Click the arena to send your Brott somewhere. Click an enemy to target them. Or just watch — it'll fight on its own.",
 	"energy_explainer": "⚡ The blue bar is your Energy — it powers your weapons and regenerates over time.",
 	"combatants_explainer": "⚔️ These panels show each fighter's HP and Energy. The first to reach zero loses.",
 	"time_explainer": "⏱️ The match timer counts up. Damage leader wins if neither bot is destroyed before 100s.",
@@ -243,6 +246,7 @@ func _show_run_start() -> void:
 	_wrap_in_scroll(run_start)
 	run_start.setup(0)  # time-based seed for production
 	run_start.start_run_requested.connect(_on_chassis_picked)
+	_maybe_spawn_first_encounter(FE_KEY_RUN_START)  ## S25.8: roguelike run-start intro
 
 func _on_chassis_picked(chassis_type: int) -> void:
 	game_flow.start_run(chassis_type)
@@ -364,6 +368,7 @@ func _show_reward_pick() -> void:
 	_wrap_in_scroll(reward)
 	reward.setup(game_flow.run_state)
 	reward.picked.connect(func(_item): _advance_to_next_battle())
+	_maybe_spawn_first_encounter(FE_KEY_FIRST_REWARD_PICK)  ## S25.8: first reward pick intro
 
 func _show_retry_prompt() -> void:
 	_clear_screen()
@@ -374,7 +379,26 @@ func _show_retry_prompt() -> void:
 	_wrap_in_scroll(retry)
 	retry.setup(game_flow.run_state)
 	retry.retry_chosen.connect(_start_roguelike_match)
-	retry.accept_loss.connect(func(): game_flow.end_run(); _show_main_menu())
+	retry.accept_loss.connect(_show_brott_down)  ## S25.8: GDD §A.5 — loss → BROTT DOWN (end_run() called from "New Run" button)
+	_maybe_spawn_first_encounter(FE_KEY_FIRST_RETRY_PROMPT)  ## S25.8: first retry prompt intro
+
+## S25.8: Terminal loss screen (GDD §A.5 — both loss paths converge here).
+## end_run() is NOT called on entry — BROTT DOWN needs run_state alive for stats.
+## run_ended flag marks the run over; full clear happens on "New Run" button.
+func _show_brott_down() -> void:
+	_clear_screen()
+	var battle_num := (game_flow.run_state.current_battle_index + 1) if game_flow.run_state != null else 1
+	## Mark run as ended (but keep run_state alive for stats display)
+	if game_flow.run_state != null:
+		game_flow.run_state.run_ended = true
+	var screen := BrottDownScreen.new()
+	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wrap_in_scroll(screen)
+	screen.setup(game_flow.run_state, battle_num)
+	screen.new_run_pressed.connect(func():
+		game_flow.end_run()  ## Now fully clear run_state
+		_show_run_start()
+	)
 
 func _advance_to_next_battle() -> void:
 	## S25.6: Use encounter generator (replaces standard_duel stub)
@@ -402,9 +426,9 @@ func _show_run_complete() -> void:
 	rc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wrap_in_scroll(rc)
 	rc.setup(game_flow.run_state)
-	rc.return_to_menu_pressed.connect(func():
+	rc.new_run_pressed.connect(func():
 		game_flow.end_run()
-		_show_main_menu()
+		_show_run_start()
 	)
 
 func _show_stub_result(won: bool) -> void:
@@ -474,7 +498,7 @@ func _show_shop() -> void:
 	_wrap_in_scroll(shop)
 	shop.setup(game_flow.game_state)
 	shop.continue_pressed.connect(_show_loadout)
-	_maybe_spawn_first_encounter(FE_KEY_SHOP)
+	_maybe_spawn_first_encounter(FE_KEY_RUN_START)  ## S25.8: legacy callsite — was FE_KEY_SHOP
 
 ## S22.2c: called when a league ceremony modal is dismissed (via modal_dismissed
 ## signal). Marks silver ceremony seen (fire-once guard), emits ceremony_complete
@@ -512,7 +536,7 @@ func _show_brottbrain() -> void:
 		_show_opponent_select()
 	)
 	brain_screen.back_pressed.connect(_show_loadout)
-	_maybe_spawn_first_encounter(FE_KEY_BROTTBRAIN)
+	_maybe_spawn_first_encounter(FE_KEY_FIRST_REWARD_PICK)  ## S25.8: legacy callsite — was FE_KEY_BROTTBRAIN
 
 func _show_opponent_select() -> void:
 	_clear_screen()
@@ -522,7 +546,7 @@ func _show_opponent_select() -> void:
 	opp_screen.setup(game_flow.game_state)
 	opp_screen.opponent_selected.connect(_start_match)
 	opp_screen.back_pressed.connect(_show_loadout)
-	_maybe_spawn_first_encounter(FE_KEY_OPPONENT)
+	_maybe_spawn_first_encounter(FE_KEY_FIRST_RETRY_PROMPT)  ## S25.8: legacy callsite — was FE_KEY_OPPONENT
 
 func _start_demo_match() -> void:
 	## Start a hardcoded demo match for URL-param routing (?screen=battle).
@@ -722,17 +746,13 @@ func _on_match_end(winner_team: int) -> void:
 	await get_tree().create_timer(1.0).timeout
 	_show_result()
 
-## DEPRECATED S25.5 — league-era result screen, kept for ?screen=battle demo route.
-## Replaced by reward_pick_screen + retry_prompt_screen in roguelike flow.
-## Remove in Arc G cleanup.
+## DEPRECATED S25.8 — league-era result screen retired.
+## ResultScreen class was renamed to BrottDownScreen; legacy demo route now
+## bounces back to main menu. Kept as stub so existing _on_match_end callers
+## (?screen=battle demo) compile. Remove with _on_match_end in Arc G.
 func _show_result() -> void:
 	_clear_screen()
-	var result := ResultScreen.new()
-	result.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_wrap_in_scroll(result)
-	result.setup(game_flow.game_state, game_flow.last_match_won, game_flow.last_bolts_earned)
-	result.continue_pressed.connect(_show_main_menu)
-	result.rematch_pressed.connect(func(): _start_match(game_flow.selected_opponent_index))
+	_show_main_menu()
 
 func _process(delta: float) -> void:
 	# [S21.2 / #107] Tick-budget auto-dismiss for any active first-encounter
@@ -898,6 +918,11 @@ func _spawn_arena_first_encounter(key: String) -> Control:
 	# anchor_target is a real Node reference, not a CanvasLayer / screen root.
 	var anchor: Control = null
 	match key:
+		"click_controls_explainer":
+			## S25.8: Anchors to player_info HUD label as a stable top-of-arena anchor.
+			## The overlay copy is about clicking the arena, not a specific HUD element,
+			## but we still need a valid Control anchor for placement.
+			anchor = player_info
 		"energy_explainer":
 			anchor = _resolve_energy_legend_node()
 		"combatants_explainer":

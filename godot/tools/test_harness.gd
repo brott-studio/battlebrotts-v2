@@ -177,9 +177,11 @@ func _build_ui_screen(screen_name: String) -> void:
 			opp.setup(game_flow.game_state)
 			screen = opp
 		"result":
-			var result := ResultScreen.new()
-			result.setup(game_flow.game_state, game_flow.last_match_won, game_flow.last_bolts_earned)
-			screen = result
+			## S25.8: ResultScreen renamed to BrottDownScreen; legacy demo route retired.
+			## Test harness 'result' branch is a no-op stub now — use ?screen=brott_down or
+			## drive the roguelike loss-path to see the new screen.
+			screen = Label.new()
+			(screen as Label).text = "[Legacy 'result' route retired in S25.8 — see BrottDownScreen]"
 		"main_menu":
 			screen = MainMenuScreen.new()
 

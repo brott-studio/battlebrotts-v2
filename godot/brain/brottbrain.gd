@@ -83,6 +83,16 @@ var _kiting: bool = false
 ## Scout=2 (Hit&Run), Brawler=0 (Aggressive), Fortress=1 (PlayItSafe).
 var _default_stance: int = 0
 
+## S25.9: Boss AI flag. When true, _evaluate_boss() runs instead of baseline.
+var is_boss: bool = false
+
+## S25.9: Boss brain factory — returns a BrottBrain configured for IRONCLAD PRIME.
+static func boss_ai() -> BrottBrain:
+	var brain := BrottBrain.new()
+	brain.is_boss = true
+	brain._default_stance = 0  ## Aggressive — boss never defaults to kite
+	return brain
+
 ## S25.4: Enemy context for multi-target priority selection (set by combat_sim each tick).
 var _enemies_context: Array = []
 
@@ -119,6 +129,72 @@ func _module_ready(brott: RefCounted, mod_name: String) -> int:
 				return i
 	return -1
 
+## S25.9: Boss AI rule chain for IRONCLAD PRIME.
+## Priority: executioner mode (player low HP) > module auto-fire > movement.
+## Boss does NOT use Afterburner flee — ever.
+func _evaluate_boss(brott: RefCounted, enemy: RefCounted) -> bool:
+	if enemy == null or not enemy.alive:
+		movement_override = ""
+		return true
+	
+	var boss_hp_pct: float = float(brott.hp) / float(brott.max_hp) if brott.max_hp > 0 else 1.0
+	var player_hp_pct: float = float(enemy.hp) / float(enemy.max_hp) if enemy.max_hp > 0 else 1.0
+	
+	## Rule 1: Executioner mode — when player HP < 30%, commit to kill.
+	## Movement-only: does NOT alter module priority.
+	if player_hp_pct < 0.30:
+		_boss_executioner_mode(brott, enemy)
+	else:
+		## Default boss movement: aggressive at full HP, no kiting
+		brott.stance = 0
+		_kiting = false
+		movement_override = ""
+	
+	## Rule 2: Boss module priority (HP-banded, Afterburner NEVER selected).
+	## EMP trigger: player has any active module right now.
+	var player_has_active_module: bool = false
+	for t in enemy.module_active_timers:
+		if t > 0.0:
+			player_has_active_module = true
+			break
+	
+	if boss_hp_pct <= 0.40:
+		## Shield Projector top priority at low HP
+		if _module_ready(brott, "Shield Projector") >= 0:
+			brott._pending_gadget = "Shield Projector"
+			return true
+		if player_has_active_module and _module_ready(brott, "EMP Charge") >= 0:
+			brott._pending_gadget = "EMP Charge"
+			return true
+	elif boss_hp_pct <= 0.60:
+		## Shield Projector > EMP
+		if _module_ready(brott, "Shield Projector") >= 0:
+			brott._pending_gadget = "Shield Projector"
+			return true
+		if player_has_active_module and _module_ready(brott, "EMP Charge") >= 0:
+			brott._pending_gadget = "EMP Charge"
+			return true
+	else:
+		## Above 60% HP: EMP on active modules, then Shield Projector
+		if player_has_active_module and _module_ready(brott, "EMP Charge") >= 0:
+			brott._pending_gadget = "EMP Charge"
+			return true
+		if _module_ready(brott, "Shield Projector") >= 0:
+			brott._pending_gadget = "Shield Projector"
+			return true
+	## Note: Afterburner is explicitly excluded from all boss HP bands. Boss never flees.
+	
+	return true
+
+## S25.9: Executioner mode — boss closes distance when player HP < 30%.
+## Movement-only. Does NOT change module priority.
+func _boss_executioner_mode(brott: RefCounted, enemy: RefCounted) -> void:
+	brott.stance = 0  ## Aggressive
+	_kiting = false   ## Override any kite state
+	## Signal pursuit to combat_sim via movement_override.
+	## "chase" is the existing combat_sim movement override for closing distance.
+	movement_override = "chase"
+
 func add_card(card: BehaviorCard) -> bool:
 	if cards.size() >= MAX_CARDS:
 		return false
@@ -130,6 +206,10 @@ func clear_cards() -> void:
 
 ## Evaluate cards against current state. Returns true if a card fired.
 func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bool:
+	## S25.9: Boss-specific AI — runs instead of baseline when is_boss == true.
+	if is_boss:
+		return _evaluate_boss(brott, enemy)
+
 	movement_override = ""  # Reset each tick
 	
 	## S25.2: Apply player click overrides before card evaluation.

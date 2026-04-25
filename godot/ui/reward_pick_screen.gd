@@ -7,6 +7,17 @@ signal picked(item: Dictionary)  ## item = {category, type, display_name} or {} 
 var _run_state: RunState = null
 var _rng: RandomNumberGenerator
 
+## S25.9: Background tint per tier for visual reward-escalation.
+## battle_index is 0-indexed (idx 0–2 = battles 1–3 T1, etc.)
+static func _bg_color_for_battle(battle_index: int) -> Color:
+	if battle_index >= 13:  ## pre-boss (battle 14, 0-indexed 13)
+		return Color(1.0, 0.55, 0.25)   ## red/gold
+	if battle_index >= 7:   ## T3/T4 (battles 8–13)
+		return Color(0.92, 0.92, 0.95)  ## silver-white
+	if battle_index >= 3:   ## T2 (battles 4–7)
+		return Color(0.78, 0.55, 0.35)  ## bronze
+	return Color(0.65, 0.72, 0.85)      ## T1 (battles 1–3) grey-blue
+
 func setup(run_state: RunState) -> void:
 	_run_state = run_state
 	## HUD bar at top
@@ -17,6 +28,8 @@ func setup(run_state: RunState) -> void:
 	add_child(hud)
 	hud.setup(run_state)
 	_build_reward_ui()
+	## S25.9: Tier-based background tint (visual escalation per tier)
+	modulate = _bg_color_for_battle(run_state.current_battle_index)
 
 func _build_reward_ui() -> void:
 	## Seed: deterministic per battle

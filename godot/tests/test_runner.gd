@@ -116,6 +116,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_run_loop.gd",
 	# [S25.8] Run-end screens (BROTT DOWN + RUN COMPLETE) + first-run tooltips.
 	"res://tests/test_run_end_screens.gd",
+	# [S25.9] Arc F full-loop integration validation — 10 runs × 3 gates (boss reached, variety rule, guarantee seeds).
+	"res://tests/test_arc_f_integration.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

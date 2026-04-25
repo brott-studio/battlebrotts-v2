@@ -3,6 +3,12 @@ class_name MainMenuScreen
 extends Control
 
 signal new_game_pressed
+signal continue_run_pressed
+
+## S25.7: Track new-run + settings buttons so setup_menu() can shift them
+## down when a Continue Run button is added.
+var _new_run_btn: Button
+var _settings_btn: Button
 
 # [S24.5] Menu music player — persists across Settings and any future overlay modals
 # because they are added as modal children of the same parent (MainMenuScreen).
@@ -61,12 +67,14 @@ func _build_ui() -> void:
 	
 	# New Run button — S25.1: roguelike entry point
 	var btn := Button.new()
+	btn.name = "NewRunButton"
 	btn.text = "⚡ NEW RUN"
 	btn.position = Vector2(515, 350)
 	btn.size = Vector2(250, 60)
 	btn.add_theme_font_size_override("font_size", 24)
 	btn.pressed.connect(_on_new_game)
 	add_child(btn)
+	_new_run_btn = btn
 
 	# [S24.2] Settings button — opens mixer panel as modal overlay.
 	var settings_btn := Button.new()
@@ -77,6 +85,28 @@ func _build_ui() -> void:
 	settings_btn.add_theme_font_size_override("font_size", 24)
 	settings_btn.pressed.connect(_on_settings)
 	add_child(settings_btn)
+	_settings_btn = settings_btn
+
+## S25.7: Add a "Continue Run" button at the top of the menu when a run is
+## active. NEW RUN and SETTINGS are shifted down to make room.
+func setup_menu(has_run: bool, battle_num: int) -> void:
+	if not has_run:
+		return
+	if get_node_or_null("ContinueRunButton") != null:
+		return  ## already added
+	var cont_btn := Button.new()
+	cont_btn.name = "ContinueRunButton"
+	cont_btn.text = "▶ Continue Run (Battle %d/15)" % battle_num
+	cont_btn.position = Vector2(430, 350)
+	cont_btn.size = Vector2(420, 60)
+	cont_btn.add_theme_font_size_override("font_size", 20)
+	cont_btn.pressed.connect(func(): continue_run_pressed.emit())
+	add_child(cont_btn)
+	## Shift NEW RUN + SETTINGS down so they don't overlap.
+	if _new_run_btn != null:
+		_new_run_btn.position = Vector2(515, 430)
+	if _settings_btn != null:
+		_settings_btn.position = Vector2(515, 510)
 
 func _on_new_game() -> void:
 	new_game_pressed.emit()

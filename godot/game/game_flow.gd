@@ -16,6 +16,8 @@ enum Screen {
 	RUN_START,         # S25.1: new
 	REWARD_PICK,       # S25.5: post-battle reward selection
 	RETRY_PROMPT,      # S25.5: post-loss retry or accept
+	BOSS_ARENA,        # S25.7: battle 15 (boss fight)
+	RUN_COMPLETE,      # S25.7: win screen after boss defeated
 }
 
 ## S25.1: RunState is the new source of truth for run-scoped data.
@@ -38,7 +40,8 @@ func _init() -> void:
 ## Start a new run with the given chassis selection.
 func start_run(chassis_type: int, rng_seed: int = 0) -> void:
 	run_state = RunState.new(chassis_type, rng_seed)
-	current_screen = Screen.ARENA
+	run_state.run_ended = false  ## S25.7: ensure clean state on new run
+	current_screen = Screen.RUN_START
 
 ## Increment battle index after a battle resolves.
 func advance_battle() -> void:
@@ -55,12 +58,15 @@ func to_retry_prompt() -> void:
 
 ## End the current run (returns to main menu state).
 func end_run() -> void:
+	if run_state != null:
+		run_state.run_ended = true  ## S25.7: mark ended before clearing
 	run_state = null
 	current_screen = Screen.MAIN_MENU
 
 ## True if a run is in progress this session.
+## S25.7: also requires battle index < 15 and run_ended flag clear.
 func has_active_run() -> bool:
-	return run_state != null
+	return run_state != null and run_state.current_battle_index < 15 and not run_state.run_ended
 
 ## S25.1: go_to_run_start — route from main menu.
 func go_to_run_start() -> void:

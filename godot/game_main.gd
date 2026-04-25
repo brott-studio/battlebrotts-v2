@@ -201,6 +201,31 @@ func _show_main_menu() -> void:
 	menu.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wrap_in_scroll(menu)
 	menu.new_game_pressed.connect(_on_new_game)
+	## S25.7: Continue Run if active run exists
+	if game_flow.has_active_run():
+		var battle_num := game_flow.run_state.current_battle_index + 1
+		menu.setup_menu(true, battle_num)
+		menu.continue_run_pressed.connect(_on_continue_run)
+
+func _on_continue_run() -> void:
+	## S25.7: Resume run from last_screen
+	var ls: int = game_flow.run_state.last_screen if game_flow.run_state != null else -1
+	match ls:
+		GameFlow.Screen.REWARD_PICK:
+			_show_reward_pick()
+		GameFlow.Screen.RETRY_PROMPT:
+			_show_retry_prompt()
+		GameFlow.Screen.ARENA, GameFlow.Screen.BOSS_ARENA:
+			## Mid-arena resume → treat as retry prompt (can't restore sim)
+			_show_retry_prompt()
+		_:
+			## Unknown or RUN_START → go to run start screen
+			_show_run_start()
+
+## S25.7: Save current screen to run_state.last_screen while run is active.
+func _save_last_screen() -> void:
+	if game_flow.has_active_run():
+		game_flow.run_state.last_screen = game_flow.current_screen
 
 func _on_new_game() -> void:
 	## S25.1: new-game now starts the roguelike run flow.
@@ -211,6 +236,8 @@ func _on_new_game() -> void:
 
 func _show_run_start() -> void:
 	_clear_screen()
+	game_flow.current_screen = GameFlow.Screen.RUN_START
+	_save_last_screen()
 	var run_start := RunStartScreen.new()
 	run_start.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wrap_in_scroll(run_start)
@@ -243,14 +270,52 @@ func _start_roguelike_match() -> void:
 	player_brott.position = Vector2(4 * 32.0, 8 * 32.0)
 	player_brott.brain = BrottBrain.default_for_chassis(game_flow.run_state.equipped_chassis)
 
-	# Build enemy — stub: bronze tier 0 opponent
-	enemy_brott = OpponentData.build_opponent_brott("bronze", 0)
-	enemy_brott.position = Vector2(12 * 32.0, 8 * 32.0)
+	## S25.7: Spawn enemies from encounter archetype (replaces stub).
+	var arch_id: String = game_flow.run_state.current_encounter.get("archetype_id", "standard_duel")
+	var battle_idx: int = game_flow.run_state.current_battle_index
+	var enemy_specs: Array[Dictionary] = OpponentLoadouts.compose_encounter(arch_id, battle_idx, game_flow.run_state)
+
+	if enemy_specs.is_empty():
+		push_warning("[S25.7] compose_encounter returned empty for arch=%s idx=%d — falling back to single standard duel" % [arch_id, battle_idx])
+		enemy_specs = OpponentLoadouts.compose_encounter("standard_duel", battle_idx, game_flow.run_state)
+
+	var positions := EncounterSpawn.positions_for(enemy_specs.size())
 
 	# Create sim
-	sim = CombatSim.new(randi())
+	var arena_seed_val: int = game_flow.run_state.current_encounter.get("arena_seed", randi())
+	sim = CombatSim.new(arena_seed_val)
 	sim.add_brott(player_brott)
-	sim.add_brott(enemy_brott)
+
+	## Spawn each enemy from archetype specs
+	for i in range(enemy_specs.size()):
+		var spec: Dictionary = enemy_specs[i]
+		var ebrott := BrottState.new()
+		ebrott.team = 1
+		ebrott.bot_name = "Enemy %d" % (i + 1)
+		ebrott.chassis_type = spec.get("chassis", 0)
+		for wt in spec.get("weapons", []):
+			ebrott.weapon_types.append(wt)
+		ebrott.armor_type = spec.get("armor", 0)
+		for mt in spec.get("modules", []):
+			ebrott.module_types.append(mt)
+		ebrott.setup()
+		## Apply archetype HP override
+		var spec_hp: int = spec.get("hp", ebrott.max_hp)
+		if spec_hp > 0:
+			ebrott.max_hp = spec_hp
+			ebrott.hp = float(spec_hp)
+		ebrott.position = positions[i] if i < positions.size() else Vector2(12 * 32.0, 8 * 32.0)
+		## Brain per enemy
+		var chassis_t: int = spec.get("chassis", 0)
+		ebrott.brain = BrottBrain.default_for_chassis(chassis_t)
+		if ebrott.brain == null:
+			push_warning("[S25.7] default_for_chassis(%d) returned null — using aggressive fallback" % chassis_t)
+			ebrott.brain = BrottBrain.new()
+			ebrott.brain.default_stance = 0
+		sim.add_brott(ebrott)
+
+	## Keep enemy_brott for HUD reference (last enemy spawned)
+	enemy_brott = sim.brotts[sim.brotts.size() - 1] if sim.brotts.size() > 1 else null
 	sim.on_match_end.connect(_on_roguelike_match_end)
 	sim.on_damage.connect(_on_combat_damage)
 	sim.on_projectile_spawned.connect(_on_projectile_spawned)
@@ -270,16 +335,30 @@ func _start_roguelike_match() -> void:
 	tick_accumulator = 0.0
 
 func _on_roguelike_match_end(winner_team: int) -> void:
+	## S25.7: Debug log for multi-enemy match verification
+	if sim != null:
+		var alive_per_team := {0: 0, 1: 0}
+		for b in sim.brotts:
+			if b.alive:
+				alive_per_team[b.team] = alive_per_team.get(b.team, 0) + 1
+		print("[S25.7] match_end: winner=%d alive=%s" % [winner_team, str(alive_per_team)])
 	var won := winner_team == 0
 	await get_tree().create_timer(1.0).timeout
 	if won:
-		game_flow.advance_battle()
-		_show_reward_pick()
+		## S25.7: Boss win (battle 15 / index 14) → RUN_COMPLETE, not reward pick
+		if game_flow.current_screen == GameFlow.Screen.BOSS_ARENA:
+			game_flow.run_state.battles_won += 1
+			_show_run_complete()
+		else:
+			game_flow.advance_battle()
+			_show_reward_pick()
 	else:
 		_show_retry_prompt()
 
 func _show_reward_pick() -> void:
 	_clear_screen()
+	game_flow.current_screen = GameFlow.Screen.REWARD_PICK
+	_save_last_screen()
 	var reward := RewardPickScreen.new()
 	reward.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wrap_in_scroll(reward)
@@ -288,6 +367,8 @@ func _show_reward_pick() -> void:
 
 func _show_retry_prompt() -> void:
 	_clear_screen()
+	game_flow.current_screen = GameFlow.Screen.RETRY_PROMPT
+	_save_last_screen()
 	var retry := RetryPromptScreen.new()
 	retry.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wrap_in_scroll(retry)
@@ -302,7 +383,29 @@ func _advance_to_next_battle() -> void:
 	var tier := OpponentLoadouts.difficulty_for_battle(next_idx)
 	var arena_seed := game_flow.run_state.seed * 31 + next_idx
 	game_flow.run_state.set_encounter(archetype_id, tier, arena_seed)
+	## S25.7: Battle 15 (index 14) goes to boss arena, not standard match
+	if next_idx >= 14:
+		_show_boss_arena()
+	else:
+		_start_roguelike_match()
+
+func _show_boss_arena() -> void:
+	## S25.7: Boss battle uses same match machinery, different screen state
+	game_flow.current_screen = GameFlow.Screen.BOSS_ARENA
+	_save_last_screen()
 	_start_roguelike_match()
+
+func _show_run_complete() -> void:
+	_clear_screen()
+	game_flow.current_screen = GameFlow.Screen.RUN_COMPLETE
+	var rc := RunCompleteScreen.new()
+	rc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wrap_in_scroll(rc)
+	rc.setup(game_flow.run_state)
+	rc.return_to_menu_pressed.connect(func():
+		game_flow.end_run()
+		_show_main_menu()
+	)
 
 func _show_stub_result(won: bool) -> void:
 	## DEPRECATED S25.5 — stub result no longer used in roguelike flow.

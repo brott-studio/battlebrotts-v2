@@ -34,6 +34,10 @@ var current_encounter: Dictionary = {"archetype_id": "", "tier": 0, "arena_seed"
 ## Populated on first call to OpponentLoadouts.archetype_for(). Reset on new run.
 var encounter_schedule: Array[String] = []
 
+## S25.7: Run lifecycle flags.
+var run_ended: bool = false       ## true after end_run() or boss victory
+var last_screen: int = -1         ## last Screen enum value while run active; -1 = unset
+
 ## S25.5: Fired when any run state is mutated (equipment added, battle advanced, retry used).
 signal run_state_changed
 
@@ -53,6 +57,8 @@ func _init(chassis_type: int = 0, rng_seed: int = 0) -> void:
 	_farthest_threat_name = ""
 	_best_kill_name = ""
 	encounter_schedule = []
+	run_ended = false
+	last_screen = -1
 
 ## S25.5: Set the current encounter context (called before entering ARENA).
 func set_encounter(archetype_id: String, tier: int, arena_seed: int) -> void:

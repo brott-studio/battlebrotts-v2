@@ -112,6 +112,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_reward_pick.gd",
 	# [S25.6] Encounter generator — pre-rolled schedule, weighted draw, no-repeat, guarantee seeds, boss-lock, large_swarm tier HP.
 	"res://tests/test_encounter_generator.gd",
+	# [S25.7] Battle-to-battle loop state machine — paths A/B/C (8 conditions).
+	"res://tests/test_run_loop.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

@@ -49,6 +49,8 @@ func _refresh() -> void:
 		return
 	var battle_num := _run_state.current_battle_index + 1
 	_battle_label.text = "⚔️ Battle %d/15" % battle_num
+	## S25.7: Apply per-battle color shift to the battle label.
+	_battle_label.add_theme_color_override("font_color", _color_for_battle(battle_num))
 	_retry_label.text = "💀 %d retries" % _run_state.retry_count
 
 	## Build summary
@@ -65,6 +67,16 @@ func _refresh() -> void:
 		modulate = Color(1.0, 0.75, 0.2)
 	else:
 		modulate = Color.WHITE
+
+## S25.7: Color coding per battle count (1-indexed).
+static func _color_for_battle(battle_num: int) -> Color:
+	if battle_num >= 15:
+		return Color(1.0, 0.84, 0.0)  ## gold (#FFD700)
+	if battle_num >= 14:
+		return Color(0.957, 0.263, 0.212)  ## red (#F44336)
+	if battle_num >= 12:
+		return Color(1.0, 0.757, 0.027)  ## amber (#FFC107)
+	return Color.WHITE
 
 func _on_state_changed() -> void:
 	_refresh()

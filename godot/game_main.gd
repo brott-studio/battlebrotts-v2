@@ -316,6 +316,9 @@ func _start_roguelike_match() -> void:
 			push_warning("[S25.7] default_for_chassis(%d) returned null — using aggressive fallback" % chassis_t)
 			ebrott.brain = BrottBrain.new()
 			ebrott.brain.default_stance = 0
+		## S25.9: Override with boss AI if this is the boss encounter.
+		if arch_id == "boss":
+			ebrott.brain = BrottBrain.boss_ai()
 		sim.add_brott(ebrott)
 
 	## Keep enemy_brott for HUD reference (last enemy spawned)

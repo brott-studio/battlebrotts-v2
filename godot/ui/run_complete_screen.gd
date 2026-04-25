@@ -20,7 +20,7 @@ func _build_ui(rs: RunState) -> void:
 	add_child(title)
 
 	var boss_lbl := Label.new()
-	boss_lbl.text = "Boss Defeated: IRONCLAD PRIME"
+	boss_lbl.text = "Boss Defeated: CEO Brott"
 	boss_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	boss_lbl.add_theme_font_size_override("font_size", 18)
 	boss_lbl.position = Vector2(340, 135)

@@ -86,7 +86,7 @@ var _default_stance: int = 0
 ## S25.9: Boss AI flag. When true, _evaluate_boss() runs instead of baseline.
 var is_boss: bool = false
 
-## S25.9: Boss brain factory — returns a BrottBrain configured for IRONCLAD PRIME.
+## S25.9: Boss brain factory — returns a BrottBrain configured for CEO Brott.
 static func boss_ai() -> BrottBrain:
 	var brain := BrottBrain.new()
 	brain.is_boss = true
@@ -129,7 +129,7 @@ func _module_ready(brott: RefCounted, mod_name: String) -> int:
 				return i
 	return -1
 
-## S25.9: Boss AI rule chain for IRONCLAD PRIME.
+## S25.9: Boss AI rule chain for CEO Brott.
 ## Priority: executioner mode (player low HP) > module auto-fire > movement.
 ## Boss does NOT use Afterburner flee — ever.
 func _evaluate_boss(brott: RefCounted, enemy: RefCounted) -> bool:

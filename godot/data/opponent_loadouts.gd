@@ -524,7 +524,7 @@ const ARCHETYPE_TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "boss",
-		"display_name": "IRONCLAD PRIME",
+		"display_name": "CEO Brott",
 		## Placeholder name — finalized in Arc H. S25.9 tunes AI.
 		"enemy_specs": [
 			{"chassis": 2, "weapons": [1, 0], "armor": 3, "modules": [2, 3, 5], "hp_pct": 2.0, "count": 1}

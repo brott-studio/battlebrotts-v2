@@ -58,8 +58,33 @@ var weapon_mode: String = "all_fire"
 ## Target priority: "nearest", "weakest", "biggest_threat"
 var target_priority: String = "nearest"
 
-## Movement override: "", "cover", "center", "chase"
+## Movement override: "", "cover", "center", "chase", "move_to_override", "target_override"
 var movement_override: String = ""
+
+## S25.2: Player click-to-move / click-to-target overrides.
+## -1 = no target override (target_override is index into sim.brotts).
+## Vector2.INF = no move override.
+var _override_target_id: int = -1
+var _override_move_pos: Vector2 = Vector2.INF
+
+## S25.2: Set a target-override from player click. Overrides card-eval target.
+## target_id is the index of the target in sim.brotts.
+func set_target_override(target_id: int) -> void:
+	_override_target_id = target_id
+	_override_move_pos = Vector2.INF  # latest-wins: clear move override
+
+## S25.2: Clear target override (called when target dies or player clicks floor).
+func clear_target_override() -> void:
+	_override_target_id = -1
+
+## S25.2: Set a move-override from player click. Overrides card-eval movement.
+func set_move_override(pos: Vector2) -> void:
+	_override_move_pos = pos
+	_override_target_id = -1  # latest-wins: clear target override
+
+## S25.2: Clear move override (called when waypoint reached or player clicks enemy).
+func clear_move_override() -> void:
+	_override_move_pos = Vector2.INF
 
 func add_card(card: BehaviorCard) -> bool:
 	if cards.size() >= MAX_CARDS:
@@ -73,6 +98,16 @@ func clear_cards() -> void:
 ## Evaluate cards against current state. Returns true if a card fired.
 func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bool:
 	movement_override = ""  # Reset each tick
+	
+	## S25.2: Apply player click overrides before card evaluation.
+	## These take priority over card-driven behavior. The override sets state
+	## that S25.3 (baseline AI rewrite) reads to actually drive movement/targeting.
+	if _override_move_pos != Vector2.INF:
+		movement_override = "move_to_override"
+		return true
+	if _override_target_id != -1:
+		movement_override = "target_override"
+		return true
 	
 	for card in cards:
 		if _check_trigger(card, brott, enemy, match_time_sec):

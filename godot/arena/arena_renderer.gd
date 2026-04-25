@@ -103,6 +103,15 @@ const _DEBUG_VELOCITY_SCALE: float = 0.15  # px per (px/s) — keeps arrows shor
 const _DEBUG_COLOR_COMPUTED := Color(0.2, 1.0, 1.0, 0.9)  # cyan
 const _DEBUG_COLOR_VELOCITY := Color(1.0, 0.2, 1.0, 0.9)  # magenta
 
+## S25.2: Click overlay state
+var _waypoint_pos: Vector2 = Vector2.INF        # INF = no active waypoint
+var _waypoint_fade_t: float = 0.0               # 0 = hidden, 1 = full alpha
+var _reticle_target_id: int = -1                # -1 = no active reticle (index into sim.brotts)
+var _pulse_accum: float = 0.0                   # accumulator for player outline pulse
+
+## S25.2: Player brain reference (cached at setup for click handler)
+var _player_brain: BrottBrain = null
+
 func setup(p_sim: CombatSim, p_offset: Vector2) -> void:
 	sim = p_sim
 	arena_offset = p_offset
@@ -122,6 +131,72 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_F3:
 			debug_velocity_overlay = not debug_velocity_overlay
 			print("[S17.2-004] velocity debug overlay toggled: ", debug_velocity_overlay)
+			return
+
+	# S25.2: Click handler — routes left-clicks to floor or enemy dispatch.
+	if sim == null or sim.match_over:
+		return
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_LEFT or not mb.pressed:
+		return
+
+	# Bounds check: ignore clicks outside the arena rect.
+	var arena_rect := Rect2(arena_offset, Vector2(ARENA_PX, ARENA_PX))
+	if not arena_rect.has_point(mb.position):
+		return
+	var arena_local: Vector2 = mb.position - arena_offset
+
+	# Hit-test enemies first; floor click otherwise.
+	var hit_idx := _hit_test_enemy(arena_local)
+	if hit_idx != -1:
+		_handle_enemy_click(hit_idx)
+	else:
+		_handle_floor_click(arena_local)
+
+## S25.2: Register the player brain so the click handler can set overrides.
+func set_player_brain(brain: BrottBrain) -> void:
+	_player_brain = brain
+
+## S25.2: Hit-test enemies. Returns index in sim.brotts of clicked enemy, or -1.
+## Iterates in reverse render order so last-drawn (visually topmost) wins on overlap.
+func _hit_test_enemy(arena_local: Vector2) -> int:
+	if sim == null:
+		return -1
+	for i in range(sim.brotts.size() - 1, -1, -1):
+		var b: BrottState = sim.brotts[i]
+		if not b.alive or b.team == 0:
+			continue
+		var dist: float = (b.position - arena_local).length()
+		if dist <= BOT_RADIUS + 4.0:
+			return i
+	return -1
+
+## S25.2: Floor click — set waypoint, clear target override (latest-wins).
+func _handle_floor_click(arena_local: Vector2) -> void:
+	_waypoint_pos = arena_local
+	_waypoint_fade_t = 1.0
+	_reticle_target_id = -1
+	if _player_brain != null:
+		_player_brain.set_move_override(arena_local)
+
+## S25.2: Enemy click — set reticle, clear waypoint (latest-wins).
+func _handle_enemy_click(target_idx: int) -> void:
+	_reticle_target_id = target_idx
+	_waypoint_pos = Vector2.INF
+	_waypoint_fade_t = 0.0
+	if _player_brain != null:
+		_player_brain.set_target_override(target_idx)
+
+## S25.2: Helper — find player brott (team == 0).
+func _get_player_brott() -> BrottState:
+	if sim == null:
+		return null
+	for b: BrottState in sim.brotts:
+		if b.team == 0:
+			return b
+	return null
 
 func _get_weapon_shake_class(source: BrottState) -> String:
 	# Determine shake intensity based on weapon type
@@ -341,7 +416,33 @@ func get_time_scale() -> float:
 
 func tick_visuals() -> void:
 	frame_count += 1
-	
+
+	# S25.2: Pulse accumulator + overlay state cleanup (waypoint fade on arrival,
+	# reticle dead-target poll). Runs even during hit-stop freeze so reticle
+	# clears promptly if a target dies during freeze.
+	_pulse_accum += 1.0 / 60.0
+	if _waypoint_pos != Vector2.INF:
+		var player_b := _get_player_brott()
+		if player_b != null:
+			var dist: float = (player_b.position - _waypoint_pos).length()
+			if dist < 8.0:
+				_waypoint_fade_t -= (1.0 / 60.0) / 0.4  # fade over 0.4s
+				if _waypoint_fade_t <= 0.0:
+					_waypoint_pos = Vector2.INF
+					_waypoint_fade_t = 0.0
+					if _player_brain != null:
+						_player_brain.clear_move_override()
+	if _reticle_target_id != -1:
+		var target_alive := false
+		if _reticle_target_id >= 0 and _reticle_target_id < sim.brotts.size():
+			var tgt: BrottState = sim.brotts[_reticle_target_id]
+			if tgt.alive:
+				target_alive = true
+		if not target_alive:
+			_reticle_target_id = -1
+			if _player_brain != null:
+				_player_brain.clear_target_override()
+
 	# Hit-stop freeze
 	if death_freeze_timer > 0:
 		death_freeze_timer -= 1.0
@@ -630,6 +731,10 @@ func _draw() -> void:
 	for b: BrottState in sim.brotts:
 		_draw_brott(b, draw_offset)
 
+	# S25.2: Click overlay layer (waypoint diamond, reticle ring, player pulse).
+	# Drawn after bots so it sits visually on top.
+	_draw_click_overlay(draw_offset)
+
 	# [S17.2-004] Dev-only velocity debug overlay (additive, OFF by default).
 	if debug_velocity_overlay:
 		_draw_debug_velocity_overlay(draw_offset)
@@ -858,6 +963,24 @@ func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 	
 	# S12.3: Draw weapon silhouettes on in-game sprite (24×24 scale)
 	_draw_ingame_weapons(b, pos)
+
+	# S25.2: Numbered enemy label (1, 2, 3, …) above bot for multi-target clarity.
+	# Index is 1-based across living enemies in sim.brotts order.
+	if b.team != 0:
+		var enemy_index := 0
+		for other: BrottState in sim.brotts:
+			if other == b:
+				break
+			if other.alive and other.team != 0:
+				enemy_index += 1
+		var label_text := str(enemy_index + 1)
+		var label_pos: Vector2 = pos + Vector2(-3, -BOT_RADIUS - 14)
+		# Dark outline for readability over arena bg + bot color.
+		for off in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(ThemeDB.fallback_font, label_pos + off, label_text,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0, 0, 0, 0.9))
+		draw_string(ThemeDB.fallback_font, label_pos, label_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
 	
 	# Shield
 	if b.shield_active:
@@ -970,3 +1093,45 @@ func _draw_ingame_weapons(b: BrottState, pos: Vector2) -> void:
 			WeaponData.WeaponType.FLAK_CANNON:
 				# Wide short barrel
 				draw_rect(Rect2(mount + Vector2(0, -2.5), Vector2(3.0 * side, 5)), weapon_col)
+
+# ─────────────────────────────────────────────────────────────
+# S25.2: Click overlay rendering — waypoint diamond, reticle ring, player pulse.
+# ─────────────────────────────────────────────────────────────
+func _draw_click_overlay(draw_offset: Vector2) -> void:
+	# Waypoint diamond (yellow #FFD700, fades on player arrival).
+	if _waypoint_pos != Vector2.INF and _waypoint_fade_t > 0.0:
+		var wp: Vector2 = _waypoint_pos + draw_offset
+		var d := 8.0  # half-diagonal → 16px diamond
+		var diamond := PackedVector2Array([
+			wp + Vector2(0, -d),
+			wp + Vector2(d, 0),
+			wp + Vector2(0, d),
+			wp + Vector2(-d, 0),
+		])
+		var wpc := Color(1.0, 0.843, 0.0, _waypoint_fade_t)
+		draw_colored_polygon(diamond, wpc)
+		var outline := PackedVector2Array(diamond)
+		outline.append(diamond[0])
+		draw_polyline(outline, Color(1, 1, 1, _waypoint_fade_t * 0.6), 1.5)
+
+	# Reticle ring on target enemy (orange #FF8C00).
+	if _reticle_target_id != -1 and _reticle_target_id >= 0 and _reticle_target_id < sim.brotts.size():
+		var tgt: BrottState = sim.brotts[_reticle_target_id]
+		if tgt.alive:
+			var rp: Vector2 = tgt.position + draw_offset
+			draw_arc(rp, BOT_RADIUS + 6.0, 0, TAU, 32, Color(1.0, 0.549, 0.0, 0.9), 2.0)
+
+	# Player outline pulse — yellow if move-override, orange if target-override.
+	var player := _get_player_brott()
+	if player != null and player.alive and _player_brain != null:
+		var has_move: bool = _player_brain._override_move_pos != Vector2.INF
+		var has_target: bool = _player_brain._override_target_id != -1
+		if has_move or has_target:
+			var pulse_alpha: float = lerp(0.4, 1.0, 0.5 + 0.5 * sin(_pulse_accum * TAU / 0.6))
+			var pulse_color: Color
+			if has_move:
+				pulse_color = Color(1.0, 0.843, 0.0, pulse_alpha)
+			else:
+				pulse_color = Color(1.0, 0.549, 0.0, pulse_alpha)
+			var pp: Vector2 = player.position + draw_offset
+			draw_arc(pp, BOT_RADIUS + 3.0, 0, TAU, 32, pulse_color, 2.0)

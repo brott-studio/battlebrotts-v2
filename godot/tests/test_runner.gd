@@ -104,6 +104,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s24_5_001_menu_loop_seam.gd",
 	"res://tests/test_s24_5_002_menu_music_routing.gd",
 	"res://tests/test_run_state_init.gd",
+	"res://tests/test_arena_renderer_multi.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

@@ -247,6 +247,9 @@ func _start_roguelike_match() -> void:
 	arena_renderer = ArenaRendererScene.instantiate()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
+	# S25.2: Wire player brain into renderer for click dispatch.
+	if player_brott != null and player_brott.brain != null and arena_renderer.has_method("set_player_brain"):
+		arena_renderer.set_player_brain(player_brott.brain)
 
 	_create_arena_hud()
 
@@ -422,6 +425,9 @@ func _start_demo_match() -> void:
 	arena_renderer = ArenaRendererScene.instantiate()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
+	# S25.2: Wire player brain into renderer for click dispatch.
+	if player_brott != null and player_brott.brain != null and arena_renderer.has_method("set_player_brain"):
+		arena_renderer.set_player_brain(player_brott.brain)
 	
 	# Create HUD
 	_create_arena_hud()
@@ -462,6 +468,9 @@ func _start_match(opponent_index: int) -> void:
 	arena_renderer = ArenaRendererScene.instantiate()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
+	# S25.2: Wire player brain into renderer for click dispatch.
+	if player_brott != null and player_brott.brain != null and arena_renderer.has_method("set_player_brain"):
+		arena_renderer.set_player_brain(player_brott.brain)
 	
 	# Create HUD
 	_create_arena_hud()

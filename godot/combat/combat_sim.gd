@@ -230,8 +230,19 @@ func _evaluate_brain(b: BrottState) -> void:
 		var enemy: BrottState = b.target
 		var fired: bool = b.brain.evaluate(b, enemy, match_time_sec)
 		
-		# Handle target priority from brain
-		if b.brain.target_priority != "nearest":
+		## S25.3: Target override from player click-to-target.
+		## Runs BEFORE priority re-pick so the override isn't silently overwritten.
+		if b.brain.movement_override == "target_override":
+			var oid: int = b.brain._override_target_id
+			if oid >= 0 and oid < brotts.size() and brotts[oid].alive:
+				b.target = brotts[oid]
+			else:
+				# Override target dead — clear override, fall through to normal re-pick
+				b.brain.clear_target_override()
+				if b.brain.target_priority != "nearest":
+					b.target = _find_target_by_priority(b, b.brain.target_priority)
+			# Either way, skip normal priority re-pick this tick
+		elif b.brain.target_priority != "nearest":
 			b.target = _find_target_by_priority(b, b.brain.target_priority)
 		
 		# Handle pending gadget activation
@@ -502,6 +513,23 @@ func _move_brott(b: BrottState) -> void:
 			if to_pillar_v.length_squared() > 0.0001:
 				var desired_vel_p: Vector2 = to_pillar_v.normalized() * b.current_speed
 				_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_p, TICK_DELTA))
+	elif move_override == "move_to_override" and b.brain != null and b.brain._override_move_pos != Vector2.INF:
+		## S25.3: Navigate to player-clicked waypoint position.
+		b.accelerate_toward_speed(b.get_effective_speed(), TICK_DELTA)
+		var spd_mo: float = b.current_speed * TICK_DELTA
+		var to_waypoint: Vector2 = b.brain._override_move_pos - b.position
+		var dist_mo: float = to_waypoint.length()
+		const ARRIVE_RADIUS: float = 24.0  ## arrive and clear at 24px (< tile, feels responsive)
+		if dist_mo <= ARRIVE_RADIUS:
+			## Arrived — clear the override, resume autonomous
+			b.brain.clear_move_override()
+		elif dist_mo > spd_mo:
+			var desired_mo: Vector2 = to_waypoint.normalized() * b.current_speed
+			_apply_smoothed_displacement(b, _smooth_velocity(b, desired_mo, TICK_DELTA))
+		else:
+			## Within one step — snap to waypoint, clear override
+			b.position = b.brain._override_move_pos
+			b.brain.clear_move_override()
 	elif move_override == "chase":
 		# S17.3-004 (cherry-picked from PR #77 / S14.2 Slice B):
 		# close distance on enemy at stance-max speed. Symmetric with
@@ -1282,6 +1310,12 @@ func _kill_brott(b: BrottState) -> void:
 		kill_ticks[b.bot_name] = tick_count
 	if json_log_enabled:
 		_tick_events.append({"type": "bot_destroyed", "bot_id": b.bot_name, "tick": tick_count})
+	## S25.3: Clear any target_override pointing at this dead bot.
+	var dead_idx: int = brotts.find(b)
+	if dead_idx >= 0:
+		for other in brotts:
+			if other.brain != null and other.brain._override_target_id == dead_idx:
+				other.brain.clear_target_override()
 	on_death.emit(b)
 
 func _check_match_end() -> void:

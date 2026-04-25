@@ -35,13 +35,18 @@ func _init() -> void:
 	
 	# --- BROTTBRAIN UX TESTS ---
 	_test_scout_default_brain_stance()
-	_test_scout_default_brain_card_count()
+	## CUT: Arc G — card counts N/A after S25.3 baseline AI pivot; assertion retired in-place
+	# _test_scout_default_brain_card_count()
 	_test_brawler_default_brain_stance()
-	_test_brawler_default_brain_card_count()
+	## CUT: Arc G — card counts N/A after S25.3 baseline AI pivot; assertion retired in-place
+	# _test_brawler_default_brain_card_count()
 	_test_fortress_default_brain_stance()
-	_test_fortress_default_brain_card_count()
-	_test_max_cards_limit()
-	_test_brain_card_add_and_remove()
+	## CUT: Arc G — card counts N/A after S25.3 baseline AI pivot; assertion retired in-place
+	# _test_fortress_default_brain_card_count()
+	## CUT: Arc G — MAX_CARDS limit N/A after S25.3 baseline AI pivot; assertion retired in-place
+	# _test_max_cards_limit()
+	## CUT: Arc G — card add/remove N/A after S25.3 baseline AI pivot; assertions retired in-place
+	# _test_brain_card_add_and_remove()
 	
 	# --- VISUAL FEEDBACK / COMBAT TESTS ---
 	_test_brott_setup_uses_tripled_hp()
@@ -250,47 +255,52 @@ func _test_scout_default_brain_stance() -> void:
 	var brain := BrottBrain.default_for_chassis(0)
 	assert_eq(brain.default_stance, 2, "Scout default stance = 2 (Hit & Run)")
 
+## CUT: Arc G — card counts N/A after S25.3 baseline AI pivot; assertion retired in-place
 func _test_scout_default_brain_card_count() -> void:
-	print("test_scout_default_brain_card_count")
-	var brain := BrottBrain.default_for_chassis(0)
-	assert_eq(brain.cards.size(), 3, "Scout default brain has 3 cards")
+	print("test_scout_default_brain_card_count [RETIRED — Arc G]")
+	# var brain := BrottBrain.default_for_chassis(0)
+	# assert_eq(brain.cards.size(), 3, "Scout default brain has 3 cards")
 
 func _test_brawler_default_brain_stance() -> void:
 	print("test_brawler_default_brain_stance")
 	var brain := BrottBrain.default_for_chassis(1)
 	assert_eq(brain.default_stance, 0, "Brawler default stance = 0 (Go Get 'Em!)")
 
+## CUT: Arc G — card counts N/A after S25.3 baseline AI pivot; assertion retired in-place
 func _test_brawler_default_brain_card_count() -> void:
-	print("test_brawler_default_brain_card_count")
-	var brain := BrottBrain.default_for_chassis(1)
-	assert_eq(brain.cards.size(), 2, "Brawler default brain has 2 cards")
+	print("test_brawler_default_brain_card_count [RETIRED — Arc G]")
+	# var brain := BrottBrain.default_for_chassis(1)
+	# assert_eq(brain.cards.size(), 2, "Brawler default brain has 2 cards")
 
 func _test_fortress_default_brain_stance() -> void:
 	print("test_fortress_default_brain_stance")
 	var brain := BrottBrain.default_for_chassis(2)
 	assert_eq(brain.default_stance, 1, "Fortress default stance = 1 (Play it Safe)")
 
+## CUT: Arc G — card counts N/A after S25.3 baseline AI pivot; assertion retired in-place
 func _test_fortress_default_brain_card_count() -> void:
-	print("test_fortress_default_brain_card_count")
-	var brain := BrottBrain.default_for_chassis(2)
-	assert_eq(brain.cards.size(), 2, "Fortress default brain has 2 cards")
+	print("test_fortress_default_brain_card_count [RETIRED — Arc G]")
+	# var brain := BrottBrain.default_for_chassis(2)
+	# assert_eq(brain.cards.size(), 2, "Fortress default brain has 2 cards")
 
+## CUT: Arc G — MAX_CARDS limit N/A after S25.3 baseline AI pivot; assertion retired in-place
 func _test_max_cards_limit() -> void:
-	print("test_max_cards_limit")
-	var brain := BrottBrain.new()
-	for i in range(10):
-		brain.add_card(BrottBrain.BehaviorCard.new(0, 0.5, 0, 0))
-	assert_eq(brain.cards.size(), 8, "Max cards = 8")
+	print("test_max_cards_limit [RETIRED — Arc G]")
+	# var brain := BrottBrain.new()
+	# for i in range(10):
+	# 	brain.add_card(BrottBrain.BehaviorCard.new(0, 0.5, 0, 0))
+	# assert_eq(brain.cards.size(), 8, "Max cards = 8")
 
+## CUT: Arc G — card add/remove N/A after S25.3 baseline AI pivot; assertions retired in-place
 func _test_brain_card_add_and_remove() -> void:
-	print("test_brain_card_add_and_remove")
-	var brain := BrottBrain.new()
-	brain.add_card(BrottBrain.BehaviorCard.new(0, 0.3, 0, 1))
-	brain.add_card(BrottBrain.BehaviorCard.new(1, 0.7, 1, "Shield Projector"))
-	assert_eq(brain.cards.size(), 2, "2 cards added")
-	brain.cards.remove_at(0)
-	assert_eq(brain.cards.size(), 1, "1 card after removal")
-	assert_eq(brain.cards[0].trigger, 1, "Remaining card is the second one")
+	print("test_brain_card_add_and_remove [RETIRED — Arc G]")
+	# var brain := BrottBrain.new()
+	# brain.add_card(BrottBrain.BehaviorCard.new(0, 0.3, 0, 1))
+	# brain.add_card(BrottBrain.BehaviorCard.new(1, 0.7, 1, "Shield Projector"))
+	# assert_eq(brain.cards.size(), 2, "2 cards added")
+	# brain.cards.remove_at(0)
+	# assert_eq(brain.cards.size(), 1, "1 card after removal")
+	# assert_eq(brain.cards[0].trigger, 1, "Remaining card is the second one")
 
 # ============= VISUAL FEEDBACK / COMBAT =============
 

@@ -1,7 +1,15 @@
-## BrottBrain — behavior card system for autonomous Brott decision-making
-## Cards are evaluated top-to-bottom each tick; first match fires.
+## BrottBrain — autonomous Brott decision-making.
+## S25.3: Hardcoded baseline AI replaces card-eval loop. Card definitions retained
+## on disk for save-format compat (CUT: Arc G).
 class_name BrottBrain
 extends RefCounted
+
+## ─────────────────────────────────────────────────────────────────────────
+## CUT: Arc G — card-crafting metagame retired in Arc F roguelike pivot.
+## Enums + BehaviorCard class + cards array retained for save-format compat.
+## No active code path evaluates cards after S25.3.
+## Do not delete without a save-format migration.
+## ─────────────────────────────────────────────────────────────────────────
 
 ## Trigger types — the "WHEN" part of a behavior card
 enum Trigger {
@@ -67,6 +75,14 @@ var movement_override: String = ""
 var _override_target_id: int = -1
 var _override_move_pos: Vector2 = Vector2.INF
 
+## S25.3: Hysteresis state for kite decision — persists across ticks to prevent
+## stance flickering at the HP threshold boundary.
+var _kiting: bool = false
+
+## S25.3: Default stance per chassis (set by default_for_chassis).
+## Scout=2 (Hit&Run), Brawler=0 (Aggressive), Fortress=1 (PlayItSafe).
+var _default_stance: int = 0
+
 ## S25.2: Set a target-override from player click. Overrides card-eval target.
 ## target_id is the index of the target in sim.brotts.
 func set_target_override(target_id: int) -> void:
@@ -85,6 +101,16 @@ func set_move_override(pos: Vector2) -> void:
 ## S25.2: Clear move override (called when waypoint reached or player clicks enemy).
 func clear_move_override() -> void:
 	_override_move_pos = Vector2.INF
+
+## S25.3: Check if a module (by name) is equipped, not on cooldown, and not active.
+## Returns the slot index if ready, or -1 if not available.
+func _module_ready(brott: RefCounted, mod_name: String) -> int:
+	for i in range(brott.module_types.size()):
+		var mdata: Dictionary = ModuleData.get_module(brott.module_types[i])
+		if mdata["name"] == mod_name:
+			if brott.module_cooldowns[i] <= 0 and brott.module_active_timers[i] <= 0:
+				return i
+	return -1
 
 func add_card(card: BehaviorCard) -> bool:
 	if cards.size() >= MAX_CARDS:
@@ -109,11 +135,53 @@ func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bo
 		movement_override = "target_override"
 		return true
 	
-	for card in cards:
-		if _check_trigger(card, brott, enemy, match_time_sec):
-			_execute_action(card, brott)
-			return true
-	return false
+	## CUT: Arc G — card evaluation loop removed S25.3 roguelike pivot.
+	## cards array + add_card/clear_cards + BehaviorCard + Trigger/Action enums
+	## remain on disk for save-compat. See CUT block above enum Trigger.
+	## S25.3: Hardcoded baseline AI — card-eval loop removed.
+	
+	if enemy == null or not enemy.alive:
+		## No live enemy — hold stance, no overrides
+		movement_override = ""
+		return true
+	
+	var hp_pct: float = float(brott.hp) / float(brott.max_hp) if brott.max_hp > 0 else 1.0
+	
+	## --- Rule 1: Kite hysteresis ---
+	if not _kiting and hp_pct <= 0.30:
+		_kiting = true
+	elif _kiting and hp_pct >= 0.40:
+		_kiting = false
+	brott.stance = 2 if _kiting else _default_stance
+	## Note: combat_sim forces stance=0 in overtime, overriding this.
+	## That's intentional — overtime suppresses kite by design.
+	
+	## --- Rule 2: Module auto-fire (priority: Repair > EMP > Afterburner) ---
+	## Only one module fires per tick; return immediately on match to avoid double-fire.
+	if hp_pct < 0.40 and _module_ready(brott, "Repair Nanites") >= 0:
+		brott._pending_gadget = "Repair Nanites"
+		movement_override = ""
+		return true
+	
+	var enemy_has_module: bool = false
+	if enemy.module_active_timers.size() > 0:
+		for t: float in enemy.module_active_timers:
+			if t > 0:
+				enemy_has_module = true
+				break
+	if enemy_has_module and _module_ready(brott, "EMP Charge") >= 0:
+		brott._pending_gadget = "EMP Charge"
+		movement_override = ""
+		return true
+	
+	if _kiting and _module_ready(brott, "Afterburner") >= 0:
+		brott._pending_gadget = "Afterburner"
+		movement_override = ""
+		return true
+	
+	## --- Rule 3: Movement (advance/kite handled by stance via combat_sim) ---
+	movement_override = ""
+	return true
 
 func _check_trigger(card: BehaviorCard, brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bool:
 	var param: Variant = card.trigger_param
@@ -213,40 +281,17 @@ func _execute_action(card: BehaviorCard, brott: RefCounted) -> void:
 ## Pre-built BrottBrains that work out of the box for each chassis
 
 static func default_for_chassis(chassis_type: int) -> BrottBrain:
+	## S25.3: Baseline AI — no cards; stance-only configuration per chassis.
+	## Scout=2 (Hit&Run baseline), Brawler=0 (Aggressive), Fortress=1 (PlayItSafe).
 	var brain := BrottBrain.new()
 	match chassis_type:
-		0:  # Scout — Hit & Run stance, flee when hurt, afterburner when close, aggressive when enemy weak
-			brain.default_stance = 2  # Hit & Run
-			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_IM_HURT, 0.3,
-				Action.SWITCH_STANCE, 1  # Defensive — flee
-			))
-			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_THEYRE_CLOSE, 3,
-				Action.USE_GADGET, "Afterburner"  # Escape when close
-			))
-			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_THEYRE_HURT, 0.3,
-				Action.SWITCH_STANCE, 0  # Aggressive — go for the kill
-			))
-		1:  # Brawler — Aggressive stance, shield when hurt, all-fire when close
-			brain.default_stance = 0  # Go Get 'Em!
-			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_IM_HURT, 0.4,
-				Action.USE_GADGET, "Shield Projector"  # Shield when hurt
-			))
-			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_THEYRE_CLOSE, 3,
-				Action.WEAPONS, "all_fire"  # All-fire when close
-			))
-		2:  # Fortress — Play it Safe stance, shield when hurt, aggressive when enemy weak
-			brain.default_stance = 1  # Play it Safe
-			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_IM_HURT, 0.4,
-				Action.USE_GADGET, "Shield Projector"  # Shield when hurt
-			))
-			brain.add_card(BehaviorCard.new(
-				Trigger.WHEN_THEYRE_HURT, 0.3,
-				Action.SWITCH_STANCE, 0  # Aggressive when enemy weak
-			))
+		0:  # Scout
+			brain._default_stance = 2
+		1:  # Brawler
+			brain._default_stance = 0
+		2:  # Fortress
+			brain._default_stance = 1
+		_:
+			brain._default_stance = 0
+	brain.default_stance = brain._default_stance
 	return brain

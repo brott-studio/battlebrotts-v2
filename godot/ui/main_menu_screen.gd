@@ -4,8 +4,41 @@ extends Control
 
 signal new_game_pressed
 
+# [S24.5] Menu music player — persists across Settings and any future overlay modals
+# because they are added as modal children of the same parent (MainMenuScreen).
+var _music_player: AudioStreamPlayer
+
 func _ready() -> void:
 	_build_ui()
+	_setup_menu_music()
+
+# [S24.5] Set up and start menu background music with a 0.5s fade-in.
+func _setup_menu_music() -> void:
+	var stream: AudioStream = load("res://assets/audio/music/menu_loop.ogg")
+	if stream == null:
+		push_warning("MainMenuScreen: could not load menu_loop.ogg")
+		return
+	stream.loop = true
+	_music_player = AudioStreamPlayer.new()
+	_music_player.name = "MenuMusicPlayer"
+	_music_player.stream = stream
+	_music_player.bus = "Music"
+	_music_player.volume_db = -40.0
+	add_child(_music_player)
+	_music_player.play()
+	# Fade in over 0.5s from -40 dB to 0 dB.
+	var tween: Tween = create_tween()
+	tween.tween_property(_music_player, "volume_db", 0.0, 0.5)
+
+# [S24.5] Fade out and stop music on scene exit.
+func _exit_tree() -> void:
+	if _music_player == null or not _music_player.playing:
+		return
+	var tween: Tween = create_tween()
+	tween.tween_property(_music_player, "volume_db", -40.0, 0.5)
+	await tween.finished
+	if is_instance_valid(_music_player):
+		_music_player.stop()
 
 func _build_ui() -> void:
 	# Title

@@ -219,9 +219,17 @@ func _show_run_start() -> void:
 
 func _on_chassis_picked(chassis_type: int) -> void:
 	game_flow.start_run(chassis_type)
+	## S25.5: Set initial encounter
+	var arena_seed := game_flow.run_state.seed * 31
+	game_flow.run_state.set_encounter("standard_duel", 1, arena_seed)
 	_start_roguelike_match()
 
 func _start_roguelike_match() -> void:
+	## S25.5: Ensure encounter is set (may already be set on retry path)
+	if game_flow.run_state != null and game_flow.run_state.current_encounter["archetype_id"] == "":
+		var tier := _tier_for_battle(game_flow.run_state.current_battle_index)
+		var arena_seed := game_flow.run_state.seed * 31 + game_flow.run_state.current_battle_index
+		game_flow.run_state.set_encounter("standard_duel", tier, arena_seed)
 	## S25.1: Stub arena — builds player BrottState inline from RunState.
 	## Enemy uses OpponentData bronze/0 as stub; S25.4/S25.6 replaces.
 	_clear_screen()
@@ -259,12 +267,48 @@ func _start_roguelike_match() -> void:
 
 func _on_roguelike_match_end(winner_team: int) -> void:
 	var won := winner_team == 0
+	await get_tree().create_timer(1.0).timeout
 	if won:
 		game_flow.advance_battle()
-	await get_tree().create_timer(1.0).timeout
-	_show_stub_result(won)
+		_show_reward_pick()
+	else:
+		_show_retry_prompt()
+
+func _show_reward_pick() -> void:
+	_clear_screen()
+	var reward := RewardPickScreen.new()
+	reward.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wrap_in_scroll(reward)
+	reward.setup(game_flow.run_state)
+	reward.picked.connect(func(_item): _advance_to_next_battle())
+
+func _show_retry_prompt() -> void:
+	_clear_screen()
+	var retry := RetryPromptScreen.new()
+	retry.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wrap_in_scroll(retry)
+	retry.setup(game_flow.run_state)
+	retry.retry_chosen.connect(_start_roguelike_match)
+	retry.accept_loss.connect(func(): game_flow.end_run(); _show_main_menu())
+
+func _advance_to_next_battle() -> void:
+	## Set encounter for next battle (stub archetype for now; S25.6 provides full generator)
+	var tier := _tier_for_battle(game_flow.run_state.current_battle_index)
+	var arena_seed := game_flow.run_state.seed * 31 + game_flow.run_state.current_battle_index
+	game_flow.run_state.set_encounter("standard_duel", tier, arena_seed)
+	_start_roguelike_match()
+
+func _tier_for_battle(battle_index: int) -> int:
+	## Stub: basic tier mapping for S25.5 (S25.6 replaces with full encounter generator)
+	if battle_index >= 14: return 5  # Boss
+	if battle_index >= 11: return 4  # Tier 4
+	if battle_index >= 7:  return 3  # Tier 3
+	if battle_index >= 3:  return 2  # Tier 2
+	return 1                          # Tier 1
 
 func _show_stub_result(won: bool) -> void:
+	## DEPRECATED S25.5 — stub result no longer used in roguelike flow.
+	## Kept temporarily for any external callers; remove in Arc G cleanup.
 	_clear_screen()
 	var result_lbl := Label.new()
 	result_lbl.text = "⚔️ %s\n\nBattle %d — Stub result.\nFull reward/retry flow arrives next sprint." % [
@@ -577,6 +621,9 @@ func _on_match_end(winner_team: int) -> void:
 	await get_tree().create_timer(1.0).timeout
 	_show_result()
 
+## DEPRECATED S25.5 — league-era result screen, kept for ?screen=battle demo route.
+## Replaced by reward_pick_screen + retry_prompt_screen in roguelike flow.
+## Remove in Arc G cleanup.
 func _show_result() -> void:
 	_clear_screen()
 	var result := ResultScreen.new()

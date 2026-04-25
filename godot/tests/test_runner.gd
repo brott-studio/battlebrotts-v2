@@ -108,6 +108,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_baseline_ai.gd",
 	# [S25.4] Multi-target AI priority cascade + 7-archetype encounter data.
 	"res://tests/test_multi_target_ai.gd",
+	# [S25.5] Reward pick screen + run flow — 6 conditions covering pool exclusion, seed determinism, dedup, retry seed.
+	"res://tests/test_reward_pick.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

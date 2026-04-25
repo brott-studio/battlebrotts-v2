@@ -1,3 +1,6 @@
+## DEPRECATED S25.5 — league-era result screen. Kept for ?screen=battle demo route only.
+## Replaced by reward_pick_screen.gd + retry_prompt_screen.gd in roguelike flow.
+## Remove in Arc G cleanup.
 ## Result screen — win/loss, Bolts earned, repair cost
 class_name ResultScreen
 extends Control

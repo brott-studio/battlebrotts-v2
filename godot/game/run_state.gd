@@ -27,6 +27,12 @@ var _farthest_threat_name: String = ""
 ## Best kill name this run (for RUN COMPLETE screen, S25.8)
 var _best_kill_name: String = ""
 
+## S25.5: Current encounter context (set on ARENA entry; read on retry).
+var current_encounter: Dictionary = {"archetype_id": "", "tier": 0, "arena_seed": 0}
+
+## S25.5: Fired when any run state is mutated (equipment added, battle advanced, retry used).
+signal run_state_changed
+
 ## RNG seed for deterministic behavior (0 = time-based at runtime)
 var seed: int = 0
 
@@ -42,6 +48,42 @@ func _init(chassis_type: int = 0, rng_seed: int = 0) -> void:
 	_last_encounter_archetype = -1
 	_farthest_threat_name = ""
 	_best_kill_name = ""
+
+## S25.5: Set the current encounter context (called before entering ARENA).
+func set_encounter(archetype_id: String, tier: int, arena_seed: int) -> void:
+	current_encounter = {"archetype_id": archetype_id, "tier": tier, "arena_seed": arena_seed}
+
+## S25.5: Add an item to the loadout. Returns false if already equipped (no-op).
+## category: "weapon" | "armor" | "module"
+func add_item(category: String, type: int) -> bool:
+	match category:
+		"weapon":
+			if type in equipped_weapons:
+				return false
+			equipped_weapons.append(type)
+		"armor":
+			if equipped_armor == type:
+				return false
+			equipped_armor = type
+		"module":
+			if type in equipped_modules:
+				return false
+			equipped_modules.append(type)
+		_:
+			return false
+	run_state_changed.emit()
+	return true
+
+## S25.5: Advance to the next battle (increments index, emits signal).
+func advance_battle_index() -> void:
+	current_battle_index += 1
+	battles_won += 1
+	run_state_changed.emit()
+
+## S25.5: Use a retry (decrements count, emits signal).
+func use_retry() -> void:
+	retry_count = max(0, retry_count - 1)
+	run_state_changed.emit()
 
 ## Build a BrottState from the current run loadout.
 ## Does NOT reference GameState — RunState is the sole source of truth.

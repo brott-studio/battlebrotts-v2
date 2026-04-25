@@ -14,6 +14,8 @@ enum Screen {
 	ARENA,
 	RESULT,
 	RUN_START,         # S25.1: new
+	REWARD_PICK,       # S25.5: post-battle reward selection
+	RETRY_PROMPT,      # S25.5: post-loss retry or accept
 }
 
 ## S25.1: RunState is the new source of truth for run-scoped data.
@@ -41,7 +43,15 @@ func start_run(chassis_type: int, rng_seed: int = 0) -> void:
 ## Increment battle index after a battle resolves.
 func advance_battle() -> void:
 	if run_state != null:
-		run_state.current_battle_index += 1
+		run_state.advance_battle_index()
+
+## S25.5: Go to reward pick screen after a won battle.
+func to_reward_pick() -> void:
+	current_screen = Screen.REWARD_PICK
+
+## S25.5: Go to retry prompt screen after a lost battle.
+func to_retry_prompt() -> void:
+	current_screen = Screen.RETRY_PROMPT
 
 ## End the current run (returns to main menu state).
 func end_run() -> void:

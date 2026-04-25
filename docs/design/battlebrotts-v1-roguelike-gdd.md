@@ -26,7 +26,7 @@ Start Run
              Retry: restart this battle with current build (see §A.4)
   → Battle 2 → reward pick → ...
   → [Battles 3–14, same pattern — encounter shapes vary per §A.9]
-  → Battle 15 → FINAL BOSS (IRONCLAD PRIME — name TBD)
+  → Battle 15 → FINAL BOSS (CEO Brott)
       Win  → Run complete → win screen
       Lose → Retries or run ends
   → Run over → new run (fresh build, fresh encounter sequence)
@@ -43,7 +43,16 @@ Total run time target: **30–50 minutes** at normal pace.
 ### A.1 Final Boss Shape
 _Locked by HCD 2026-04-25_
 
-**Decision:** Fixed boss — a single handcrafted "Champion Brott" named **[TBD — "IRONCLAD PRIME" is a placeholder, to be workshopped]** — Fortress chassis, max loadout (Railgun + Minigun, Ablative Shell, Shield Projector + Sensor Array + EMP Charge), hardcoded baseline AI (see §A.8) tuned to punish common player strategies.
+**Decision:** Fixed boss — a single handcrafted "Champion Brott" named **CEO Brott** (locked by HCD 2026-04-25 17:07 UTC) — Fortress chassis, max loadout (Railgun + Minigun, Ablative Shell, Shield Projector + Sensor Array + EMP Charge), hardcoded baseline AI (see §A.8) tuned to punish common player strategies. Visual identity: tiny corporate tie on the Fortress chassis (Arc H polish item).
+
+**Naming convention (NEW — locked by HCD 2026-04-25 17:09 UTC):** All 15 opponents in a run use **corporate-ladder titles**, scaled to tier:
+- Tier 1 (battles 1–3): Junior / Intern / Associate (e.g., "Junior Associate Brott", "Intern Brott")
+- Tier 2 (battles 4–7): Mid-management / Specialist (e.g., "Brott from Accounting", "Senior Specialist Brott")
+- Tier 3 (battles 8–11): Director / VP (e.g., "Director of Operations Brott", "VP of Engineering Brott")
+- Tier 4 (battles 12–14): C-suite / Executive (e.g., "CFO Brott", "COO Brott", "Chief Strategy Brott")
+- Battle 15: **CEO Brott** (always)
+
+Gizmo to produce a corporate-ladder title library (~15–25 titles) at S25.4 (encounter pool re-skin), mapped to (tier, archetype). Titles should lean into archetype flavor — e.g., Glass-Cannon Blitz at Tier 3 → "VP of Aggressive Sales Brott"; Mini-Boss + Escorts at Tier 4 → "CFO Brott + 2 Auditors". This makes the run feel like a labor-ladder revenge fantasy in tone, without committing to explicit narrative beats.
 
 **Why fixed:** Simple to build, no RNG in the most climactic moment, lets HCD tune it as a puzzle. The boss should feel *known* — players will talk about "beating [the boss]" not "beating a random boss." Personality > variety at the end of the run.
 
@@ -67,7 +76,7 @@ _Locked by HCD 2026-04-25 (expanded from v1 recommendation to incorporate encoun
 | 4–7 | Tier 2 | Free shape mix; ~30% Standard Duel / balance across other archetypes | Full weapon + armor + 1–2 modules |
 | 8–11 | Tier 3 | Free shape mix; introduce Counter-Build Elite | Full loadouts, counter-tuned |
 | 12–14 | Tier 4 | Free shape mix; weighted toward Counter-Build Elite + Large Swarm + Mini-boss+Escorts for climactic feel | Silver-tier templates, Disruptor/Aegis/Chrono builds |
-| 15 | Boss | IRONCLAD PRIME (always; name TBD) | Max loadout, hardcoded boss AI |
+| 15 | Boss | CEO Brott (always) | Max loadout, hardcoded boss AI |
 
 The distributions above are *seeds* for the encounter generator, not hard quotas. Final tuning happens during Arc F + Arc H playtesting.
 
@@ -138,7 +147,7 @@ _Locked by HCD 2026-04-25_
 ```
 ╔═══════════════════════════════╗
 ║   🏆 RUN COMPLETE             ║
-║   [Boss name TBD] defeated!   ║
+║   CEO Brott defeated!         ║
 ║   ─────────────────────────── ║
 ║   YOUR BUILD                  ║
 ║   [full loadout display]      ║
@@ -231,7 +240,7 @@ The BrottBrain *runtime* concept is preserved — bots still have internal AI ma
 - If two enemies are equidistant, attack the lower-HP one (focus-fire the weakest)
 - Player click-to-target overrides all priority rules for the duration of the override
 
-**Boss AI (IRONCLAD PRIME / TBD name):** Separate hardcoded behavior set — see §A.1. Does not share baseline AI rules.
+**Boss AI (CEO Brott):** Separate hardcoded behavior set — see §A.1. Does not share baseline AI rules.
 
 #### What is cut
 
@@ -302,7 +311,7 @@ At encounter generation time, the system picks the elite type that counters the 
 ---
 
 #### Archetype 7: Boss
-**Format:** 1 vs 1 (IRONCLAD PRIME — name TBD)  
+**Format:** 1 vs 1 (CEO Brott)  
 **Example composition:** Fortress chassis, Railgun + Minigun, Ablative Shell, Shield Projector + Sensor Array + EMP Charge. Hardcoded boss AI (§A.1).  
 **What makes it distinctive:** The climax. Always battle 15. Always this opponent. Hand-tuned to be hard but fair at a median run build (target: <40% first-attempt win rate at Tier-3 average build in combat sim).  
 **Design intent:** The conversation-worthy moment. "I finally beat [boss name]" is the loop closer. Players should feel they earned it.
@@ -403,7 +412,7 @@ _Up from v1's 6–8: +2 sub-sprints for encounter shape implementation, multi-ta
 - Hardcoded baseline AI + multi-target priority (2 sub-sprints)
 - Arena renderer extension (N enemies + click overlay layer) (2 sub-sprints)
 - Encounter archetype system + distribution logic (1 sub-sprint)
-- Boss loadout authoring + IRONCLAD PRIME AI (1 sub-sprint)
+- Boss loadout authoring + CEO Brott AI (1 sub-sprint)
 
 **Hard exit criteria:**
 1. Player can start a run, battle through all 15 encounters (including ≥1 swarm + ≥1 mini-boss), and reach the boss
@@ -437,7 +446,7 @@ _Up from v1's 3–4: +1 sub-sprint for the larger BrottBrain editor cut_
 
 ### Arc H — Boss + Run Polish (Target: ~4–5 sub-sprints)
 
-**Goal:** IRONCLAD PRIME (name TBD) tuned to be satisfying climax; visual run identity (§A.7) polished; first-playtest-ready build.
+**Goal:** CEO Brott tuned to be satisfying climax; visual run identity (§A.7) polished; first-playtest-ready build. Corporate tie on Fortress chassis is an Arc H polish item.
 
 **Hard exit criteria:**
 1. Boss beatable but challenging — <40% first-attempt win rate in combat sim at Tier-3 average player build
@@ -479,7 +488,7 @@ No persistent unlock trees, no items that carry across runs, no experience point
 No cutscenes, story beats, opponent backstories, dialogue beyond BrottBrain voice in trick events. Any sprint plan including story-advancing copy → STOP. Escalate.
 
 **Tripwire 4: No new opponent archetypes or roster expansion beyond the authored elite/boss set.**  
-The encounter pool + 3 authored elites + IRONCLAD PRIME is sufficient for v1.0. Any proposal for additional opponent templates beyond these → STOP. Escalate.
+The encounter pool + 3 authored elites + CEO Brott is sufficient for v1.0. Any proposal for additional opponent templates beyond these → STOP. Escalate.
 
 **Tripwire 5: No team formats.**  
 v1.0 is 1vN (player solo). Any feature touching 2v2 or player-team logic → STOP. Escalate.

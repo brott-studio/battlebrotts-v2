@@ -219,17 +219,21 @@ func _show_run_start() -> void:
 
 func _on_chassis_picked(chassis_type: int) -> void:
 	game_flow.start_run(chassis_type)
-	## S25.5: Set initial encounter
+	## S25.6: Pre-generate encounter schedule, set first encounter
+	var archetype_id := OpponentLoadouts.archetype_for(0, game_flow.run_state)
 	var arena_seed := game_flow.run_state.seed * 31
-	game_flow.run_state.set_encounter("standard_duel", 1, arena_seed)
+	game_flow.run_state.set_encounter(archetype_id, OpponentLoadouts.difficulty_for_battle(0), arena_seed)
 	_start_roguelike_match()
 
 func _start_roguelike_match() -> void:
-	## S25.5: Ensure encounter is set (may already be set on retry path)
+	## S25.6: Ensure encounter is set (may already be set on retry path).
+	## If unset, derive via the encounter generator + tier mapping.
 	if game_flow.run_state != null and game_flow.run_state.current_encounter["archetype_id"] == "":
-		var tier := _tier_for_battle(game_flow.run_state.current_battle_index)
-		var arena_seed := game_flow.run_state.seed * 31 + game_flow.run_state.current_battle_index
-		game_flow.run_state.set_encounter("standard_duel", tier, arena_seed)
+		var idx := game_flow.run_state.current_battle_index
+		var archetype_id := OpponentLoadouts.archetype_for(idx, game_flow.run_state)
+		var tier := OpponentLoadouts.difficulty_for_battle(idx)
+		var arena_seed := game_flow.run_state.seed * 31 + idx
+		game_flow.run_state.set_encounter(archetype_id, tier, arena_seed)
 	## S25.1: Stub arena — builds player BrottState inline from RunState.
 	## Enemy uses OpponentData bronze/0 as stub; S25.4/S25.6 replaces.
 	_clear_screen()
@@ -292,19 +296,13 @@ func _show_retry_prompt() -> void:
 	retry.accept_loss.connect(func(): game_flow.end_run(); _show_main_menu())
 
 func _advance_to_next_battle() -> void:
-	## Set encounter for next battle (stub archetype for now; S25.6 provides full generator)
-	var tier := _tier_for_battle(game_flow.run_state.current_battle_index)
-	var arena_seed := game_flow.run_state.seed * 31 + game_flow.run_state.current_battle_index
-	game_flow.run_state.set_encounter("standard_duel", tier, arena_seed)
+	## S25.6: Use encounter generator (replaces standard_duel stub)
+	var next_idx := game_flow.run_state.current_battle_index
+	var archetype_id := OpponentLoadouts.archetype_for(next_idx, game_flow.run_state)
+	var tier := OpponentLoadouts.difficulty_for_battle(next_idx)
+	var arena_seed := game_flow.run_state.seed * 31 + next_idx
+	game_flow.run_state.set_encounter(archetype_id, tier, arena_seed)
 	_start_roguelike_match()
-
-func _tier_for_battle(battle_index: int) -> int:
-	## Stub: basic tier mapping for S25.5 (S25.6 replaces with full encounter generator)
-	if battle_index >= 14: return 5  # Boss
-	if battle_index >= 11: return 4  # Tier 4
-	if battle_index >= 7:  return 3  # Tier 3
-	if battle_index >= 3:  return 2  # Tier 2
-	return 1                          # Tier 1
 
 func _show_stub_result(won: bool) -> void:
 	## DEPRECATED S25.5 — stub result no longer used in roguelike flow.

@@ -30,6 +30,10 @@ var _best_kill_name: String = ""
 ## S25.5: Current encounter context (set on ARENA entry; read on retry).
 var current_encounter: Dictionary = {"archetype_id": "", "tier": 0, "arena_seed": 0}
 
+## S25.6: Pre-generated encounter schedule for this run (15 archetype IDs).
+## Populated on first call to OpponentLoadouts.archetype_for(). Reset on new run.
+var encounter_schedule: Array[String] = []
+
 ## S25.5: Fired when any run state is mutated (equipment added, battle advanced, retry used).
 signal run_state_changed
 
@@ -48,6 +52,7 @@ func _init(chassis_type: int = 0, rng_seed: int = 0) -> void:
 	_last_encounter_archetype = -1
 	_farthest_threat_name = ""
 	_best_kill_name = ""
+	encounter_schedule = []
 
 ## S25.5: Set the current encounter context (called before entering ARENA).
 func set_encounter(archetype_id: String, tier: int, arena_seed: int) -> void:

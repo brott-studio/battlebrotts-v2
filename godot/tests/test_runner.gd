@@ -110,6 +110,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_multi_target_ai.gd",
 	# [S25.5] Reward pick screen + run flow — 6 conditions covering pool exclusion, seed determinism, dedup, retry seed.
 	"res://tests/test_reward_pick.gd",
+	# [S25.6] Encounter generator — pre-rolled schedule, weighted draw, no-repeat, guarantee seeds, boss-lock, large_swarm tier HP.
+	"res://tests/test_encounter_generator.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

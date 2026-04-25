@@ -563,9 +563,175 @@ static func _counter_build_specs(variant: String) -> Array[Dictionary]:
 		_:
 			return [{"chassis": 1, "weapons": [0], "armor": 1, "modules": [], "hp_pct": 1.3, "count": 1}]
 
-## Stub — returns the archetype id for a given battle. S25.6 completes.
-static func archetype_for(battle_index: int, last_archetype: String, _run_state) -> String:
-	return "standard_duel"  ## S25.6 implements full rotation + anti-repeat logic
+## ─────────────────────────────────────────────────────────────────────────
+## S25.6: Encounter Generator — pre-rolled schedule, weighted draw,
+##         no-repeat rule, guarantee seeds, boss-lock at slot 15.
+## ─────────────────────────────────────────────────────────────────────────
+
+## S25.6: Maps battle_index (0-indexed) to tier (1-5) for the roguelike run.
+## T1=idx 0-2, T2=idx 3-6, T3=idx 7-10, T4=idx 11-13, Boss=idx 14.
+## NOTE (deviation): named `difficulty_for_battle` instead of `difficulty_for`
+## to avoid colliding with the existing league-era 2-arg
+## `difficulty_for(league: String, index: int)` (still used by opponent_data.gd
+## for save-compat / batch test baseline).
+static func difficulty_for_battle(battle_index: int) -> int:
+	if battle_index >= 14: return 5   # Boss tier
+	if battle_index >= 11: return 4   # T4
+	if battle_index >= 7:  return 3   # T3
+	if battle_index >= 3:  return 2   # T2
+	return 1                           # T1
+
+## S25.6: Large Swarm hp_pct override by tier (difficulty decoupled from shape).
+const LARGE_SWARM_HP_BY_TIER: Dictionary = {1: 0.2, 2: 0.4, 3: 0.7, 4: 0.9}
+
+## S25.6: Returns resolved enemy spawn specs for the given archetype, battle index, and run state.
+## Wraps get_archetype_enemies() with tier-adaptive HP for large_swarm.
+static func compose_encounter(archetype_id: String, battle_index: int, run_state) -> Array[Dictionary]:
+	var tier := difficulty_for_battle(battle_index)
+
+	## Large Swarm: hp_pct overridden by tier (gate 6)
+	if archetype_id == "large_swarm":
+		var hp_pct: float = LARGE_SWARM_HP_BY_TIER.get(min(tier, 4), 0.9)
+		var base_hp: int = _baseline_hp_for_tier(tier)
+		## Build specs directly (don't rely on template's fixed hp_pct)
+		var count := 5 if tier <= 2 else 6
+		var hp: int = max(1, int(base_hp * hp_pct))
+		var result: Array[Dictionary] = []
+		for _i in range(count):
+			result.append({
+				"chassis": 0,
+				"weapons": [4],  ## Plasma Cutter
+				"armor": 0,
+				"modules": [],
+				"hp": hp,
+			})
+		return result
+
+	## All other archetypes use get_archetype_enemies()
+	return get_archetype_enemies(archetype_id, tier, run_state)
+
+## S25.6: Probability weights per tier. Weights are relative (don't need to sum to 100).
+const ARCHETYPE_WEIGHTS_BY_TIER: Dictionary = {
+	1: {"standard_duel": 40, "small_swarm": 30, "large_swarm": 15, "glass_cannon_blitz": 15},
+	2: {"standard_duel": 30, "small_swarm": 30, "large_swarm": 20, "counter_build_elite": 10, "glass_cannon_blitz": 10},
+	3: {"standard_duel": 20, "small_swarm": 20, "large_swarm": 20, "miniboss_escorts": 20, "counter_build_elite": 15, "glass_cannon_blitz": 5},
+	4: {"standard_duel": 15, "small_swarm": 10, "large_swarm": 15, "miniboss_escorts": 25, "counter_build_elite": 25, "glass_cannon_blitz": 10},
+}
+
+## S25.6: Pick a weighted-random archetype from a tier, excluding last_archetype.
+## rng: optional seeded RNG for test determinism; uses global randi() if null.
+static func _weighted_draw(tier: int, last_archetype: String, rng: RandomNumberGenerator) -> String:
+	var weights: Dictionary = ARCHETYPE_WEIGHTS_BY_TIER.get(min(tier, 4), ARCHETYPE_WEIGHTS_BY_TIER[4])
+
+	## Attempt up to 3 draws with no-repeat; fall back to forced pick
+	for attempt in range(4):
+		if attempt == 3:
+			## Forced fallback: pick highest-weight non-repeat
+			var best := ""
+			var best_w := -1
+			for k in weights:
+				if k != last_archetype and weights[k] > best_w:
+					best_w = weights[k]
+					best = k
+			return best if best != "" else weights.keys()[0]
+
+		## Weighted random draw
+		var total := 0
+		for w in weights.values():
+			total += w
+		var roll := (rng.randi() % total) if rng else (randi() % total)
+		var cumulative := 0
+		var drawn := ""
+		for k in weights:
+			cumulative += weights[k]
+			if roll < cumulative:
+				drawn = k
+				break
+
+		if drawn != last_archetype:
+			return drawn
+		## repeat — try again
+
+	return weights.keys()[0]  ## safety fallback
+
+## S25.6: Full encounter generator.
+## Returns the archetype ID for a given battle slot.
+## Run schedule is pre-generated on first call and cached on run_state.encounter_schedule.
+static func archetype_for(battle_index: int, run_state, rng: RandomNumberGenerator = null) -> String:
+	## Boss override FIRST — deterministic regardless of rng state (gate 3)
+	if battle_index >= 14:
+		return "boss"
+
+	## Use cached schedule if available
+	if run_state != null and "encounter_schedule" in run_state and \
+		run_state.encounter_schedule is Array and \
+		run_state.encounter_schedule.size() > battle_index:
+		return run_state.encounter_schedule[battle_index]
+
+	## Generate full 15-slot schedule and cache it
+	var schedule := _generate_run_schedule(run_state, rng if rng != null else RandomNumberGenerator.new())
+	if run_state != null:
+		run_state.encounter_schedule = schedule
+
+	if battle_index < schedule.size():
+		return schedule[battle_index]
+	return "standard_duel"  ## safety fallback
+
+## S25.6: Generate a full 15-slot encounter schedule for a run.
+static func _generate_run_schedule(_run_state, rng: RandomNumberGenerator) -> Array[String]:
+	## Step 1: Generate 15 slots with weighted draw + no-repeat
+	var schedule: Array[String] = []
+	schedule.resize(15)
+	schedule[14] = "boss"  ## Battle 15 always boss
+
+	for idx in range(14):
+		var tier := difficulty_for_battle(idx)
+		var last := schedule[idx - 1] if idx > 0 else ""
+		schedule[idx] = _weighted_draw(tier, last, rng)
+
+	## Step 2: Apply guarantee seeds (slots 5, 9, 12 → indices 4, 8, 11)
+	var guarantee_map: Dictionary = {4: "small_swarm", 8: "counter_build_elite", 11: "miniboss_escorts"}
+	for base_idx in guarantee_map:
+		var target: String = guarantee_map[base_idx]
+		var seeded_idx: int = base_idx
+		## Slide forward if repeat conflict
+		for _slide in range(3):
+			var prev := schedule[seeded_idx - 1] if seeded_idx > 0 else ""
+			var next_arc := schedule[seeded_idx + 1] if seeded_idx < 13 else ""
+			if schedule[seeded_idx] == target:
+				break  ## already this archetype, no conflict possible with itself
+			if prev != target and next_arc != target:
+				schedule[seeded_idx] = target
+				break
+			seeded_idx += 1
+			if seeded_idx >= 14:
+				seeded_idx = base_idx  ## wrap back and give up sliding
+				break
+
+	## Step 3: Post-generation sweep — ensure each guaranteed archetype appears ≥1 time
+	var required := ["small_swarm", "counter_build_elite", "miniboss_escorts"]
+	for req in required:
+		var found := false
+		for s in schedule:
+			if s == req:
+				found = true
+				break
+		if not found:
+			## Find a valid slot to overwrite (latest slot of matching tier, no consecutive repeat)
+			for idx in range(13, -1, -1):
+				var tier := difficulty_for_battle(idx)
+				## Check if this archetype is valid for this tier
+				var tier_weights: Dictionary = ARCHETYPE_WEIGHTS_BY_TIER.get(min(tier, 4), {})
+				if req not in tier_weights:
+					continue
+				## Check no consecutive repeat
+				var prev := schedule[idx - 1] if idx > 0 else ""
+				var nxt := schedule[idx + 1] if idx < 13 else "boss"
+				if prev != req and nxt != req:
+					schedule[idx] = req
+					break
+
+	return schedule
 
 ## Returns resolved enemy spawn specs for the given archetype + tier + player state.
 ## Each returned dict: {chassis, weapons, armor, modules, hp} (hp is absolute, not pct).

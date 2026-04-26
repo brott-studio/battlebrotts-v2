@@ -38,7 +38,7 @@ const LEAGUE_RANK: Dictionary = {
 const TEMPLATES: Array[Dictionary] = [
 	{
 		"id": "tank_ironclad",
-		"name": "Ironclad",
+		"name": "Office Manager Brott",
 		"archetype": Archetype.TANK,
 		"tier": 2,
 		"chassis": ChassisData.ChassisType.FORTRESS,
@@ -51,7 +51,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "glass_sniper",
-		"name": "Pinprick",
+		"name": "Brott from IT",
 		"archetype": Archetype.GLASS_CANNON,
 		"tier": 2,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -64,7 +64,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "skirmish_wasp",
-		"name": "Wasp",
+		"name": "Junior Associate Brott",
 		"archetype": Archetype.SKIRMISHER,
 		"tier": 1,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -77,7 +77,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "bruiser_crusher",
-		"name": "Crusher-II",
+		"name": "District Sales Manager Brott",
 		"archetype": Archetype.BRUISER,
 		"tier": 2,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -90,7 +90,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "controller_jammer",
-		"name": "Jammer",
+		"name": "VP of IT Security Brott",
 		"archetype": Archetype.CONTROLLER,
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -103,7 +103,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "tank_tincan",
-		"name": "Tincan",
+		"name": "Intern Brott",
 		"archetype": Archetype.TANK,
 		"tier": 1,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -117,7 +117,7 @@ const TEMPLATES: Array[Dictionary] = [
 	# ── S21.1 Bronze content drop (Gizmo spec §4) ───────────────────────────────
 	{
 		"id": "tank_rustwall",
-		"name": "Rustwall",
+		"name": "Senior Account Manager Brott",
 		"archetype": Archetype.TANK,
 		"tier": 2,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -139,7 +139,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "glass_zap",
-		"name": "Zap",
+		"name": "Brott from Accounting",
 		"archetype": Archetype.GLASS_CANNON,
 		"tier": 2,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -161,7 +161,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "skirmish_scrapper",
-		"name": "Scrapper",
+		"name": "Temp Brott",
 		"archetype": Archetype.SKIRMISHER,
 		"tier": 2,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -183,7 +183,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "bruiser_clanker",
-		"name": "Clanker",
+		"name": "Brott from Compliance",
 		"archetype": Archetype.BRUISER,
 		"tier": 2,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -205,7 +205,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "control_static",
-		"name": "Static",
+		"name": "Director of Operations Brott",
 		"archetype": Archetype.CONTROLLER,
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -227,7 +227,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "control_prowler",
-		"name": "Prowler",
+		"name": "Head of Internal Affairs Brott",
 		"archetype": Archetype.CONTROLLER,
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -255,7 +255,7 @@ const TEMPLATES: Array[Dictionary] = [
 	# behavior_cards: data-only; engine ignores until #243 wiring (S21.1 §7 pattern).
 	{
 		"id": "tank_bulwark",
-		"name": "Bulwark",
+		"name": "VP of Infrastructure Brott",
 		"archetype": Archetype.TANK,
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -282,7 +282,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "glass_trueshot",
-		"name": "Trueshot",
+		"name": "Senior Analyst Brott",
 		"archetype": Archetype.GLASS_CANNON,
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -310,7 +310,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "skirmish_harrier",
-		"name": "Harrier",
+		"name": "VP of Aggressive Sales Brott",
 		"archetype": Archetype.SKIRMISHER,
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.SCOUT,
@@ -337,7 +337,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "bruiser_enforcer",
-		"name": "Enforcer",
+		"name": "Director of HR Brott",
 		"archetype": Archetype.BRUISER,
 		"tier": 3,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -364,7 +364,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "control_disruptor",
-		"name": "Disruptor",
+		"name": "COO Brott",
 		"archetype": Archetype.CONTROLLER,
 		"tier": 4,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -397,7 +397,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "tank_aegis",
-		"name": "Aegis",
+		"name": "CFO Brott",
 		"archetype": Archetype.TANK,
 		"tier": 4,
 		"chassis": ChassisData.ChassisType.BRAWLER,
@@ -429,7 +429,7 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "glass_chrono",
-		"name": "Chrono",
+		"name": "Chief Strategy Brott",
 		"archetype": Archetype.GLASS_CANNON,
 		"tier": 4,
 		"chassis": ChassisData.ChassisType.SCOUT,

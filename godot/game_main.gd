@@ -146,6 +146,12 @@ func _ready() -> void:
 			print("[S26.3] run_battle URL hook — chassis=%d" % chassis_idx)
 			_on_chassis_picked(chassis_idx)
 			return
+		## [S(I).6] Test hook: land directly on RunStartScreen via ?screen=run_start.
+		## bb_test.click_chassis(N) then drives the chassis-pick → arena flow.
+		if screen_param == "run_start":
+			print("[S(I).6] run_start URL hook")
+			_show_run_start()
+			return
 	# Default: show main menu (also handles ?screen=menu and ?screen=dashboard)
 	_show_main_menu()
 

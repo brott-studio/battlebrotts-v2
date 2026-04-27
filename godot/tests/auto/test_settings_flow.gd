@@ -30,8 +30,8 @@ func _drive_flow_step() -> void:
 			if screen != 0:
 				_failures.append("Expected MAIN_MENU(0) after boot, got %d" % screen)
 			assert_state("run.active", false)
-			# Find the MainMenuScreen and its SettingsButton
-			var menu_screen := _find_child_of_type(game_main, "MainMenuScreen")
+			# Find the MainMenuScreen via current_ui (avoids get_class vs GDScript class_name mismatch)
+			var menu_screen: Node = game_main.get("current_ui")
 			if menu_screen == null:
 				_failures.append("MainMenuScreen not found after boot")
 				_flow_done = true
@@ -49,7 +49,7 @@ func _drive_flow_step() -> void:
 
 		1:
 			# Assert MixerSettingsPanel is now visible
-			var menu_screen := _find_child_of_type(game_main, "MainMenuScreen")
+			var menu_screen: Node = game_main.get("current_ui")
 			if menu_screen == null:
 				_failures.append("MainMenuScreen lost after settings open")
 				_flow_done = true
@@ -77,7 +77,7 @@ func _drive_flow_step() -> void:
 
 		2:
 			# Assert panel is gone (queue_free'd)
-			var menu_screen := _find_child_of_type(game_main, "MainMenuScreen")
+			var menu_screen: Node = game_main.get("current_ui")
 			if menu_screen == null:
 				_failures.append("MainMenuScreen lost after settings close")
 				_flow_done = true

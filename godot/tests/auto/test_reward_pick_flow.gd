@@ -56,7 +56,7 @@ func _drive_flow_step() -> void:
 			assert_state("arena.in_arena", true)
 			assert_cmp("arena.tick_count", "gte", 1)
 			force_battle_end(0)
-			_ticks_remaining = 90
+			_ticks_remaining = 180
 			_step += 1
 
 		3:

@@ -322,12 +322,18 @@ func _find_run_start_screen() -> Node:
 		return current_ui
 	return null
 
-## Find first child (recursive) that has the given class name string.
+## Find first child (recursive) matching the given class name string.
+## Checks both engine class (get_class) and GDScript class_name (get_script().get_global_name()).
 func _find_child_of_type(node: Node, class_name_str: String) -> Node:
 	if node == null:
 		return null
 	for child in node.get_children():
+		# Check engine base class name
 		if child.get_class() == class_name_str:
+			return child
+		# Check GDScript declared class_name (Godot 4)
+		var s = child.get_script()
+		if s != null and s.get_global_name() == class_name_str:
 			return child
 		var found := _find_child_of_type(child, class_name_str)
 		if found != null:

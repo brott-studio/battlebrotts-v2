@@ -1,0 +1,52 @@
+name: Combat Sim
+
+on:
+  workflow_dispatch:
+    inputs:
+      n_runs:
+        description: 'Number of parallel sim runs'
+        required: false
+        default: '10'
+      seed_base:
+        description: 'Base seed (leave blank for auto)'
+        required: false
+        default: ''
+  schedule:
+    # Nightly at 3 AM UTC
+    - cron: '0 3 * * *'
+
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.4
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip" -O godot.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+          sudo mv Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+
+      - name: Import Godot project
+        run: godot --headless --path godot/ --import 2>&1 | tail -5 || true
+
+      - name: Run combat sims
+        run: |
+          N="${{ github.event.inputs.n_runs || '10' }}"
+          SEED="${{ github.event.inputs.seed_base }}"
+          chmod +x godot/tests/auto/sim_runner.sh
+          if [[ -n "${SEED}" ]]; then
+            bash godot/tests/auto/sim_runner.sh "${N}" "${SEED}"
+          else
+            bash godot/tests/auto/sim_runner.sh "${N}"
+          fi
+
+      - name: Upload sim results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-results-${{ github.run_id }}
+          path: /tmp/sim_results_*/
+          retention-days: 30

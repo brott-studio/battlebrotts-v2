@@ -131,6 +131,21 @@ func _ready() -> void:
 		if screen_param == "battle":
 			_start_demo_match()
 			return
+		## [S26.3] Test hook: drive the roguelike chassis-pick → battle path
+		## directly via URL param so headless CI smoke tests exercise the same
+		## code path that produced the blank-screen P0. ?screen=run_battle&chassis=N
+		## bypasses the menu but still invokes _on_chassis_picked (the buggy
+		## path pre-S26.1). Defaults to chassis=0 (BRAWLER) when omitted.
+		if screen_param == "run_battle":
+			var chassis_param = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('chassis')")
+			var chassis_idx := 0
+			if chassis_param != null and str(chassis_param) != "":
+				chassis_idx = int(str(chassis_param))
+				if chassis_idx < 0 or chassis_idx > 2:
+					chassis_idx = 0
+			print("[S26.3] run_battle URL hook — chassis=%d" % chassis_idx)
+			_on_chassis_picked(chassis_idx)
+			return
 	# Default: show main menu (also handles ?screen=menu and ?screen=dashboard)
 	_show_main_menu()
 

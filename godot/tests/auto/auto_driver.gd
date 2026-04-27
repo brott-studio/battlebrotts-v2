@@ -5,8 +5,9 @@
 ##   godot --headless --path godot/ --script "res://tests/auto/test_*.gd"
 ##
 ## Extends SceneTree so it can be launched as a custom main loop via
-## --script. Tests subclass AutoDriver, override _run(), and call
-## finish() at the end.
+## --script. Tests subclass AutoDriver, override _initialize() to set up
+## initial state and _ticks_remaining, and override _drive_flow_step() to
+## run each step of the test flow.
 ##
 ## Node path assumptions (resolved from game_main.gd + run_state.gd source):
 ##   game_main:        root child named "GameMain" (game_main.tscn)
@@ -24,23 +25,41 @@ const ACTION_TIMEOUT_TICKS := 600
 var game_main: Node = null
 var _failures: Array[String] = []
 
+# Engine-driven flow state
+var _ticks_remaining: int = 0
+var _flow_done: bool = false
+
 # ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 func _initialize() -> void:
-	# Entry point for SceneTree custom main loops.
-	boot()
-	_run()
+	# Subclass overrides this to set up initial state and _ticks_remaining.
+	# Base class just quits cleanly.
+	_flow_done = true
 
-func _run() -> void:
-	# Override in subclass.
+func _process(delta: float) -> bool:
+	if _flow_done:
+		return true  # quit
+	if _ticks_remaining > 0:
+		_ticks_remaining -= 1
+		return false  # still waiting
+	# Run the next step of the test flow.
+	_drive_flow_step()
+	return false  # continue
+
+func _drive_flow_step() -> void:
+	# Override in subclass to drive flow step by step.
+	_flow_done = true
 	finish()
+
+## Store n ticks to wait before the next _drive_flow_step() call.
+func tick(n: int) -> void:
+	_ticks_remaining = n
 
 func boot() -> void:
 	var packed: PackedScene = load("res://game_main.tscn")
 	game_main = packed.instantiate()
 	root.add_child(game_main)
 	_setup_test_environment()
-	tick(DEFAULT_BOOT_TICKS)
 
 func _setup_test_environment() -> void:
 	# Pre-mark all first-encounter overlay keys as seen so overlays never
@@ -68,13 +87,6 @@ func finish(exit_code: int = 0) -> void:
 		quit(1)
 	else:
 		quit(exit_code)
-
-# ─── Verb: tick ──────────────────────────────────────────────────────────────
-
-## Advance the SceneTree n frames at 1/60 s each.
-func tick(n: int) -> void:
-	for _i in range(n):
-		process(TICK_SECONDS)
 
 # ─── Verb: click_chassis ─────────────────────────────────────────────────────
 

@@ -48,6 +48,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 const { test, expect } = require('@playwright/test');
+const { assertCanvasNotMonochrome, startConsoleCapture } = require('./visual-helpers.js');
 
 const BASE_URL = process.env.GAME_URL || '/game/';
 
@@ -70,6 +71,7 @@ const HOOK_BOOT_TIMEOUT_MS = 15000;
 
 // Console-error filter: ignore environmental noise that's expected in
 // headless Chromium and unrelated to gameplay correctness.
+// isRealError MUST stay in sync with the duplicate in visual-helpers.js.
 function isRealError(text) {
   if (!text) return false;
   const benign = [
@@ -126,6 +128,7 @@ for (const chassis of CHASSIS) {
       path: `tests/screenshots/gameplay-smoke-${chassis.name}.png`,
       fullPage: false,
     });
+    await assertCanvasNotMonochrome(page);
 
     if (hookFiredAt === null) {
       // === PARTIAL_COVERAGE branch ===========================================

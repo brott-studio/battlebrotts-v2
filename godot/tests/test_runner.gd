@@ -129,6 +129,9 @@ const SPRINT_TEST_FILES := [
 	# [Arc I / SI1-001] First user-flow test (chassis pick → arena entry → first tick).
 	# End-to-end boot → menu → new game → chassis pick 0 → arena loaded → sim ticking.
 	"res://tests/auto/test_first_flow_chassis_pick.gd",
+	"res://tests/auto/test_reward_pick_flow.gd",
+	"res://tests/auto/test_run_end_flow.gd",
+	"res://tests/auto/test_settings_flow.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

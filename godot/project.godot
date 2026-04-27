@@ -16,6 +16,7 @@ config/features=PackedStringArray("4.4")
 ; [S17.1-004] First-run flag persistence (user://first_run.cfg).
 ; Shared API — S17.1-006 will also consume (key `crate_first_run`).
 FirstRunState="*res://ui/first_run_state.gd"
+DebugTestBridge="*res://debug/debug_test_bridge.gd"
 
 [display]
 

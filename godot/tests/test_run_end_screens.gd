@@ -94,8 +94,13 @@ func _init() -> void:
 		fail_count += 1
 	else:
 		pass_count += 1
-	if rs3_new.equipped_weapons.size() != 0:
-		push_error("T3c FAIL: new RunState should have empty weapons")
+	if rs3_new.equipped_weapons.size() != 1:
+		push_error("T3c FAIL: new RunState should have exactly 1 weapon (S26.1 starter)")
+		fail_count += 1
+	else:
+		pass_count += 1
+	if not (4 in rs3_new.equipped_weapons):
+		push_error("T3c2 FAIL: new RunState starter weapon should be Plasma Cutter (4) per S26.1")
 		fail_count += 1
 	else:
 		pass_count += 1

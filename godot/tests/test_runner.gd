@@ -103,6 +103,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s24_5_001_menu_loop_seam.gd",
 	"res://tests/test_s24_5_002_menu_music_routing.gd",
 	"res://tests/test_run_state_init.gd",
+	# [S26.1-003] Battle-start fix — starter weapon (Plasma Cutter) on every new run.
+	"res://tests/test_s26_1_starter_weapon.gd",
 	"res://tests/test_arena_renderer_multi.gd",
 	# [S25.3] Hardcoded baseline AI — 9 conditions covering rule chain, hysteresis, module priority.
 	"res://tests/test_baseline_ai.gd",

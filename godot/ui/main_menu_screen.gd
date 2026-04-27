@@ -112,23 +112,50 @@ func _on_new_game() -> void:
 	new_game_pressed.emit()
 
 # [S24.2] Open the mixer settings panel as a modal overlay on the main menu.
+# [S26.2-001] Fix off-screen popup: previous code did
+#   set_anchors_preset(PRESET_CENTER); position = Vector2(390, 200)
+# With PRESET_CENTER, all 4 anchors land at the viewport center, and
+# `position` then becomes an *offset from that center*, not an absolute
+# top-left. At 1280×720 the panel ended up with its top-left at
+# (640+390, 360+200) = (1030, 560) — entirely off-screen right/bottom.
+# Fix: drop the centered anchors and place the panel using absolute
+# viewport-centered math so it lives inside the visible rect at any
+# resolution we ship (1280×720 and 1920×1080).
 func _on_settings() -> void:
 	# Guard: only one panel at a time.
 	if get_node_or_null("MixerSettingsPanel") != null:
 		return
+	var panel_size := Vector2(500, 400)
 	var panel_scene: PackedScene = load("res://ui/mixer_settings_panel.tscn")
 	if panel_scene == null:
 		# Fallback: instantiate from script if scene not loadable in headless/test.
 		var panel := MixerSettingsPanel.new()
 		panel.name = "MixerSettingsPanel"
-		panel.set_anchors_preset(Control.PRESET_CENTER)
-		panel.position = Vector2(390, 200)
-		panel.size = Vector2(500, 400)
+		panel.size = panel_size
+		## S26.2: centered via absolute viewport calc — PRESET_CENTER+offset was off-screen.
+		_center_panel_in_viewport(panel, panel_size)
 		add_child(panel)
 		return
 	var panel := panel_scene.instantiate() as Control
 	panel.name = "MixerSettingsPanel"
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = Vector2(390, 200)
-	panel.size = Vector2(500, 400)
+	panel.size = panel_size
+	## S26.2: centered via absolute viewport calc — PRESET_CENTER+offset was off-screen.
+	_center_panel_in_viewport(panel, panel_size)
 	add_child(panel)
+
+## [S26.2-001] Center a Control inside the visible viewport rect.
+## Falls back to a hardcoded 1280×720-centered position if the viewport
+## isn't queryable yet (e.g., during early instantiation in headless tests).
+func _center_panel_in_viewport(panel: Control, panel_size: Vector2) -> void:
+	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	var vp := get_viewport()
+	var vp_size := Vector2(1280, 720)
+	if vp != null:
+		var rect := vp.get_visible_rect()
+		if rect.size.x > 0 and rect.size.y > 0:
+			vp_size = rect.size
+	panel.position = Vector2(
+		(vp_size.x - panel_size.x) / 2.0,
+		(vp_size.y - panel_size.y) / 2.0,
+	)
+

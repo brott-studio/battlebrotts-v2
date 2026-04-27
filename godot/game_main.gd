@@ -210,6 +210,25 @@ func _show_main_menu() -> void:
 		menu.setup_menu(true, battle_num)
 		menu.continue_run_pressed.connect(_on_continue_run)
 
+## [S26.1-003] Visible error screen for catastrophic run-start failures.
+## Replaces the old silent-fail-as-blank-screen path. Always paired with
+## a push_error() so CI / browser console captures the underlying cause.
+func _show_run_error(msg: String) -> void:
+	_clear_screen()
+	var lbl := Label.new()
+	lbl.text = msg
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 22)
+	lbl.position = Vector2(290, 300)
+	lbl.size = Vector2(700, 60)
+	add_child(lbl)
+	var btn := Button.new()
+	btn.text = "← Back to Menu"
+	btn.position = Vector2(515, 380)
+	btn.size = Vector2(250, 50)
+	btn.pressed.connect(_show_main_menu)
+	add_child(btn)
+
 func _on_continue_run() -> void:
 	## S25.7: Resume run from last_screen
 	var ls: int = game_flow.run_state.last_screen if game_flow.run_state != null else -1
@@ -257,9 +276,18 @@ func _on_chassis_picked(chassis_type: int) -> void:
 	_start_roguelike_match()
 
 func _start_roguelike_match() -> void:
+	## [S26.1-003] Hard error surface: never enter the arena with a null
+	## run_state. Pre-S26.1 a silent-fail here rendered as a blank screen
+	## (battle started, sim couldn't build a player, view stayed empty).
+	_clear_screen()
+	if game_flow.run_state == null:
+		push_error("[S26.1] _start_roguelike_match called with null run_state — showing error screen")
+		_show_run_error("Run failed to start. Please try again.")
+		return
+
 	## S25.6: Ensure encounter is set (may already be set on retry path).
 	## If unset, derive via the encounter generator + tier mapping.
-	if game_flow.run_state != null and game_flow.run_state.current_encounter["archetype_id"] == "":
+	if game_flow.run_state.current_encounter["archetype_id"] == "":
 		var idx := game_flow.run_state.current_battle_index
 		var archetype_id := OpponentLoadouts.archetype_for(idx, game_flow.run_state)
 		var tier := OpponentLoadouts.difficulty_for_battle(idx)
@@ -267,7 +295,6 @@ func _start_roguelike_match() -> void:
 		game_flow.run_state.set_encounter(archetype_id, tier, arena_seed)
 	## S25.1: Stub arena — builds player BrottState inline from RunState.
 	## Enemy uses OpponentData bronze/0 as stub; S25.4/S25.6 replaces.
-	_clear_screen()
 
 	# Build player BrottState inline from RunState (do NOT use game_state.build_brott())
 	player_brott = game_flow.run_state.build_player_brott()

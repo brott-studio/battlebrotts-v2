@@ -15,6 +15,8 @@ Build autonomous combat Brotts by choosing a chassis, bolting on weapons and arm
 
 ## 2. Core Loop
 
+> ⚠️ **DEPRECATED (Arc G):** This section describes the league-era game flow, superseded by §13 Roguelike Run Loop. The league screens are scheduled for removal in Arc G.
+
 1. **Build** — Select chassis, equip weapons/armor/modules within weight budget
 2. **Teach** — Arrange Behavior Cards in the BrottBrain that govern autonomous behavior
 3. **Fight** — Deploy Brott into arena, watch the match play out (no direct control)
@@ -87,6 +89,8 @@ Only one armor type can be equipped at a time. Armor occupies no slot — it's a
 ---
 
 ## 4. BrottBrain System (THE TWIST)
+
+> ⚠️ **DEPRECATED (Arc G):** The §4.1 Progressive Disclosure schedule (Scrapyard → Bronze → Silver+) describes the league-era unlock flow, superseded by §13 Roguelike Run Loop. The BrottBrain editor surface itself is retained; the league-gated unlock progression is scheduled for removal in Arc G.
 
 The BrottBrain is your Brott's autonomous decision-making system, built with **drag-and-drop Behavior Cards**. Every chassis comes pre-loaded with a smart default BrottBrain so new players can jump straight into combat.
 
@@ -312,6 +316,8 @@ During TENSION: if farther than ideal + tolerance, approaches; if closer than id
 
 ## 6. Progression
 
+> ⚠️ **DEPRECATED (Arc G):** This section describes the league-era progression (Scrapyard / Bronze / Silver / Gold), superseded by §13 Roguelike Run Loop. The league progression screens are scheduled for removal in Arc G. The §6.3 archetype taxonomy and §6.4 scaling notes still inform the roguelike encounter generator (see §13.4).
+
 ### 6.1 League Structure
 
 | League | Opponents | Unlock Requirement | New Content Unlocked |
@@ -445,6 +451,8 @@ Implemented via `ArmorData.REFLECT_DAMAGE_BY_LEAGUE` dictionary + `reflect_damag
 ---
 
 ## 7. Economy
+
+> ⚠️ **DEPRECATED (Arc G):** This section describes the league-era economy (Bolts shop, repair costs, item prices), superseded by §13 Roguelike Run Loop where weapons/armor/modules are earned via post-battle reward picks rather than purchased. The shop and repair UI are scheduled for removal in Arc G.
 
 ### 7.1 Currency
 
@@ -728,6 +736,179 @@ The core feelings we're targeting:
 5. **"Wait, I can do THAT?"** — Discovering unexpected synergies between items and Behavior Cards. The Roach build (ambush + heal + flee) should feel like a discovery, not an obvious path.
 
 6. **"Anyone can play."** — You don't need to know how to code. Drag a card, drop a card, watch your Brott fight. The depth is there for those who want it, but the barrier to entry is zero.
+
+---
+
+## 13. Roguelike Run Loop
+
+*Source-of-truth section as of Arc F (S25.1–S25.10). This section supersedes the league-era flow described in §§2–7. League screens (Scrapyard / Bronze / Silver / Gold, shop, repair) are dormant in code and scheduled for removal in Arc G.*
+
+### 13.1 Overview
+
+BattleBrotts plays as a **15-battle roguelike run** rather than a persistent league career. Each run is self-contained:
+
+- **Chassis pick starts a run.** The player chooses one of the three chassis (Scout / Brawler / Fortress) at run start. That chassis is locked for the duration of the run.
+- **Weapons / armor / modules are earned through play.** The player does **not** shop for items. Each won battle offers a **reward pick** that adds an item to the loadout.
+- **Death ends the run.** Three retries per run; once spent, an unrecovered loss takes the player to the BROTT DOWN screen and the run is over.
+- **Victory = beat all 15 battles.** Battle 15 is the boss (CEO Brott). Defeating the boss takes the player to the RUN COMPLETE screen.
+
+The roguelike loop replaces the league-era "build → teach → fight → analyze → iterate" loop documented in §2. BrottBrain teaching still happens — the BrottBrain editor surface is retained — but progression through tiers is now run-scoped, not account-scoped.
+
+### 13.2 RunState
+
+A run is fully described by the `RunState` object (`godot/game/run_state.gd`), which is the **sole source of truth** for run-scoped data. Active fields:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `equipped_chassis` | `int` (ChassisType) | Locked at run start by chassis pick. |
+| `equipped_weapons` | `Array[int]` | Weapons in the loadout. **Pre-seeded with Plasma Cutter** (`WeaponType.PLASMA_CUTTER == 4`) at run start so battle 1 is winnable (S26.1). Reward picks append to this list. |
+| `equipped_armor` | `int` (ArmorType) | `ArmorType.NONE` at run start; set by reward picks. |
+| `equipped_modules` | `Array[int]` | Empty at run start; reward picks append. |
+| `current_battle_index` | `int` (0–14) | 0-indexed battle pointer. Battle 1 = index 0; boss = index 14. |
+| `retry_count` | `int` (starts at 3) | Decrements when the player uses a retry on a lost battle. |
+| `battles_won` | `int` | Incremented by `advance_battle_index()`. |
+| `run_ended` | `bool` | Set when the run terminates (loss with no retries, or boss victory). |
+| `encounter_schedule` | `Array[String]` (15 entries) | Pre-generated archetype IDs for the run, populated lazily on first call to `OpponentLoadouts.archetype_for()`. Stable across retries within a run. |
+| `current_encounter` | `Dictionary` | `{archetype_id, tier, arena_seed}` for the active battle; consulted on retry to keep the same fight. |
+| `seed` | `int` | RNG seed for deterministic encounter generation (0 = time-based). |
+
+`GameState` (the league-era container) is kept as a dormant property on `GameFlow` for compatibility with `tools/test_harness.gd`. Active code paths in Arc F do **not** read from `GameState`. Arc G removes it.
+
+### 13.3 15-Battle Structure
+
+A run is exactly 15 battles. Battles map to **tiers** by index, and each tier has a **baseline HP** that scales archetype enemies:
+
+| Tier | Battle index range | Battle # | Baseline enemy HP |
+|---|---|---|---|
+| **T1** | 0–2 | 1–3 | 80 |
+| **T2** | 3–6 | 4–7 | 120 |
+| **T3** | 7–10 | 8–11 | 160 |
+| **T4** | 11–13 | 12–14 | 200 |
+| **T5** | 14 | 15 (Boss) | 240 |
+
+*(Source: `OpponentLoadouts.difficulty_for_battle()` and `_baseline_hp_for_tier()`, S25.6.)*
+
+Archetype `hp_pct` values (§13.4) multiply against the tier baseline at generation time, so the same archetype shape (e.g. Small Swarm) gets harder as the run progresses.
+
+### 13.4 Encounter Archetypes
+
+Encounters are drawn from a fixed catalog of archetypes (`ARCHETYPE_TEMPLATES` in `godot/data/opponent_loadouts.gd`). Six are usable in normal battles; the seventh (`boss`) is reserved for battle 15.
+
+| Archetype ID | Display Name | Enemy Composition (per generation) |
+|---|---|---|
+| `standard_duel` | Standard Duel | 1 enemy: Scout chassis, Plasma Cutter, Plating, hp_pct 1.0 |
+| `small_swarm` | Small Swarm | 3 enemies: Scout chassis, Plasma Cutter, no armor, hp_pct 0.6 |
+| `large_swarm` | Large Swarm | 5–6 enemies, hp_pct overridden by tier (see below) |
+| `miniboss_escorts` | Mini-boss + Escorts | 1 Fortress (Minigun + Shotgun, Ablative Shell, Shield Projector, hp_pct 1.5) + 2 Scout escorts (hp_pct 0.7) |
+| `counter_build_elite` | Counter-Build Elite | Variant chosen dynamically by reading the player's loadout (anti-module / anti-range / anti-melee). |
+| `glass_cannon_blitz` | Glass-Cannon Blitz | 2 enemies: Scout chassis, Railgun + Minigun, no armor, hp_pct 0.5 |
+| `boss` | CEO Brott | Battle 15 only (see §13.8). |
+
+**Large Swarm tier override** (`LARGE_SWARM_HP_BY_TIER`, S25.6): hp_pct is decoupled from the template and set by tier — 0.2 (T1), 0.4 (T2), 0.7 (T3), 0.9 (T4) — with enemy count rising from 5 (T1–2) to 6 (T3–4).
+
+#### Archetype mix weights (per tier)
+
+Weights are relative (don't need to sum to 100). Picker excludes the immediately previous archetype to avoid back-to-back repeats.
+
+| Archetype | T1 | T2 | T3 | T4 |
+|---|---|---|---|---|
+| `standard_duel` | 40 | 30 | 20 | 15 |
+| `small_swarm` | 30 | 30 | 20 | 10 |
+| `large_swarm` | 15 | 20 | 20 | 15 |
+| `glass_cannon_blitz` | 15 | 10 | 5 | 10 |
+| `counter_build_elite` | — | 10 | 15 | 25 |
+| `miniboss_escorts` | — | — | 20 | 25 |
+
+*(Source: `ARCHETYPE_WEIGHTS_BY_TIER`, S25.6.)*
+
+#### Run guarantees
+
+Every run schedule is post-processed to guarantee at least one occurrence of each of these archetypes:
+
+- `small_swarm` (default seed slot: battle index 4)
+- `counter_build_elite` (default seed slot: battle index 8)
+- `miniboss_escorts` (default seed slot: battle index 11)
+
+If any required archetype is missing after the weighted draw, the schedule generator overwrites a tier-compatible later slot with the missing archetype to enforce the guarantee. *(Source: `_apply_run_guarantees()`, S25.6.)*
+
+### 13.5 Run Flow
+
+```
+MAIN_MENU
+  → RUN_START      (player picks chassis)
+  → ARENA          (battle N; encounter pre-resolved into RunState.current_encounter)
+  → RESULT
+      │
+      ├─ win  → REWARD_PICK → advance_battle_index() → next ARENA
+      │           (battle 15 win bypasses reward pick → RUN_COMPLETE)
+      │
+      └─ lose → RETRY_PROMPT
+                  ├─ use retry  → same ARENA (current_encounter preserved, retry_count -= 1)
+                  └─ accept loss→ BROTT_DOWN  (run_state retained for stats; end_run() called from "New Run" button)
+```
+
+Key invariants (`GameFlow`, S25.1–S25.7):
+- A run is "active" iff `run_state != null` AND `current_battle_index < 15` AND `not run_ended` (`has_active_run()`).
+- Retries replay **the same encounter** (archetype + arena seed are stored on `RunState.current_encounter`, not regenerated).
+- `end_run()` clears `run_state`, sets `run_ended = true`, and routes to `MAIN_MENU`.
+
+### 13.6 Reward Pick
+
+After every won battle (battles 1–14), the player is shown the **REWARD_PICK** screen. The screen offers a small set of items drawn from a tier-appropriate pool; the player picks one, which is added to `RunState` via `add_item(category, type)`. `add_item()` is idempotent — already-equipped items return `false` and are no-ops.
+
+Reward categories (matching `RunState.add_item` switch):
+- `"weapon"` → appends to `equipped_weapons`
+- `"armor"` → sets `equipped_armor` (single-slot, latest wins)
+- `"module"` → appends to `equipped_modules`
+
+The reward pick is the player's only loadout-growth surface during a run — there is no shop, no inventory, and no swap-out. Picks are permanent for the run.
+
+*First-encounter coaching:* on the player's first reward pick across all runs, the FE intro `"first_reward_pick"` fires ("🎁 You won! Pick one reward to add to your build. It stays with you for the whole run.").
+
+### 13.7 Click Overrides (Player Controls)
+
+During a battle, the BrottBrain drives the player's bot autonomously — BattleBrotts is not a real-time action game. However, the player has **two click overrides** (S25.2) that layer on top of the AI:
+
+- **Click-to-move (waypoint)** — Click on the arena floor to set a yellow **waypoint diamond**. The player's bot moves toward the waypoint until it arrives (then the waypoint fades over 0.4s), or until the player issues a new command. Setting a waypoint clears any active reticle.
+- **Click-to-target (reticle)** — Click on an enemy to set an orange **reticle ring** on that target. The player's bot prioritizes that enemy until it dies, the reticle is cleared, or the player issues a new command. Setting a reticle clears any active waypoint.
+
+Both overrides are **player-only** — enemy bots are not affected. Latest-wins semantics: only one of {waypoint, reticle} is active at a time. The reticle auto-clears when its target dies.
+
+### 13.8 CEO Brott (Battle 15)
+
+The boss encounter is fixed (`ARCHETYPE_TEMPLATES` `boss` entry) and runs at T5 baseline HP (240 × hp_pct 2.0 = 480 base HP):
+
+- **Chassis:** Fortress
+- **Weapons:** Railgun + Minigun *(`weapons: [1, 0]`)*
+- **Armor:** Ablative Shell *(`armor: 3`)*
+- **Modules:** Shield Projector + Sensor Array + EMP Charge *(`modules: [2, 3, 5]`)*
+
+#### Boss AI (`BrottBrain.boss_ai()`, S25.9)
+
+The boss runs a custom evaluator (`_evaluate_boss()`) instead of the baseline brain. Key rules:
+
+1. **Executioner mode (movement-only).** When the player's HP drops below 30%, the boss locks Aggressive stance, disables kiting, and sets `movement_override = "chase"` to close distance. The boss never flees — Afterburner is explicitly excluded from all HP bands.
+2. **EMP targets the player's active modules.** At any HP band, if the player currently has a module active (any non-zero `module_active_timers`), the boss will fire **EMP Charge** when ready. Above 60% HP, EMP is the top module priority; below 60%, Shield Projector takes priority and EMP is secondary.
+3. **Shield Projector at low HP.** At HP ≤ 60% (and especially ≤ 40%) the boss prioritizes its own **Shield Projector** to extend the fight. Sensor Array has no explicit gating in the boss rule chain — it's part of the loadout but not actively prioritized.
+4. **Default movement.** Above 30% player HP, the boss runs Aggressive stance with no kite, no movement override.
+
+*(The 40% / 60% thresholds correspond to the boss's own HP percentage, not the player's. Source: `_evaluate_boss()` in `godot/brain/brottbrain.gd`.)*
+
+### 13.9 Run-End Screens
+
+- **BROTT DOWN** — shown when the player accepts a loss with `retry_count == 0`. Displays farthest threat seen this run (`_farthest_threat_name`) and offers "New Run" (which calls `end_run()` and returns to `MAIN_MENU`). `RunState` is retained on entry to BROTT DOWN so the screen can read run stats; it is cleared on "New Run".
+- **RUN COMPLETE** — shown when the boss is defeated at battle 15. Displays best kill name this run (`_best_kill_name`) and offers "New Run".
+
+### 13.10 Relationship to Deprecated Sections
+
+§§2 (Core Loop), §4.1 (BrottBrain Progressive Disclosure schedule), §6 (League Progression), and §7 (Economy / shop / repair) describe the **league-era game flow** (Scrapyard → Bronze → Silver → Gold). That flow is **superseded by this section**. The corresponding screens (`SHOP`, `LOADOUT`, `BROTTBRAIN_EDITOR` as a separate gated screen, `OPPONENT_SELECT`) remain as **dormant enum values** in `GameFlow.Screen` but no active code path routes to them in Arc F. Arc G removes them.
+
+What survives from §§2–7 into the roguelike era:
+- **§3 Brott Customization** — chassis / weapons / armor / modules / slot system are unchanged.
+- **§4.2–4.4 BrottBrain Behavior Cards / Stances / Examples** — the BrottBrain editor surface and card library are unchanged; only the league-gated unlock schedule is deprecated.
+- **§5 Combat System** — tick system, damage formula, movement & targeting, line of sight are all unchanged. Click overrides (§13.7) are an additive layer on top of §5.3 movement.
+- **§6.3 Opponent Archetype Taxonomy (S13.9)** — the archetype concept survives and is the foundation for §13.4. Specific tier weights are now defined in `ARCHETYPE_WEIGHTS_BY_TIER` (S25.6) rather than the league-era opponent select.
+- **§8 Arena Design**, **§9 Match Format**, **§10 Art Direction**, **§11 Key Metrics**, **§12 Player Fantasy** — unchanged.
 
 ---
 

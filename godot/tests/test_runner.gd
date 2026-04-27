@@ -122,6 +122,13 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_run_end_screens.gd",
 	# [S25.9] Arc F full-loop integration validation — 10 runs × 3 gates (boss reached, variety rule, guarantee seeds).
 	"res://tests/test_arc_f_integration.gd",
+	# [Arc I / SI1-001] AutoDriver base class. Extends SceneTree; when run
+	# as --script, _initialize() boots game_main, _run() immediately calls
+	# finish(), exits 0. Validates that the base class parses and boots cleanly.
+	"res://tests/auto/auto_driver.gd",
+	# [Arc I / SI1-001] First user-flow test (chassis pick → arena entry → first tick).
+	# End-to-end boot → menu → new game → chassis pick 0 → arena loaded → sim ticking.
+	"res://tests/auto/test_first_flow_chassis_pick.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

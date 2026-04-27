@@ -74,7 +74,7 @@ func finish(exit_code: int = 0) -> void:
 ## Advance the SceneTree n frames at 1/60 s each.
 func tick(n: int) -> void:
 	for _i in range(n):
-		advance(TICK_SECONDS)
+		process(TICK_SECONDS)
 
 # ─── Verb: click_chassis ─────────────────────────────────────────────────────
 

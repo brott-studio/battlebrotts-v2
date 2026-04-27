@@ -43,6 +43,9 @@ jobs:
           mkdir -p build
           cd godot && godot --headless --export-release "Web" ../build/index.html
 
+      - name: Export Web Debug build (bb_test bridge)
+        run: cd godot && godot --headless --export-debug "Web Debug" ../build/index-debug.html
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -80,6 +83,8 @@ jobs:
       - name: Run tests
         run: npx playwright test
         continue-on-error: true
+        env:
+          WEB_DEBUG_BUILD: 'true'
 
       - name: Upload results
         if: always()

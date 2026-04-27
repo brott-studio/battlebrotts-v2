@@ -72,5 +72,14 @@ func _build_ui() -> void:
 		add_child(desc)
 
 		var ct := chassis_type  # capture for closure
-		btn.pressed.connect(func(): start_run_requested.emit(ct))
+		# [S26.7 diagnostic] Replace lambda with bind() to sidestep any GDScript
+		# closure-capture issues; emit print so we can verify the click lands.
+		btn.pressed.connect(_on_card_pressed.bind(ct))
 		add_child(btn)
+
+# [S26.7 diagnostic] Real method handler (instead of lambda) so chassis-type
+# binding is unambiguous. Also prints so we can confirm the button signal
+# fires through to game_main.
+func _on_card_pressed(chassis_type: int) -> void:
+	print("[S26.7] RunStartScreen: card pressed, ct=", chassis_type)
+	start_run_requested.emit(chassis_type)

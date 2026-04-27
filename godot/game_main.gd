@@ -283,14 +283,20 @@ func _show_run_start() -> void:
 	_maybe_spawn_first_encounter(FE_KEY_RUN_START)  ## S25.8: roguelike run-start intro
 
 func _on_chassis_picked(chassis_type: int) -> void:
+	## [S26.7 diagnostic] Confirm signal reached game_main and chassis_type is sane.
+	print("[S26.7] _on_chassis_picked: chassis_type=", chassis_type)
 	game_flow.start_run(chassis_type)
 	## S25.6: Pre-generate encounter schedule, set first encounter
 	var archetype_id := OpponentLoadouts.archetype_for(0, game_flow.run_state)
+	print("[S26.7] _on_chassis_picked: archetype_id='", archetype_id, "' run_state.equipped_chassis=", game_flow.run_state.equipped_chassis, " weapons=", game_flow.run_state.equipped_weapons)
 	var arena_seed := game_flow.run_state.seed * 31
 	game_flow.run_state.set_encounter(archetype_id, OpponentLoadouts.difficulty_for_battle(0), arena_seed)
 	_start_roguelike_match()
 
 func _start_roguelike_match() -> void:
+	## [S26.7 diagnostic] Confirm we reached match start.
+	var rs_status := "null" if game_flow.run_state == null else "ok chassis=" + str(game_flow.run_state.equipped_chassis)
+	print("[S26.7] _start_roguelike_match: ENTERED run_state=", rs_status)
 	## [S26.1-003] Hard error surface: never enter the arena with a null
 	## run_state. Pre-S26.1 a silent-fail here rendered as a blank screen
 	## (battle started, sim couldn't build a player, view stayed empty).
@@ -320,6 +326,7 @@ func _start_roguelike_match() -> void:
 	var arch_id: String = game_flow.run_state.current_encounter.get("archetype_id", "standard_duel")
 	var battle_idx: int = game_flow.run_state.current_battle_index
 	var enemy_specs: Array[Dictionary] = OpponentLoadouts.compose_encounter(arch_id, battle_idx, game_flow.run_state)
+	print("[S26.7] _start_roguelike_match: arch_id='", arch_id, "' battle_idx=", battle_idx, " enemy_specs.size=", enemy_specs.size())
 
 	if enemy_specs.is_empty():
 		push_warning("[S25.7] compose_encounter returned empty for arch=%s idx=%d — falling back to single standard duel" % [arch_id, battle_idx])
@@ -373,6 +380,7 @@ func _start_roguelike_match() -> void:
 	arena_renderer = ArenaRendererScene.instantiate()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
+	print("[S26.7] _start_roguelike_match: arena_renderer added, sim.brotts.size=", sim.brotts.size())
 	# S25.2: Wire player brain into renderer for click dispatch.
 	if player_brott != null and player_brott.brain != null and arena_renderer.has_method("set_player_brain"):
 		arena_renderer.set_player_brain(player_brott.brain)
@@ -639,6 +647,7 @@ func _start_demo_match() -> void:
 	arena_renderer = ArenaRendererScene.instantiate()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
+	print("[S26.7] _start_roguelike_match: arena_renderer added, sim.brotts.size=", sim.brotts.size())
 	# S25.2: Wire player brain into renderer for click dispatch.
 	if player_brott != null and player_brott.brain != null and arena_renderer.has_method("set_player_brain"):
 		arena_renderer.set_player_brain(player_brott.brain)
@@ -682,6 +691,7 @@ func _start_match(opponent_index: int) -> void:
 	arena_renderer = ArenaRendererScene.instantiate()
 	add_child(arena_renderer)
 	arena_renderer.setup(sim, ARENA_OFFSET)
+	print("[S26.7] _start_roguelike_match: arena_renderer added, sim.brotts.size=", sim.brotts.size())
 	# S25.2: Wire player brain into renderer for click dispatch.
 	if player_brott != null and player_brott.brain != null and arena_renderer.has_method("set_player_brain"):
 		arena_renderer.set_player_brain(player_brott.brain)

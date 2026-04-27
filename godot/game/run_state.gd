@@ -60,6 +60,14 @@ func _init(chassis_type: int = 0, rng_seed: int = 0) -> void:
 	run_ended = false
 	last_screen = -1
 
+	## [S26.1-003] Battle-start fix: every new run must enter battle 1 with at
+	## least one weapon. Pre-S26.1 the player had `equipped_weapons = []`, which
+	## meant battle 1 was unwinnable (the player couldn't fire) and felt like a
+	## blank screen. GDD never specified a starter weapon, so we fill the gap
+	## here with Plasma Cutter (WeaponData.WeaponType.PLASMA_CUTTER == 4).
+	if equipped_weapons.is_empty():
+		equipped_weapons.append(4)  # WeaponData.WeaponType.PLASMA_CUTTER
+
 ## S25.5: Set the current encounter context (called before entering ARENA).
 func set_encounter(archetype_id: String, tier: int, arena_seed: int) -> void:
 	current_encounter = {"archetype_id": archetype_id, "tier": tier, "arena_seed": arena_seed}

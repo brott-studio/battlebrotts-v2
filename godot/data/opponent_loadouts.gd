@@ -746,7 +746,16 @@ static func get_archetype_enemies(archetype_id: String, tier: int, run_state) ->
 		return get_archetype_enemies("standard_duel", tier, run_state)
 	
 	var base_hp: int = _baseline_hp_for_tier(tier)
-	var specs: Array[Dictionary]
+	## [S26.8] CRITICAL: must be untyped Array, not Array[Dictionary].
+	## Godot 4 web export silently fails when assigning the result of
+	## `Dictionary.duplicate(true)["enemy_specs"]` (which returns an untyped
+	## Array) to a typed `Array[Dictionary]` variable. The function aborts,
+	## compose_encounter never returns, the arena never spawns, and the screen
+	## stays grey — with NO error in the browser console (Godot 4 web release
+	## swallows the type-coercion failure silently).
+	## Editor + native debug builds tolerate this; web export does not.
+	## See HCD playtest 2026-04-27 03:13 UTC for the originating repro.
+	var specs: Array
 	
 	if archetype_id == "counter_build_elite":
 		var variant := _select_counter_build_variant(run_state)

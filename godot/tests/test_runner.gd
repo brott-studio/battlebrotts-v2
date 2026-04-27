@@ -105,6 +105,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_run_state_init.gd",
 	# [S26.1-003] Battle-start fix — starter weapon (Plasma Cutter) on every new run.
 	"res://tests/test_s26_1_starter_weapon.gd",
+	# [S26.8] Typed-array silent-crash regression — fixes 2026-04-27 blank-screen on chassis pick.
+	"res://tests/test_s26_8_typed_array_web_export.gd",
 	"res://tests/test_arena_renderer_multi.gd",
 	# [S25.3] Hardcoded baseline AI — 9 conditions covering rule chain, hysteresis, module priority.
 	"res://tests/test_baseline_ai.gd",

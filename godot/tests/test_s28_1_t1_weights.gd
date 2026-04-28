@@ -1,5 +1,6 @@
 ## test_s28_1_t1_weights.gd — verifies T1 archetype weight shift (Arc J #314 fix).
 ## Sprint-28.1 SI1-003.
+# J.2 updated: standard_duel 55→40, large_swarm 15→10 (brawler_rush added)
 extends SceneTree
 
 func _init() -> void:
@@ -8,12 +9,12 @@ func _init() -> void:
 
 	var t1: Dictionary = OpponentLoadouts.ARCHETYPE_WEIGHTS_BY_TIER.get(1, {})
 
-	# standard_duel: 40 → 55
-	if t1.get("standard_duel", -1) != 55:
-		print("FAIL: T1 standard_duel expected 55, got ", t1.get("standard_duel", "missing"))
+	# standard_duel: 55 → 40 (J.2 updated)
+	if t1.get("standard_duel", -1) != 40:
+		print("FAIL: T1 standard_duel expected 40, got ", t1.get("standard_duel", "missing"))
 		fail_count += 1
 	else:
-		print("PASS: T1 standard_duel == 55")
+		print("PASS: T1 standard_duel == 40")
 	pass_count += 1 - (fail_count if fail_count == 1 else 0)
 
 	# small_swarm: 30 → 15
@@ -24,13 +25,13 @@ func _init() -> void:
 	else:
 		print("PASS: T1 small_swarm == 15")
 
-	# large_swarm: 15 (unchanged guard)
+	# large_swarm: 15 → 10 (J.2 updated)
 	prev = fail_count
-	if t1.get("large_swarm", -1) != 15:
-		print("FAIL: T1 large_swarm expected 15, got ", t1.get("large_swarm", "missing"))
+	if t1.get("large_swarm", -1) != 10:
+		print("FAIL: T1 large_swarm expected 10, got ", t1.get("large_swarm", "missing"))
 		fail_count += 1
 	else:
-		print("PASS: T1 large_swarm == 15 (unchanged)")
+		print("PASS: T1 large_swarm == 10 (J.2 updated)")
 
 	# glass_cannon_blitz: 15 (unchanged guard)
 	prev = fail_count

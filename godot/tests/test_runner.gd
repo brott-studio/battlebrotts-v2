@@ -138,6 +138,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s28_1_t1_hp_baseline.gd",
 	# [Arc J / sprint-28.1 SI1-003] T1 archetype weight shift — standard_duel 40→55, small_swarm 30→15 (#314).
 	"res://tests/test_s28_1_t1_weights.gd",
+	# [Arc J / sprint-28.2 SI2-003] Scrapyard variety — 200-run legacy pool + 200-run T1 archetype, ≥95% threshold (#295).
+	"res://tests/test_s28_2_scrapyard_variety.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

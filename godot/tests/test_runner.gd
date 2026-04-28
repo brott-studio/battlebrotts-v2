@@ -132,6 +132,12 @@ const SPRINT_TEST_FILES := [
 	"res://tests/auto/test_reward_pick_flow.gd",
 	"res://tests/auto/test_run_end_flow.gd",
 	"res://tests/auto/test_settings_flow.gd",
+	# [Arc J / sprint-28.1 SI1-001] Sim screen-state fix — _start_roguelike_match() sets ARENA when called from RUN_START.
+	"res://tests/auto/test_sim_screen_state.gd",
+	# [Arc J / sprint-28.1 SI1-002] T1 baseline HP 80 → 120 (+50%) for battle pacing (#314).
+	"res://tests/test_s28_1_t1_hp_baseline.gd",
+	# [Arc J / sprint-28.1 SI1-003] T1 archetype weight shift — standard_duel 40→55, small_swarm 30→15 (#314).
+	"res://tests/test_s28_1_t1_weights.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

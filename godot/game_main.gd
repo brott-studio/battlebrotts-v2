@@ -393,6 +393,8 @@ func _start_roguelike_match() -> void:
 
 	_create_arena_hud()
 
+	if game_flow.current_screen == GameFlow.Screen.RUN_START:
+		game_flow.current_screen = GameFlow.Screen.ARENA
 	in_arena = true
 	speed_multiplier = 1.0
 	tick_accumulator = 0.0

@@ -1009,3 +1009,11 @@ Sprint 13.7 wires real item grants/losses for BrottBrain tricks (unblocking the 
 **Adding new items or pools:** append an entry to `ItemTokens.DIRECT` (matching a real enum value in the corresponding `*_data.gd`) for new items; append a new named entry to `ItemTokens.POOLS` (entries must be valid DIRECT token strings — validated by test 16 in `test_sprint13_7.gd`) for new pools. `GameState._grant_trick_item` / `_lose_trick_item` automatically handle any new category or pool via the router — no GameState change needed for new tokens.
 
 **S13.7 new tricks:** `crate_find` (ITEM_GRANT random_weak), `toll_goblin` (ITEM_LOSE random_weak + BOLTS_DELTA +5), `scrap_trader` (BOLTS_DELTA -15 + ITEM_GRANT random_module). `ITEM_GRANT` is idempotent (no duplicates); `ITEM_LOSE` is a safe no-op when the item isn't owned. Floor toast for item grants is deferred to S13.8.
+
+---
+
+## 14. Testing Infrastructure
+
+*Source-of-truth section as of Arc I (S(I).1+). Documents the auto-driver concept that lets agents and CI exercise full user flows without a renderer.*
+
+BattleBrotts uses a three-pillar testing strategy. **Pillar 1** is a native GDScript **AutoDriver** harness that boots the main scene under `godot --headless --script`, ticks the scene tree, and exercises full user flows (menu → run start → chassis pick → arena → first tick) in ~10 seconds. It runs as a per-PR gate inside the existing `verify.yml` `godot-tests` job and is the fastest signal that a player-facing flow is broken end-to-end. **Pillar 2** (arc-close gate) is a `window.bb_test` JavaScript bridge driven by Playwright against the web export, used for renderer-dependent flows. **Pillar 3** is a combat-sim agent that runs N parallel matches nightly and aggregates balance stats. The AutoDriver exposes a tightly-scoped action API (≤6 verbs: `click_chassis`, `click_reward`, `tick(n)`, `get_arena_state`, `get_run_state`, `force_battle_end`) so agent-authored flows stay readable and the surface stays auditable.

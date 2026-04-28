@@ -116,11 +116,11 @@ const TEMPLATES: Array[Dictionary] = [
 	},
 	{
 		"id": "glass_junksniper",
-		"name": "Workshop Sniper Brott",
+		"name": "Junkyard Zapper Brott",
 		"archetype": Archetype.GLASS_CANNON,
 		"tier": 1,
 		"chassis": ChassisData.ChassisType.SCOUT,
-		"weapons": [WeaponData.WeaponType.RAILGUN],
+		"weapons": [WeaponData.WeaponType.ARC_EMITTER],
 		"armor": ArmorData.ArmorType.NONE,
 		"modules": [],
 		"stance": 2,

@@ -780,13 +780,25 @@ A run is exactly 15 battles. Battles map to **tiers** by index, and each tier ha
 
 | Tier | Battle index range | Battle # | Baseline enemy HP |
 |---|---|---|---|
-| **T1** | 0–2 | 1–3 | 80 |
+| **T1** | 0–2 | 1–3 | 120 |
 | **T2** | 3–6 | 4–7 | 120 |
 | **T3** | 7–10 | 8–11 | 160 |
 | **T4** | 11–13 | 12–14 | 200 |
 | **T5** | 14 | 15 (Boss) | 240 |
 
 *(Source: `OpponentLoadouts.difficulty_for_battle()` and `_baseline_hp_for_tier()`, S25.6.)*
+
+#### T1 Battle Timing Target (Arc J)
+
+T1 battles (indices 0–2) target the following duration window for a player starting with Plasma Cutter + no armor against the typical encounter mix:
+
+| Metric | Target | Rationale |
+|---|---|---|
+| Median battle duration | ≥20s | Minimum feel of "I got to watch a fight" |
+| p90 battle duration | ≤60s | Upper cap: fights shouldn't drag |
+| Win-rate per chassis | 30–70% | Balance signal: no chassis should be mandatory or useless at T1 |
+
+**Calibration (Arc J):** T1 baseline HP increased from 80 to 120 (+50%) and `small_swarm` T1 weight reduced from 30 to 15 (standard_duel from 40 to 55) to reach the ≥20s median. Combat sim validation confirms these parameters in sprint-28.1.
 
 Archetype `hp_pct` values (§13.4) multiply against the tier baseline at generation time, so the same archetype shape (e.g. Small Swarm) gets harder as the run progresses.
 
@@ -812,8 +824,8 @@ Weights are relative (don't need to sum to 100). Picker excludes the immediately
 
 | Archetype | T1 | T2 | T3 | T4 |
 |---|---|---|---|---|
-| `standard_duel` | 40 | 30 | 20 | 15 |
-| `small_swarm` | 30 | 30 | 20 | 10 |
+| `standard_duel` | 55 | 30 | 20 | 15 |
+| `small_swarm` | 15 | 30 | 20 | 10 |
 | `large_swarm` | 15 | 20 | 20 | 15 |
 | `glass_cannon_blitz` | 15 | 10 | 5 | 10 |
 | `counter_build_elite` | — | 10 | 15 | 25 |

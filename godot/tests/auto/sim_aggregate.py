@@ -33,8 +33,19 @@ def load_results(results_dir: Path) -> tuple[list[dict], dict]:
     for f in sorted(results_dir.glob("run_*.json")):
         try:
             with open(f) as fh:
-                data = json.load(fh)
-        except (json.JSONDecodeError, OSError):
+                data = None
+                for line in fh:
+                    line = line.strip()
+                    if line.startswith('{'):
+                        try:
+                            data = json.loads(line)
+                            break
+                        except json.JSONDecodeError:
+                            continue
+        except OSError:
+            error_counts["parse_errors"] += 1
+            continue
+        if data is None:
             error_counts["parse_errors"] += 1
             continue
         if data.get("schema_version") != SCHEMA_VERSION:

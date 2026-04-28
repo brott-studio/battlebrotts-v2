@@ -133,7 +133,7 @@ const TEMPLATES: Array[Dictionary] = [
 		"archetype": Archetype.SKIRMISHER,
 		"tier": 1,
 		"chassis": ChassisData.ChassisType.SCOUT,
-		"weapons": [WeaponData.WeaponType.FLAK_CANNON],
+		"weapons": [WeaponData.WeaponType.MINIGUN],
 		"armor": ArmorData.ArmorType.REACTIVE_MESH,
 		"modules": [],
 		"stance": 2,

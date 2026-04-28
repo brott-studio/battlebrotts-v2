@@ -74,6 +74,6 @@ func _init() -> void:
 
 	print("test_s28_2_scrapyard_variety: %s" % ("ALL PASSED" if fail_count == 0 else "%d FAILED" % fail_count))
 	if fail_count > 0:
-		OS.exit(1)
+		quit(1)
 	else:
 		quit(0)

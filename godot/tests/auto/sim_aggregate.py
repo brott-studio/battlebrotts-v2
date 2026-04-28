@@ -42,10 +42,14 @@ def load_results(results_dir: Path) -> tuple[list[dict], dict]:
                             break
                         except json.JSONDecodeError:
                             continue
-        except OSError:
+        except (OSError, IOError) as e:
             error_counts["parse_errors"] += 1
             continue
         if data is None:
+            error_counts["parse_errors"] += 1
+            continue
+        if not isinstance(data, dict):
+            # J.5: defensive check for non-dict JSON (e.g. lists, strings)
             error_counts["parse_errors"] += 1
             continue
         if data.get("schema_version") != SCHEMA_VERSION:

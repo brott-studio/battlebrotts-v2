@@ -658,7 +658,7 @@ static func compose_encounter(archetype_id: String, battle_index: int, run_state
 
 ## S25.6: Probability weights per tier. Weights are relative (don't need to sum to 100).
 const ARCHETYPE_WEIGHTS_BY_TIER: Dictionary = {
-	1: {"standard_duel": 40, "small_swarm": 15, "large_swarm": 10, "glass_cannon_blitz": 15, "brawler_rush": 20},  # J.2: +brawler_rush T1 archetype for chassis variety (#295)  # J.1: reduce T1 small_swarm frequency (45%→25% combined swarm) — swarm-demolition fix (#314)
+	1: {"standard_duel": 50, "small_swarm": 15, "large_swarm": 10, "glass_cannon_blitz": 15, "brawler_rush": 10},  # J.5: brawler_rush weight halved (20→10); standard_duel raised (40→50) — T1 calibration for Brawler survivability (#314)
 	2: {"standard_duel": 30, "small_swarm": 30, "large_swarm": 20, "counter_build_elite": 10, "glass_cannon_blitz": 10},
 	3: {"standard_duel": 20, "small_swarm": 20, "large_swarm": 20, "miniboss_escorts": 20, "counter_build_elite": 15, "glass_cannon_blitz": 5},
 	4: {"standard_duel": 15, "small_swarm": 10, "large_swarm": 15, "miniboss_escorts": 25, "counter_build_elite": 25, "glass_cannon_blitz": 10},

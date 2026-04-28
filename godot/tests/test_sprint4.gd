@@ -126,7 +126,7 @@ func _test_scout_hp_1_5x() -> void:
 func _test_brawler_hp_1_5x() -> void:
 	print("test_brawler_hp_1_5x")
 	var ch := ChassisData.get_chassis(ChassisData.ChassisType.BRAWLER)
-	assert_eq(ch["hp"], 225, "Brawler HP = 225 (1.5x base)")
+	assert_eq(ch["hp"], 295, "Brawler HP = 295 (J.5 per-chassis tuning)")  # Updated for J.5 per-chassis T1 tuning (sprint-28.5)
 
 func _test_fortress_hp_1_5x() -> void:
 	print("test_fortress_hp_1_5x")

@@ -3,7 +3,7 @@ const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests',
-  testMatch: ['smoke.spec.js', 'sprint0-verify.spec.js', 'screen-nav.spec.js', 'battle-view.spec.js', 's13.4-shop-visual.spec.js', 'gameplay-smoke.spec.js', 'chassis-pick-real-flow.spec.js'],
+  testMatch: ['smoke.spec.js', 'sprint0-verify.spec.js', 'screen-nav.spec.js', 'battle-view.spec.js', 's13.4-shop-visual.spec.js', 'gameplay-smoke.spec.js', 'chassis-pick-real-flow.spec.js', 'bb-test-chassis-pick.spec.js', 'bb-test-reward-pick.spec.js'],
   timeout: 30000,
   use: {
     baseURL: 'http://localhost:8080',

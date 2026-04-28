@@ -123,6 +123,20 @@ jobs:
           # codes (non-short-circuit). The previous shell-glob loop with
           # `|| exit 1` bail-on-first-failure has been removed.
 
+      - name: Run AutoDriver headless flow tests
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          set -e
+          for test in godot/tests/auto/test_*.gd; do
+            [ -f "$test" ] || continue
+            echo "::group::AutoDriver: $test"
+            godot --headless --path godot/ --script "res://${test#godot/}"
+            echo "::endgroup::"
+          done
+          # Arc I S(I).1: runs every godot/tests/auto/test_*.gd file in isolation.
+          # Each file extends AutoDriver (SceneTree subclass) and exits 0/1.
+          # A broken _on_chassis_picked will cause exit 1 within 10s wall clock.
+
   playwright:
     name: Playwright Smoke Tests
     needs: changes

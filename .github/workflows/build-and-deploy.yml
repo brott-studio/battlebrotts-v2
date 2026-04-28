@@ -43,6 +43,17 @@ jobs:
           mkdir -p build
           cd godot && godot --headless --export-release "Web" ../build/index.html
 
+      - name: Verify production build excludes bb_test (S26.8 regression gate)
+        run: |
+          if grep -q "bb_test" build/index.js 2>/dev/null; then
+            echo "ERROR: 'bb_test' string found in production build/index.js — bridge leaked!" >&2
+            exit 1
+          fi
+          echo "✅ Production build verified: bb_test not in build/index.js"
+
+      - name: Export Web Debug build (bb_test bridge)
+        run: cd godot && godot --headless --export-debug "Web Debug" ../build/index-debug.html
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -80,6 +91,8 @@ jobs:
       - name: Run tests
         run: npx playwright test
         continue-on-error: true
+        env:
+          WEB_DEBUG_BUILD: 'true'
 
       - name: Upload results
         if: always()

@@ -1,0 +1,109 @@
+name: Combat Sim
+
+on:
+  workflow_dispatch:
+    inputs:
+      n_runs:
+        description: 'Number of parallel sim runs'
+        required: false
+        default: '20'
+      seed_base:
+        description: 'Base seed (blank = auto)'
+        required: false
+        default: ''
+      commit_report:
+        description: 'Commit report to studio-audits (true/false)'
+        required: false
+        default: 'false'
+  schedule:
+    - cron: '0 3 * * *'
+
+concurrency:
+  group: sim
+  cancel-in-progress: false
+
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.4
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip" -O godot.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+          sudo mv Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+
+      - name: Import Godot project
+        run: godot --headless --path godot/ --import 2>&1 | tail -5 || true
+
+      - name: Run combat sims
+        run: |
+          N="${{ github.event.inputs.n_runs || '20' }}"
+          SEED="${{ github.event.inputs.seed_base }}"
+          chmod +x godot/tests/auto/sim_runner.sh
+          if [[ -n "${SEED}" ]]; then
+            bash godot/tests/auto/sim_runner.sh "${N}" "${SEED}"
+          else
+            bash godot/tests/auto/sim_runner.sh "${N}"
+          fi
+
+      - name: Aggregate sim stats
+        if: always()
+        run: |
+          RESULTS_DIR=$(ls -dt /tmp/sim_results_* 2>/dev/null | head -1)
+          if [[ -z "${RESULTS_DIR}" ]]; then
+            echo "No results directory found." >&2
+            exit 0
+          fi
+          DATE=$(date -u +%Y-%m-%d)
+          mkdir -p /tmp/sim-report
+          python3 godot/tests/auto/sim_aggregate.py "${RESULTS_DIR}" \
+            --output "/tmp/sim-report/${DATE}.md" \
+            --seed-base "${{ github.event.inputs.seed_base || 'auto' }}" \
+            --n-runs "${{ github.event.inputs.n_runs || '20' }}"
+          echo "--- Sim Report ---"
+          cat "/tmp/sim-report/${DATE}.md"
+
+      - name: Commit report to studio-audits
+        if: always() && (github.event_name == 'schedule' || github.event.inputs.commit_report == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.BROTT_STUDIO_PAT }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          REPORT="/tmp/sim-report/${DATE}.md"
+          if [[ ! -f "${REPORT}" ]]; then
+            echo "No report to commit." >&2
+            exit 0
+          fi
+          git clone --depth=1 \
+            "https://x-access-token:${GH_TOKEN}@github.com/brott-studio/studio-audits.git" \
+            /tmp/studio-audits-push
+          cd /tmp/studio-audits-push
+          mkdir -p sim-reports/battlebrotts-v2
+          cp "${REPORT}" "sim-reports/battlebrotts-v2/${DATE}.md"
+          python3 .github/scripts/update-sim-tile.py \
+            --report "sim-reports/battlebrotts-v2/${DATE}.md" \
+            --project battlebrotts-v2 || true
+          git config user.name "The Bott"
+          git config user.email "thebott@brott-studio.studio"
+          git add "sim-reports/battlebrotts-v2/${DATE}.md" README.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "sim-report(battlebrotts-v2): ${DATE} [skip ci]"
+          git push origin main
+
+      - name: Upload sim results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-results-${{ github.run_id }}
+          path: /tmp/sim_results_*/
+          retention-days: 30

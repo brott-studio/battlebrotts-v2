@@ -814,6 +814,7 @@ Encounters are drawn from a fixed catalog of archetypes (`ARCHETYPE_TEMPLATES` i
 | `miniboss_escorts` | Mini-boss + Escorts | 1 Fortress (Minigun + Shotgun, Ablative Shell, Shield Projector, hp_pct 1.5) + 2 Scout escorts (hp_pct 0.7) |
 | `counter_build_elite` | Counter-Build Elite | Variant chosen dynamically by reading the player's loadout (anti-module / anti-range / anti-melee). |
 | `glass_cannon_blitz` | Glass-Cannon Blitz | 2 enemies: Scout chassis, Railgun + Minigun, no armor, hp_pct 0.5 |
+| `brawler_rush` | Brawler Rush | 1 enemy: Brawler chassis, Shotgun, no armor, hp_pct 0.75 |
 | `boss` | CEO Brott | Battle 15 only (see §13.8). |
 
 **Large Swarm tier override** (`LARGE_SWARM_HP_BY_TIER`, S25.6): hp_pct is decoupled from the template and set by tier — 0.2 (T1), 0.4 (T2), 0.7 (T3), 0.9 (T4) — with enemy count rising from 5 (T1–2) to 6 (T3–4).
@@ -824,14 +825,17 @@ Weights are relative (don't need to sum to 100). Picker excludes the immediately
 
 | Archetype | T1 | T2 | T3 | T4 |
 |---|---|---|---|---|
-| `standard_duel` | 55 | 30 | 20 | 15 |
+| `standard_duel` | 40 | 30 | 20 | 15 |
 | `small_swarm` | 15 | 30 | 20 | 10 |
-| `large_swarm` | 15 | 20 | 20 | 15 |
+| `large_swarm` | 10 | 20 | 20 | 15 |
 | `glass_cannon_blitz` | 15 | 10 | 5 | 10 |
+| `brawler_rush` | 20 | — | — | — |
 | `counter_build_elite` | — | 10 | 15 | 25 |
 | `miniboss_escorts` | — | — | 20 | 25 |
 
 *(Source: `ARCHETYPE_WEIGHTS_BY_TIER`, S25.6.)*
+
+*(Sprint-28.2: `brawler_rush` added to T1 archetype pool for chassis variety — Arc J #295.)*
 
 #### Run guarantees
 

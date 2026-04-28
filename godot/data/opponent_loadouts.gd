@@ -114,6 +114,45 @@ const TEMPLATES: Array[Dictionary] = [
 		"unlock_league": "scrapyard",
 		"behavior_cards": [],
 	},
+	{
+		"id": "glass_junksniper",
+		"name": "Junkyard Zapper Brott",
+		"archetype": Archetype.GLASS_CANNON,
+		"tier": 1,
+		"chassis": ChassisData.ChassisType.SCOUT,
+		"weapons": [WeaponData.WeaponType.ARC_EMITTER],
+		"armor": ArmorData.ArmorType.NONE,
+		"modules": [],
+		"stance": 2,
+		"unlock_league": "scrapyard",
+		"behavior_cards": [],
+	},
+	{
+		"id": "skirmish_buzzsaw",
+		"name": "Apprentice Brott",
+		"archetype": Archetype.SKIRMISHER,
+		"tier": 1,
+		"chassis": ChassisData.ChassisType.SCOUT,
+		"weapons": [WeaponData.WeaponType.MINIGUN],
+		"armor": ArmorData.ArmorType.REACTIVE_MESH,
+		"modules": [],
+		"stance": 2,
+		"unlock_league": "scrapyard",
+		"behavior_cards": [],
+	},
+	{
+		"id": "bruiser_scrapdog",
+		"name": "Floor Supervisor Brott",
+		"archetype": Archetype.BRUISER,
+		"tier": 2,
+		"chassis": ChassisData.ChassisType.BRAWLER,
+		"weapons": [WeaponData.WeaponType.SHOTGUN],
+		"armor": ArmorData.ArmorType.NONE,
+		"modules": [],
+		"stance": 0,
+		"unlock_league": "scrapyard",
+		"behavior_cards": [],
+	},
 	# ── S21.1 Bronze content drop (Gizmo spec §4) ───────────────────────────────
 	{
 		"id": "tank_rustwall",
@@ -523,6 +562,13 @@ const ARCHETYPE_TEMPLATES: Array[Dictionary] = [
 		]
 	},
 	{
+		"id": "brawler_rush",
+		"display_name": "Brawler Rush",
+		"enemy_specs": [
+			{"chassis": 1, "weapons": [2], "armor": 0, "modules": [], "hp_pct": 0.75, "count": 1}
+		]
+	},
+	{
 		"id": "boss",
 		"display_name": "CEO Brott",
 		## Placeholder name — finalized in Arc H. S25.9 tunes AI.
@@ -612,7 +658,7 @@ static func compose_encounter(archetype_id: String, battle_index: int, run_state
 
 ## S25.6: Probability weights per tier. Weights are relative (don't need to sum to 100).
 const ARCHETYPE_WEIGHTS_BY_TIER: Dictionary = {
-	1: {"standard_duel": 55, "small_swarm": 15, "large_swarm": 15, "glass_cannon_blitz": 15},  # J.1: reduce T1 small_swarm frequency (45%→25% combined swarm) — swarm-demolition fix (#314)
+	1: {"standard_duel": 40, "small_swarm": 15, "large_swarm": 10, "glass_cannon_blitz": 15, "brawler_rush": 20},  # J.2: +brawler_rush T1 archetype for chassis variety (#295)  # J.1: reduce T1 small_swarm frequency (45%→25% combined swarm) — swarm-demolition fix (#314)
 	2: {"standard_duel": 30, "small_swarm": 30, "large_swarm": 20, "counter_build_elite": 10, "glass_cannon_blitz": 10},
 	3: {"standard_duel": 20, "small_swarm": 20, "large_swarm": 20, "miniboss_escorts": 20, "counter_build_elite": 15, "glass_cannon_blitz": 5},
 	4: {"standard_duel": 15, "small_swarm": 10, "large_swarm": 15, "miniboss_escorts": 25, "counter_build_elite": 25, "glass_cannon_blitz": 10},

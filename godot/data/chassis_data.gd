@@ -9,7 +9,7 @@ enum ChassisType { SCOUT, BRAWLER, FORTRESS }
 const CHASSIS := {
 	ChassisType.SCOUT: {
 		"name": "Scout",
-		"hp": 165,  # S13.3: base 110 × 1.5 pacing multiplier (GDD spec is 110; engine uses 1.5× since S4 pacing pass)
+		"hp": 215,  # J.5: +30% HP to lift T1 survivability (was 165)
 		"speed": 220.0, # px/s
 		"accel": 660.0, # px/s²
 		"decel": 880.0, # px/s²
@@ -18,11 +18,11 @@ const CHASSIS := {
 		"weapon_slots": 2,
 		"module_slots": 3,
 		"passive": "dodge",
-		"dodge_chance": 0.15,
+		"dodge_chance": 0.25,  # J.5: +10pp dodge — amplify Scout's slippery identity (was 0.15)
 	},
 	ChassisType.BRAWLER: {
 		"name": "Brawler",
-		"hp": 225,  # S13.3: base 150 × 1.5 pacing multiplier (unchanged ratio, was already 225)
+		"hp": 295,  # J.5: +31% HP to survive T1 Shotgun encounters (was 225)
 		"speed": 120.0,
 		"accel": 240.0,
 		"decel": 360.0,

@@ -9,12 +9,12 @@ func _init() -> void:
 
 	var t1: Dictionary = OpponentLoadouts.ARCHETYPE_WEIGHTS_BY_TIER.get(1, {})
 
-	# standard_duel: 55 → 40 (J.2 updated)
-	if t1.get("standard_duel", -1) != 40:
-		print("FAIL: T1 standard_duel expected 40, got ", t1.get("standard_duel", "missing"))
+	# standard_duel: 55 → 40 → 50 (J.2 updated, J.5 per-chassis T1 tuning)
+	if t1.get("standard_duel", -1) != 50:
+		print("FAIL: T1 standard_duel expected 50, got ", t1.get("standard_duel", "missing"))
 		fail_count += 1
 	else:
-		print("PASS: T1 standard_duel == 40")
+		print("PASS: T1 standard_duel == 50 (J.5: weight raised 40→50)")
 	pass_count += 1 - (fail_count if fail_count == 1 else 0)
 
 	# small_swarm: 30 → 15

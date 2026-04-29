@@ -393,7 +393,11 @@ func _start_roguelike_match() -> void:
 
 	_create_arena_hud()
 
-	if game_flow.current_screen == GameFlow.Screen.RUN_START:
+	## K.2: unconditionally set ARENA on match start so any battle
+	## after battle-0 (called from REWARD_PICK or RETRY_PROMPT, not
+	## RUN_START) is visible to the AutoDriver screen-state machine.
+	## Boss arena is pre-set by _show_boss_arena(); preserve it.
+	if game_flow.current_screen != GameFlow.Screen.BOSS_ARENA:
 		game_flow.current_screen = GameFlow.Screen.ARENA
 	in_arena = true
 	speed_multiplier = 1.0

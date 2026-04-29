@@ -342,7 +342,7 @@ func _run_data_tests() -> void:
 	assert_eq(brawler["module_slots"], 2, "Brawler module slots = 2")
 	
 	var fortress := ChassisData.get_chassis(ChassisData.ChassisType.FORTRESS)
-	assert_eq(fortress["hp"], 330, "Fortress HP = 330 (S13.3: 220 × 1.5 pacing)")
+	assert_eq(fortress["hp"], 450, "Fortress HP = 450 (J.5.2: +36% T1 survivability buff, was 330)")
 	assert_near(fortress["speed"], 60.0, 0.1, "Fortress speed = 60")
 	assert_eq(fortress["weapon_slots"], 2, "Fortress weapon slots = 2")
 	assert_eq(fortress["module_slots"], 1, "Fortress module slots = 1")

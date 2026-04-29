@@ -416,6 +416,8 @@ func _on_roguelike_match_end(winner_team: int) -> void:
 	## for the death animation in the live web build.
 	if not OS.has_feature("headless"):
 		await get_tree().create_timer(1.0).timeout
+	else:
+		await get_tree().process_frame  ## K.2: one-frame settle, no wall-clock race
 	if won:
 		## S25.7: Boss win (battle 15 / index 14) → RUN_COMPLETE, not reward pick
 		if game_flow.current_screen == GameFlow.Screen.BOSS_ARENA:
@@ -813,7 +815,10 @@ func _on_match_end(winner_team: int) -> void:
 	var won := winner_team == 0
 	game_flow.finish_match(won)
 	# Show result after a brief delay (let death animation play)
-	await get_tree().create_timer(1.0).timeout
+	if not OS.has_feature("headless"):
+		await get_tree().create_timer(1.0).timeout
+	else:
+		await get_tree().process_frame  ## K.2: one-frame settle, no wall-clock race
 	_show_result()
 
 ## DEPRECATED S25.8 — league-era result screen retired.
@@ -1241,7 +1246,10 @@ func _on_brott_death(_brott) -> void:
 		_death_sfx_cooldown_active = true
 		_death_sfx_player.play()
 		# Reset cooldown after 600ms to allow future matches to play death SFX.
-		await get_tree().create_timer(0.6).timeout
+		if not OS.has_feature("headless"):
+			await get_tree().create_timer(0.6).timeout
+		else:
+			await get_tree().process_frame  ## K.2: one-frame settle, no wall-clock race
 		_death_sfx_cooldown_active = false
 
 # [S24.3] Signal handler: on_projectile_spawned — play launch SFX per projectile.

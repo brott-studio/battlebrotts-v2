@@ -22,7 +22,7 @@ const CHASSIS := {
 	},
 	ChassisType.BRAWLER: {
 		"name": "Brawler",
-		"hp": 295,  # J.5: +31% HP to survive T1 Shotgun encounters (was 225)
+		"hp": 360,  # K.3: +22% HP buff to lift T1 battle win-rate ≥30% (was 295, #314)
 		"speed": 120.0,
 		"accel": 240.0,
 		"decel": 360.0,

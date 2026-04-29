@@ -64,9 +64,15 @@ func _init(chassis_type: int = 0, rng_seed: int = 0) -> void:
 	## least one weapon. Pre-S26.1 the player had `equipped_weapons = []`, which
 	## meant battle 1 was unwinnable (the player couldn't fire) and felt like a
 	## blank screen. GDD never specified a starter weapon, so we fill the gap
-	## here with Plasma Cutter (WeaponData.WeaponType.PLASMA_CUTTER == 4).
+	## here with a chassis-appropriate starter.
+	## [K.4] Brawler (chassis 1) starts with Shotgun (WeaponData.WeaponType.SHOTGUN == 2)
+	## to close the mobility gap vs kiting opponents at T1 (#314). Scout/Fortress
+	## keep Plasma Cutter (WeaponData.WeaponType.PLASMA_CUTTER == 4).
 	if equipped_weapons.is_empty():
-		equipped_weapons.append(4)  # WeaponData.WeaponType.PLASMA_CUTTER
+		if chassis_type == 1:  # ChassisData.ChassisType.BRAWLER
+			equipped_weapons.append(2)  # WeaponData.WeaponType.SHOTGUN
+		else:
+			equipped_weapons.append(4)  # WeaponData.WeaponType.PLASMA_CUTTER
 
 ## S25.5: Set the current encounter context (called before entering ARENA).
 func set_encounter(archetype_id: String, tier: int, arena_seed: int) -> void:

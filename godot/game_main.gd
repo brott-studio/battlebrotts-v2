@@ -408,7 +408,14 @@ func _on_roguelike_match_end(winner_team: int) -> void:
 				alive_per_team[b.team] = alive_per_team.get(b.team, 0) + 1
 		print("[S25.7] match_end: winner=%d alive=%s" % [winner_team, str(alive_per_team)])
 	var won := winner_team == 0
-	await get_tree().create_timer(1.0).timeout
+	## Arc K: headless-mode timer bypass.
+	## In headless sim mode, create_timer(1.0) is a real-time wall-clock delay
+	## that races against the SceneTree tick loop — the REWARD_PICK screen is
+	## set up before the timer fires, leaving btn_count=0 and crashing the sim.
+	## Production path (non-headless) is unchanged: the 1s delay still plays
+	## for the death animation in the live web build.
+	if not OS.has_feature("headless"):
+		await get_tree().create_timer(1.0).timeout
 	if won:
 		## S25.7: Boss win (battle 15 / index 14) → RUN_COMPLETE, not reward pick
 		if game_flow.current_screen == GameFlow.Screen.BOSS_ARENA:

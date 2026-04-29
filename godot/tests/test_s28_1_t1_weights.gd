@@ -9,12 +9,12 @@ func _init() -> void:
 
 	var t1: Dictionary = OpponentLoadouts.ARCHETYPE_WEIGHTS_BY_TIER.get(1, {})
 
-	# standard_duel: 55 → 40 → 50 (J.2 updated, J.5 per-chassis T1 tuning)
-	if t1.get("standard_duel", -1) != 50:
-		print("FAIL: T1 standard_duel expected 50, got ", t1.get("standard_duel", "missing"))
+	# standard_duel: 55 → 40 → 50 → 60 (J.2 updated, J.5 per-chassis T1 tuning, J.5.2 absorbs glass_cannon_blitz delta)
+	if t1.get("standard_duel", -1) != 60:
+		print("FAIL: T1 standard_duel expected 60, got ", t1.get("standard_duel", "missing"))
 		fail_count += 1
 	else:
-		print("PASS: T1 standard_duel == 50 (J.5: weight raised 40→50)")
+		print("PASS: T1 standard_duel == 60 (J.5.2: weight raised 50→60)")
 	pass_count += 1 - (fail_count if fail_count == 1 else 0)
 
 	# small_swarm: 30 → 15
@@ -33,13 +33,13 @@ func _init() -> void:
 	else:
 		print("PASS: T1 large_swarm == 10 (J.2 updated)")
 
-	# glass_cannon_blitz: 15 (unchanged guard)
+	# glass_cannon_blitz: 15→5 (J.5.2: Fortress T1 survivability fix)
 	prev = fail_count
-	if t1.get("glass_cannon_blitz", -1) != 15:
-		print("FAIL: T1 glass_cannon_blitz expected 15, got ", t1.get("glass_cannon_blitz", "missing"))
+	if t1.get("glass_cannon_blitz", -1) != 5:
+		print("FAIL: T1 glass_cannon_blitz expected 5, got ", t1.get("glass_cannon_blitz", "missing"))
 		fail_count += 1
 	else:
-		print("PASS: T1 glass_cannon_blitz == 15 (unchanged)")
+		print("PASS: T1 glass_cannon_blitz == 5 (J.5.2: 15→5)")
 
 	# T2 spot-check: standard_duel unchanged at 30
 	var t2: Dictionary = OpponentLoadouts.ARCHETYPE_WEIGHTS_BY_TIER.get(2, {})

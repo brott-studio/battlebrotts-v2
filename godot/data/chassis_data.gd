@@ -35,7 +35,7 @@ const CHASSIS := {
 	},
 	ChassisType.FORTRESS: {
 		"name": "Fortress",
-		"hp": 330,  # S13.3: base 220 × 1.5 pacing multiplier (GDD spec is 220; engine uses 1.5×)
+		"hp": 450,  # J.5.2: +36% HP buff for T1 survivability (was 330). Fortress is slowest chassis (60 px/s), 0 dodge, Defensive stance — cannot outrun T1 glass_cannon_blitz kite encounter. Scout/Brawler got +30-31% in J.5.1 (#314).
 		"speed": 60.0,
 		"accel": 90.0,
 		"decel": 150.0,

@@ -33,6 +33,7 @@ var _chosen_chassis: int = -1
 var _chassis_names := {0: "SCOUT", 1: "BRAWLER", 2: "FORTRESS"}
 var _reward_picks: Array = []
 var _battles_lost: int = 0
+var _reward_pick_retries: int = 0
 var _cumulative_arena_ticks: int = 0
 var _last_arena_ticks_seen: int = 0
 var _arena_ticks_recorded: bool = false
@@ -123,18 +124,26 @@ func _drive_flow_step() -> void:
 					var tick_count: int = sim.get("tick_count")
 					_cumulative_arena_ticks += tick_count
 					_arena_ticks_recorded = true
-				# Wait for game_main's 1s create_timer to fire and screen to transition
-				_ticks_remaining = 60
+				# Wait for game_main's 1s create_timer to fire and screen to transition.
+				# At 8x sim speed, 1s real-time ≈ 80+ Godot frames. Use 120 ticks with
+				# margin. (J.5.2: fixes REWARD_PICK no-buttons crash, #314)
+				_ticks_remaining = 120
 
 		SCREEN_REWARD_PICK:
 			var rs: Object = gf.get("run_state") if gf != null else null
 			var battle_idx: int = rs.get("current_battle_index") if rs != null else 0
 			var btn_count: int = _count_reward_buttons()
 			if btn_count <= 0:
-				_failures.append("REWARD_PICK: no reward buttons at battle %d" % battle_idx)
-				_flow_done = true
-				finish(1)
+				_reward_pick_retries += 1
+				if _reward_pick_retries >= 5:
+					_failures.append("REWARD_PICK: no reward buttons at battle %d after %d retries" % [battle_idx, _reward_pick_retries])
+					_flow_done = true
+					finish(1)
+					return
+				# Screen not ready yet — wait and retry (J.5.2: graceful retry instead of hard-fail, #314)
+				_ticks_remaining = 20
 				return
+			_reward_pick_retries = 0  # reset on success
 			var btn_idx: int = _rng.randi_range(0, btn_count - 1)
 			_reward_picks.append({"battle_index": battle_idx, "button_index": btn_idx})
 			click_reward(btn_idx)

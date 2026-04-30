@@ -73,6 +73,22 @@ func _init() -> void:
 	else:
 		pass_count += 1
 
+	## T7: Description lookup — all item types have descriptions
+	var desc_fail := false
+	for item in ItemPool.FULL_ITEM_POOL:
+		var full_data: Dictionary = {}
+		match item["category"]:
+			"weapon": full_data = WeaponData.WEAPONS[item["type"]]
+			"armor":  full_data = ArmorData.ARMORS[item["type"]]
+			"module": full_data = ModuleData.MODULES[item["type"]]
+		var description: String = full_data.get("description", "")
+		if description.is_empty() and item["type"] != 0:  # ArmorType.NONE is OK
+			push_error("T7 FAIL: %s %s has empty description" % [item["category"], item["type"]])
+			desc_fail = true
+			fail_count += 1
+	if not desc_fail:
+		pass_count += 1
+
 	print("test_reward_pick: %d passed, %d failed" % [pass_count, fail_count])
 	if fail_count > 0:
 		quit(1)

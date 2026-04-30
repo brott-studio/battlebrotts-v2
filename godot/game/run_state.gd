@@ -66,11 +66,18 @@ func _init(chassis_type: int = 0, rng_seed: int = 0) -> void:
 	## blank screen. GDD never specified a starter weapon, so we fill the gap
 	## here with a chassis-appropriate starter.
 	## [K.4] Brawler (chassis 1) starts with Shotgun (WeaponData.WeaponType.SHOTGUN == 2)
-	## to close the mobility gap vs kiting opponents at T1 (#314). Scout/Fortress
-	## keep Plasma Cutter (WeaponData.WeaponType.PLASMA_CUTTER == 4).
+	## to close the mobility gap vs kiting opponents at T1 (#314).
+	## [M.2b] Fortress (chassis 2) starts with Flak Cannon (WeaponData.WeaponType.FLAK_CANNON == 6)
+	## — Plasma Cutter range 2.5 is unplayable at 60 px/s vs 150HP T1 opponents.
+	## Scout keeps Plasma Cutter (WeaponData.WeaponType.PLASMA_CUTTER == 4).
 	if equipped_weapons.is_empty():
 		if chassis_type == 1:  # ChassisData.ChassisType.BRAWLER
 			equipped_weapons.append(2)  # WeaponData.WeaponType.SHOTGUN
+		elif chassis_type == 2:  # ChassisData.ChassisType.FORTRESS
+			## [M.2b] Fortress T1 fix: Plasma Cutter (range 2.5) unplayable at 60 px/s —
+			## can't maintain firing range vs any T1 opponent. Flak Cannon (range 6)
+			## gives Fortress consistent pre-engagement shots.
+			equipped_weapons.append(6)  # WeaponData.WeaponType.FLAK_CANNON
 		else:
 			equipped_weapons.append(4)  # WeaponData.WeaponType.PLASMA_CUTTER
 

@@ -825,11 +825,11 @@ Weights are relative (don't need to sum to 100). Picker excludes the immediately
 
 | Archetype | T1 | T2 | T3 | T4 |
 |---|---|---|---|---|
-| `standard_duel` | 40 | 30 | 20 | 15 |
+| `standard_duel` | 60 | 30 | 20 | 15 |
 | `small_swarm` | 15 | 30 | 20 | 10 |
 | `large_swarm` | 10 | 20 | 20 | 15 |
-| `glass_cannon_blitz` | 15 | 10 | 5 | 10 |
-| `brawler_rush` | 20 | — | — | — |
+| `glass_cannon_blitz` | 5 | 10 | 5 | 10 |
+| `brawler_rush` | 10 | — | — | — |
 | `counter_build_elite` | — | 10 | 15 | 25 |
 | `miniboss_escorts` | — | — | 20 | 25 |
 

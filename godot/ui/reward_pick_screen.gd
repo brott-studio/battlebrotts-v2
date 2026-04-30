@@ -104,9 +104,9 @@ func _build_reward_ui() -> void:
 		## Description label
 		var full_data: Dictionary = {}
 		match item["category"]:
-			"weapon": full_data = WeaponData.WEAPONS[item["type"]]
-			"armor":  full_data = ArmorData.ARMORS[item["type"]]
-			"module": full_data = ModuleData.MODULES[item["type"]]
+			"weapon": full_data = WeaponData.WEAPONS.get(item["type"], {})
+			"armor":  full_data = ArmorData.ARMORS.get(item["type"], {})
+			"module": full_data = ModuleData.MODULES.get(item["type"], {})
 		var description: String = full_data.get("description", "")
 		var desc_lbl := Label.new()
 		desc_lbl.text = description

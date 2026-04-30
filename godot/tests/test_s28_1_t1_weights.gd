@@ -1,6 +1,6 @@
-## test_s28_1_t1_weights.gd — verifies T1 archetype weight shift (Arc J #314 fix).
+## test_s28_1_t1_weights.gd — verifies T1 archetype weight shift (Arc J #314 fix; updated M.2).
 ## Sprint-28.1 SI1-003.
-# J.2 updated: standard_duel 55→40, large_swarm 15→10 (brawler_rush added)
+# M.2 updated: standard_duel 60→45, brawler_rush 10→25 (over-soft T1 win rate correction)
 extends SceneTree
 
 func _init() -> void:
@@ -9,12 +9,12 @@ func _init() -> void:
 
 	var t1: Dictionary = OpponentLoadouts.ARCHETYPE_WEIGHTS_BY_TIER.get(1, {})
 
-	# standard_duel: 55 → 40 → 50 → 60 (J.2 updated, J.5 per-chassis T1 tuning, J.5.2 absorbs glass_cannon_blitz delta)
-	if t1.get("standard_duel", -1) != 60:
-		print("FAIL: T1 standard_duel expected 60, got ", t1.get("standard_duel", "missing"))
+	# standard_duel: M.2 60→45 (reduce easy mirror duels, shift weight to brawler_rush)
+	if t1.get("standard_duel", -1) != 45:
+		print("FAIL: T1 standard_duel expected 45, got ", t1.get("standard_duel", "missing"))
 		fail_count += 1
 	else:
-		print("PASS: T1 standard_duel == 60 (J.5.2: weight raised 50→60)")
+		print("PASS: T1 standard_duel == 45 (M.2: 60→45)")
 	pass_count += 1 - (fail_count if fail_count == 1 else 0)
 
 	# small_swarm: 30 → 15
@@ -41,6 +41,14 @@ func _init() -> void:
 	else:
 		print("PASS: T1 glass_cannon_blitz == 5 (J.5.2: 15→5)")
 
+	# brawler_rush: M.2 10->25 (harder Shotgun encounter; Scout/Brawler pressure)
+	prev = fail_count
+	if t1.get("brawler_rush", -1) != 25:
+		print("FAIL: T1 brawler_rush expected 25, got ", t1.get("brawler_rush", "missing"))
+		fail_count += 1
+	else:
+		print("PASS: T1 brawler_rush == 25 (M.2: 10->25)")
+
 	# T2 spot-check: standard_duel unchanged at 30
 	var t2: Dictionary = OpponentLoadouts.ARCHETYPE_WEIGHTS_BY_TIER.get(2, {})
 	prev = fail_count
@@ -51,7 +59,7 @@ func _init() -> void:
 		print("PASS: T2 standard_duel == 30 (unchanged)")
 
 	# Recalculate pass_count cleanly
-	pass_count = 5 - fail_count
+	pass_count = 6 - fail_count
 
 	print("test_s28_1_t1_weights: %d passed, %d failed" % [pass_count, fail_count])
 	if fail_count > 0:

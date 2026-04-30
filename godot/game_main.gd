@@ -13,51 +13,7 @@ const TICKS_PER_SEC := 10
 # No magic numbers inline — all dampening checks reference this constant.
 const RANDOM_EVENT_MIN_INTERVAL_SEC := 15.0
 
-# [S21.2 / #107] First-encounter overlay keys, parameterizing the S17.1-004
-# FirstRunState scaffolding to 4 surfaces total. `energy_explainer` is the
-# original S17.1-004 key (reused so existing player saves carry the dismissal
-# forward into the real-flow combat entry). Keep these as flat strings; the
-# autoload schema is keyless beyond the [seen] section.
-const FE_KEY_RUN_START := "run_start_first_visit"      ## S25.8: roguelike run start intro (was FE_KEY_SHOP)
-const FE_KEY_FIRST_REWARD_PICK := "first_reward_pick"  ## S25.8: first reward pick intro (was FE_KEY_BROTTBRAIN)
-const FE_KEY_FIRST_RETRY_PROMPT := "first_retry_prompt" ## S25.8: first retry prompt intro (was FE_KEY_OPPONENT)
-const FE_KEY_ENERGY := "energy_explainer"
 
-# [S21.3 / #245 / #107] Arena onboarding keys — in-arena HUD-element overlays.
-# Fixed order: click_controls → energy → combatants → time → concede (one per arena entry).
-# `energy_explainer` reuses the S17.1-004 key for save-carryforward.
-const FE_KEY_CLICK_CONTROLS := "click_controls_explainer"  ## S25.8: two-click affordances (first in sequence)
-const FE_KEY_COMBATANTS := "combatants_explainer"
-const FE_KEY_TIME := "time_explainer"
-const FE_KEY_CONCEDE := "concede_explainer"
-
-# Fixed arena sequence — order is invariant, do not reorder.
-# S25.8: click_controls_explainer prepended as the first arena overlay.
-const ARENA_SEQUENCE: Array = ["click_controls_explainer", "energy_explainer", "combatants_explainer", "time_explainer", "concede_explainer"]
-
-# ~12 s at 60 fps for arena overlays (vs 6 s for screen overlays).
-const ARENA_FE_TICK_BUDGET := 720
-
-# [S21.2 / #107] Plain-language overlay copy per surface. <=2 short sentences,
-# BrottBrain voice. Screen overlays anchored top-center; arena overlays use
-# ARENA_FE_COPY (below).
-const FE_COPY := {
-	"run_start_first_visit": "⚔️ A new run begins. Pick your chassis — that's your bot's body. Weapons and armor come from rewards you earn in battle.",
-	"first_reward_pick": "🎁 You won! Pick one reward to add to your build. It stays with you for the whole run.",
-	"first_retry_prompt": "💀 Your Brott went down. You have retries — use them to try that battle again with the same build. No retries left? The run is over.",
-	"energy_explainer": "⚡ The blue bar is your Energy — it powers your weapons and regenerates over time.",
-}
-const FE_TICK_BUDGET := 360  # ~6 seconds @ 60 fps before auto-dismiss (screen overlays)
-
-# [S21.3 / #245 / #107] Arena onboarding copy — 4 keys in ARENA_SEQUENCE order.
-# Kept separate from FE_COPY to preserve the S21.2 FE_COPY.size()==4 invariant.
-const ARENA_FE_COPY := {
-	"click_controls_explainer": "👆 Click the arena to send your Brott somewhere. Click an enemy to target them. Or just watch — it'll fight on its own.",
-	"energy_explainer": "⚡ The blue bar is your Energy — it powers your weapons and regenerates over time.",
-	"combatants_explainer": "⚔️ These panels show each fighter's HP and Energy. The first to reach zero loses.",
-	"time_explainer": "⏱️ The match timer counts up. Damage leader wins if neither bot is destroyed before 100s.",
-	"concede_explainer": "🏳️ Tap Concede to forfeit the fight. Use it when the match is clearly lost.",
-}
 
 var game_flow: GameFlow
 var sim: CombatSim
@@ -179,21 +135,6 @@ func _clear_screen() -> void:
 	if arena_renderer:
 		arena_renderer.queue_free()
 		arena_renderer = null
-	# [S21.2 / #107] Tear down any active first-encounter overlay so it does
-	# not leak across screen transitions. Mark-seen still happens via the
-	# dismiss path; here we just clean the orphan node.
-	if _fe_overlay != null:
-		_fe_overlay.queue_free()
-		_fe_overlay = null
-		_fe_ticks = 0
-		_fe_active_key = ""
-	# [S21.3 / #245] Tear down any active arena first-encounter overlay.
-	if _arena_fe_overlay != null:
-		_arena_fe_overlay.queue_free()
-		_arena_fe_overlay = null
-		_arena_fe_ticks = 0
-		_arena_fe_active_key = ""
-		speed_multiplier = _arena_fe_pre_slowdown_speed
 	# [S21.4 / #106] Tear down any visible random-event popup on arena exit.
 	if _re_popup != null and is_instance_valid(_re_popup):
 		_re_popup.queue_free()
@@ -286,7 +227,6 @@ func _show_run_start() -> void:
 	_wrap_in_scroll(run_start)
 	run_start.setup(0)  # time-based seed for production
 	run_start.start_run_requested.connect(_on_chassis_picked)
-	_maybe_spawn_first_encounter(FE_KEY_RUN_START)  ## S25.8: roguelike run-start intro
 
 func _on_chassis_picked(chassis_type: int) -> void:
 	## [S26.7 diagnostic] Confirm signal reached game_main and chassis_type is sane.
@@ -442,7 +382,6 @@ func _show_reward_pick() -> void:
 	_wrap_in_scroll(reward)
 	reward.setup(game_flow.run_state)
 	reward.picked.connect(func(_item): _advance_to_next_battle())
-	_maybe_spawn_first_encounter(FE_KEY_FIRST_REWARD_PICK)  ## S25.8: first reward pick intro
 
 func _show_retry_prompt() -> void:
 	_clear_screen()
@@ -454,7 +393,6 @@ func _show_retry_prompt() -> void:
 	retry.setup(game_flow.run_state)
 	retry.retry_chosen.connect(_start_roguelike_match)
 	retry.accept_loss.connect(_show_brott_down)  ## S25.8: GDD §A.5 — loss → BROTT DOWN (end_run() called from "New Run" button)
-	_maybe_spawn_first_encounter(FE_KEY_FIRST_RETRY_PROMPT)  ## S25.8: first retry prompt intro
 
 ## S25.8: Terminal loss screen (GDD §A.5 — both loss paths converge here).
 ## end_run() is NOT called on entry — BROTT DOWN needs run_state alive for stats.
@@ -572,7 +510,6 @@ func _show_shop() -> void:
 	_wrap_in_scroll(shop)
 	shop.setup(game_flow.game_state)
 	shop.continue_pressed.connect(_show_loadout)
-	_maybe_spawn_first_encounter(FE_KEY_RUN_START)  ## S25.8: legacy callsite — was FE_KEY_SHOP
 
 ## S22.2c: called when a league ceremony modal is dismissed (via modal_dismissed
 ## signal). Marks silver ceremony seen (fire-once guard), emits ceremony_complete
@@ -610,7 +547,6 @@ func _show_brottbrain() -> void:
 		_show_opponent_select()
 	)
 	brain_screen.back_pressed.connect(_show_loadout)
-	_maybe_spawn_first_encounter(FE_KEY_FIRST_REWARD_PICK)  ## S25.8: legacy callsite — was FE_KEY_BROTTBRAIN
 
 func _show_opponent_select() -> void:
 	_clear_screen()
@@ -620,7 +556,6 @@ func _show_opponent_select() -> void:
 	opp_screen.setup(game_flow.game_state)
 	opp_screen.opponent_selected.connect(_start_match)
 	opp_screen.back_pressed.connect(_show_loadout)
-	_maybe_spawn_first_encounter(FE_KEY_FIRST_RETRY_PROMPT)  ## S25.8: legacy callsite — was FE_KEY_OPPONENT
 
 func _start_demo_match() -> void:
 	## Start a hardcoded demo match for URL-param routing (?screen=battle).
@@ -757,17 +692,6 @@ func _create_arena_hud() -> void:
 	concede.flat = true
 	concede.pressed.connect(_on_concede_pressed)
 	add_child(concede)
-	# [S21.3 / #245 / #107] Create a named EnergyLegend anchor label so the
-	# arena onboarding sequencer can anchor the energy_explainer overlay to a
-	# real HUD element node (not a CanvasLayer). Reuses S17.1-003/004 copy.
-	var energy_legend := Label.new()
-	energy_legend.name = "EnergyLegend"
-	energy_legend.text = "⚡ Energy"
-	energy_legend.add_theme_font_size_override("font_size", 13)
-	energy_legend.add_theme_color_override("font_color", Color(0.2, 0.7, 1.0))
-	energy_legend.position = Vector2(20.0, 42.0)
-	energy_legend.size = Vector2(120.0, 20.0)
-	add_child(energy_legend)
 	# [S21.4 / #106] Named anchor for random-event popup positioning.
 	# Mirrors S21.3 EnergyLegend sibling pattern: Node2D child of GameMain,
 	# created imperatively here, named EXACTLY "RandomEventPopupAnchor".
@@ -777,11 +701,6 @@ func _create_arena_hud() -> void:
 	re_anchor.name = "RandomEventPopupAnchor"
 	re_anchor.position = Vector2(384.0, 50.0)
 	add_child(re_anchor)
-	# [S21.3 / #245 / #107] Start the arena-entry onboarding sequence.
-	# This is the arena-entry hook (per-match entry, not screen show/enter).
-	# Replaces the S21.2 per-screen FE_KEY_ENERGY spawn so the overlay
-	# anchors to the real EnergyLegend HUD node rather than top-center.
-	_start_arena_onboarding()
 
 func _on_concede_pressed() -> void:
 	if not in_arena or sim == null or sim.match_over:
@@ -834,17 +753,6 @@ func _show_result() -> void:
 	_show_main_menu()
 
 func _process(delta: float) -> void:
-	# [S21.2 / #107] Tick-budget auto-dismiss for any active first-encounter
-	# overlay (parameterized version of S17.1-004's _energy_explainer_ticks).
-	if _fe_overlay != null:
-		_fe_ticks += 1
-		if _fe_ticks >= FE_TICK_BUDGET:
-			_dismiss_first_encounter()
-	# [S21.3 / #245] Tick-budget auto-dismiss for arena onboarding overlay.
-	if _arena_fe_overlay != null:
-		_arena_fe_ticks += 1
-		if _arena_fe_ticks >= ARENA_FE_TICK_BUDGET:
-			_dismiss_arena_first_encounter()
 	if not in_arena or sim == null or sim.match_over:
 		return
 	
@@ -889,268 +797,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_2: speed_multiplier = 2.0
 			KEY_5: speed_multiplier = 5.0
 
-# [S21.2 / #107] Generic first-encounter overlay scaffolding. Parameterized
-# from S17.1-004's _spawn_energy_explainer pattern. Spawns a dismiss-only
-# panel anchored top-center if FirstRunState[key] is unset; marks-seen on
-# either button press or tick-budget expiry. Only one overlay active at a
-# time — repeat calls while one is up are no-ops.
-var _fe_overlay: Control = null
-var _fe_ticks: int = 0
-var _fe_active_key: String = ""
-
-func _maybe_spawn_first_encounter(key: String) -> void:
-	if _fe_overlay != null:
-		return
-	if not FE_COPY.has(key):
-		push_warning("[FirstEncounter] no copy registered for key=%s" % key)
-		return
-	if not Engine.has_singleton("FirstRunState") and get_node_or_null("/root/FirstRunState") == null:
-		# Headless/test path with no autoload — silently skip.
-		return
-	var frs: Node = get_node_or_null("/root/FirstRunState")
-	if frs == null:
-		return
-	if frs.call("has_seen", key):
-		return
-	_spawn_first_encounter(key, String(FE_COPY[key]))
-
-func _spawn_first_encounter(key: String, copy: String) -> void:
-	var panel := Panel.new()
-	panel.name = "FirstEncounterOverlay_" + key
-	panel.position = Vector2(330, 60)
-	panel.size = Vector2(620, 100)
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	
-	var body := Label.new()
-	body.name = "Body"
-	body.text = copy
-	body.add_theme_font_size_override("font_size", 14)
-	body.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.position = Vector2(16, 12)
-	body.size = Vector2(580, 56)
-	panel.add_child(body)
-	
-	var btn := Button.new()
-	btn.name = "GotItButton"
-	btn.text = "Got it!"
-	btn.position = Vector2(508, 64)
-	btn.size = Vector2(96, 28)
-	btn.pressed.connect(_on_first_encounter_dismissed)
-	panel.add_child(btn)
-	
-	add_child(panel)
-	_fe_overlay = panel
-	_fe_ticks = 0
-	_fe_active_key = key
-
-func _dismiss_first_encounter() -> void:
-	if _fe_overlay == null:
-		return
-	var frs: Node = get_node_or_null("/root/FirstRunState")
-	if frs != null and _fe_active_key != "":
-		frs.call("mark_seen", _fe_active_key)
-	_fe_overlay.queue_free()
-	_fe_overlay = null
-	_fe_ticks = 0
-	_fe_active_key = ""
-
-func _on_first_encounter_dismissed() -> void:
-	_dismiss_first_encounter()
-
-# [S21.3 / #245 / #107] Arena-entry onboarding sequencer.
-# Called once per arena entry (from _create_arena_hud) — NOT from
-# _ready or screen show/enter callbacks. Advances through ARENA_SEQUENCE
-# to the next unseen key and spawns that overlay anchored to the matching
-# HUD element node. One overlay per arena entry maximum.
-#
-# sim-slowdown: 0.25× while overlay visible, restored on dismiss.
-# tick-budget: ARENA_FE_TICK_BUDGET (~12 s) auto-dismiss.
-var _arena_fe_overlay: Control = null
-var _arena_fe_ticks: int = 0
-var _arena_fe_active_key: String = ""
-var _arena_fe_pre_slowdown_speed: float = 1.0
-
-func _start_arena_onboarding() -> void:
-	# Guard: if an overlay is somehow already active (re-entrant call), skip.
-	if _arena_fe_overlay != null:
-		return
-	# FRS lookup: try direct path first (in-tree node), then fall back to
-	# Engine.get_main_loop().root (works even when this node is not in the tree,
-	# e.g. headless test instantiation).
-	var frs: Node = get_node_or_null("/root/FirstRunState")
-	if frs == null:
-		var ml := Engine.get_main_loop() as SceneTree
-		if ml != null and ml.root != null:
-			frs = ml.root.get_node_or_null("FirstRunState")
-	if frs == null:
-		return
-	# Advance to next unseen key in ARENA_SEQUENCE.
-	for key in ARENA_SEQUENCE:
-		if not frs.call("has_seen", key):
-			_spawn_arena_first_encounter(key)
-			return
-	# All keys seen — nothing to show.
-
-func _spawn_arena_first_encounter(key: String) -> Control:
-	# Resolve anchor: the HUD element node for this key.
-	# anchor_target is a real Node reference, not a CanvasLayer / screen root.
-	var anchor: Control = null
-	match key:
-		"click_controls_explainer":
-			## S25.8: Anchors to player_info HUD label as a stable top-of-arena anchor.
-			## The overlay copy is about clicking the arena, not a specific HUD element,
-			## but we still need a valid Control anchor for placement.
-			anchor = player_info
-		"energy_explainer":
-			anchor = _resolve_energy_legend_node()
-		"combatants_explainer":
-			anchor = _resolve_combatants_panel_node()
-		"time_explainer":
-			anchor = time_label
-		"concede_explainer":
-			anchor = _find_concede_button()
-
-	if anchor == null:
-		# Anchor not found (e.g. concede button missing) — skip this key
-		# gracefully so remaining overlays still fire.
-		# The concede-button absence is handled by the caller (backlog issue filed).
-		return null
-
-	# Build overlay positioned relative to the anchor's global rect.
-	var panel := Panel.new()
-	panel.name = "ArenaFEOverlay_" + key
-	panel.z_index = 10
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-
-	# Panel is 400 × 110; we position it below (or above if near bottom) the anchor.
-	var panel_w := 400.0
-	var panel_h := 110.0
-	var anchor_global := anchor.get_global_rect()
-	var anchor_center_x := anchor_global.position.x + anchor_global.size.x * 0.5
-
-	# Default: position panel left edge so it centres on the anchor (clamped to viewport).
-	var vp := get_viewport()
-	var viewport_size := vp.get_visible_rect().size if vp != null else Vector2(1280.0, 720.0)
-	var panel_x := clampf(anchor_center_x - panel_w * 0.5, 8.0, viewport_size.x - panel_w - 8.0)
-
-	# Default: panel sits BELOW the anchor (pointer ▲ points up at anchor).
-	# If the anchor is in the bottom half, flip to above.
-	var ARROW_H := 18.0
-	var panel_y: float
-	var arrow_text: String
-	var arrow_inside_y: float
-	if anchor_global.position.y > viewport_size.y * 0.5:
-		# Anchor is in bottom half — panel goes ABOVE. ▼ pointer at bottom of panel.
-		panel_y = anchor_global.position.y - panel_h - ARROW_H - 4.0
-		arrow_text = "▼"
-		arrow_inside_y = panel_h - 2.0
-	else:
-		# Panel goes BELOW anchor. ▲ pointer at top of panel.
-		panel_y = anchor_global.position.y + anchor_global.size.y + ARROW_H + 4.0
-		arrow_text = "▲"
-		arrow_inside_y = -ARROW_H
-
-	panel.position = Vector2(panel_x, panel_y)
-	panel.size = Vector2(panel_w, panel_h)
-
-	# ▲/▼ pointer — anchor arrow node (stable name for tests: "AnchorArrow").
-	var arrow := Label.new()
-	arrow.name = "AnchorArrow"
-	arrow.text = arrow_text
-	arrow.add_theme_font_size_override("font_size", 18)
-	arrow.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
-	# Position: horizontally centred on the anchor within the panel's local space.
-	var arrow_local_x := clampf(
-		(anchor_center_x - panel_x) - 10.0, 8.0, panel_w - 24.0)
-	arrow.position = Vector2(arrow_local_x, arrow_inside_y)
-	arrow.size = Vector2(20.0, ARROW_H)
-	panel.add_child(arrow)
-
-	# Body copy.
-	var body := Label.new()
-	body.name = "Body"
-	body.text = String(ARENA_FE_COPY.get(key, ""))
-	body.add_theme_font_size_override("font_size", 14)
-	body.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.position = Vector2(12.0, 10.0)
-	body.size = Vector2(panel_w - 24.0, 60.0)
-	panel.add_child(body)
-
-	# "Got it!" dismiss button.
-	var btn := Button.new()
-	btn.name = "GotItButton"
-	btn.text = "Got it!"
-	btn.position = Vector2(panel_w - 104.0, panel_h - 36.0)
-	btn.size = Vector2(96.0, 28.0)
-	btn.pressed.connect(_on_arena_fe_dismissed)
-	panel.add_child(btn)
-
-	# Store anchor reference as metadata so tests can read it.
-	panel.set_meta("anchor_target", anchor)
-
-	add_child(panel)
-	_arena_fe_overlay = panel
-	_arena_fe_ticks = 0
-	_arena_fe_active_key = key
-
-	# Apply 0.25× sim slowdown.
-	_arena_fe_pre_slowdown_speed = speed_multiplier
-	speed_multiplier *= 0.25
-	return panel
-
-func _dismiss_arena_first_encounter() -> void:
-	if _arena_fe_overlay == null:
-		return
-	var frs: Node = get_node_or_null("/root/FirstRunState")
-	if frs != null and _arena_fe_active_key != "":
-		frs.call("mark_seen", _arena_fe_active_key)
-	_arena_fe_overlay.queue_free()
-	_arena_fe_overlay = null
-	_arena_fe_ticks = 0
-	_arena_fe_active_key = ""
-	# Restore sim speed.
-	speed_multiplier = _arena_fe_pre_slowdown_speed
-
-func _on_arena_fe_dismissed() -> void:
-	_dismiss_arena_first_encounter()
-
-# Resolve the EnergyLegend node. In game_main.gd it is created dynamically
-# inside _create_arena_hud as a child of this node (not inside a CanvasLayer).
-func _resolve_energy_legend_node() -> Control:
-	# Look for an existing EnergyLegend label child.
-	for child in get_children():
-		if child is Label and child.name == "EnergyLegend":
-			return child as Control
-	# Not yet created — synthesise one so we have a real anchor node.
-	# (In practice _create_arena_hud creates it before calling this.)
-	var legend := Label.new()
-	legend.name = "EnergyLegend"
-	legend.text = "⚡ Energy"
-	legend.position = Vector2(20.0, 42.0)
-	legend.size = Vector2(200.0, 20.0)
-	add_child(legend)
-	return legend
-
-# Resolve combatants panel: the PlayerInfo + EnemyInfo pair. We expose this
-# as the player_info label (left anchor) for overlay positioning; the
-# panel name is CombatantsPanel if we wrap them, or we use player_info directly.
-func _resolve_combatants_panel_node() -> Control:
-	# Try to find a named CombatantsPanel first (forward-compatible).
-	var cp: Node = get_node_or_null("CombatantsPanel")
-	if cp is Control:
-		return cp as Control
-	# Fall back to player_info (set by _create_arena_hud).
-	if player_info != null:
-		return player_info
-	return null
-
-func _find_concede_button() -> Control:
-	for child in get_children():
-		if child.name == "ConcedeButton" and child is Button:
-			return child as Control
-	return null
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [S21.4 / #106] Random-event popup controller

@@ -800,6 +800,8 @@ T1 battles (indices 0–2) target the following duration window for a player sta
 
 **Calibration (Arc J):** T1 baseline HP increased from 80 to 120 (+50%) and `small_swarm` T1 weight reduced from 30 to 15 (standard_duel from 40 to 55) to reach the ≥20s median. Combat sim validation confirms these parameters in sprint-28.1.
 
+**Calibration (Arc M, M.2):** T1 baseline HP increased from 120 to 150 (+25%) and `brawler_rush` T1 weight increased from 10 to 25 (`standard_duel` from 60 to 45) to correct over-soft T1 win rates (Scout 84%, Brawler 88%, Fortress 67% → targets per-chassis 55–70% / 45–65% / 40–55%). Combat sim re-validation confirmed post-merge.
+
 Archetype `hp_pct` values (§13.4) multiply against the tier baseline at generation time, so the same archetype shape (e.g. Small Swarm) gets harder as the run progresses.
 
 ### 13.4 Encounter Archetypes
@@ -825,11 +827,11 @@ Weights are relative (don't need to sum to 100). Picker excludes the immediately
 
 | Archetype | T1 | T2 | T3 | T4 |
 |---|---|---|---|---|
-| `standard_duel` | 60 | 30 | 20 | 15 |
+| `standard_duel` | 45 | 30 | 20 | 15 |
 | `small_swarm` | 15 | 30 | 20 | 10 |
 | `large_swarm` | 10 | 20 | 20 | 15 |
 | `glass_cannon_blitz` | 5 | 10 | 5 | 10 |
-| `brawler_rush` | 10 | — | — | — |
+| `brawler_rush` | 25 | — | — | — |
 | `counter_build_elite` | — | 10 | 15 | 25 |
 | `miniboss_escorts` | — | — | 20 | 25 |
 

@@ -510,7 +510,7 @@ const TEMPLATES: Array[Dictionary] = [
 ## Tier 1: battles 1-3, Tier 2: 4-7, Tier 3: 8-11, Tier 4: 12-14, Tier 5: Boss.
 static func _baseline_hp_for_tier(tier: int) -> int:
 	match tier:
-		1: return 120  # J.1: +50% HP to target 20-60s T1 battle window (#314)
+		1: return 150  # M.2: +25% HP — T1 win rates 84-87% → target 40-70% range
 		2: return 120
 		3: return 160
 		4: return 200
@@ -658,7 +658,7 @@ static func compose_encounter(archetype_id: String, battle_index: int, run_state
 
 ## S25.6: Probability weights per tier. Weights are relative (don't need to sum to 100).
 const ARCHETYPE_WEIGHTS_BY_TIER: Dictionary = {
-	1: {"standard_duel": 60, "small_swarm": 15, "large_swarm": 10, "glass_cannon_blitz": 5, "brawler_rush": 10},  # J.5.2: glass_cannon_blitz 15→5 (Fortress can't handle 2 Railgun kiting enemies at T1 before reward picks); standard_duel 50→60 to absorb weight delta. Permanent balance decision (#314).
+	1: {"standard_duel": 45, "small_swarm": 15, "large_swarm": 10, "glass_cannon_blitz": 5, "brawler_rush": 25},  # M.2: standard_duel 60→45, brawler_rush 10→25 — reduce easy mirror duels; Shotgun burst harder for Scout/Brawler
 	2: {"standard_duel": 30, "small_swarm": 30, "large_swarm": 20, "counter_build_elite": 10, "glass_cannon_blitz": 10},
 	3: {"standard_duel": 20, "small_swarm": 20, "large_swarm": 20, "miniboss_escorts": 20, "counter_build_elite": 15, "glass_cannon_blitz": 5},
 	4: {"standard_duel": 15, "small_swarm": 10, "large_swarm": 15, "miniboss_escorts": 25, "counter_build_elite": 25, "glass_cannon_blitz": 10},

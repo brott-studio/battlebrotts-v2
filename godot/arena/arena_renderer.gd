@@ -143,7 +143,7 @@ func _init_particle_pool() -> void:
 		})
 	active_particle_count = 0
 
-func _claim_particle() -> Dictionary:
+func _claim_particle() -> Variant:
 	"""Claim an inactive particle from the pool. Returns null if pool exhausted."""
 	for p in particle_pool:
 		if not p["active"]:

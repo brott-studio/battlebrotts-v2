@@ -30,7 +30,10 @@ const COLOR_DANGER_BORDER := Color(1.0, 0.15, 0.1, 0.8)
 var sim: CombatSim = null
 var arena_offset: Vector2 = Vector2.ZERO
 var damage_texts: Array = []
-var particles: Array = []  # impact sparks
+var particles: Array = []  # impact sparks (now pooled)
+var particle_pool: Array = []  # pre-allocated particle pool (~200 slots)
+var particle_pool_size: int = 200
+var active_particle_count: int = 0  # tracks how many pool slots are active
 
 # Screen shake state
 var shake_intensity: float = 0.0
@@ -123,6 +126,32 @@ func setup(p_sim: CombatSim, p_offset: Vector2) -> void:
 		print("[S17.2-004] velocity debug overlay enabled via BB_DEBUG_VELOCITY=1")
 	set_process_unhandled_input(true)
 	charm_rng.seed = 12345  # deterministic for testing
+	_init_particle_pool()
+
+func _init_particle_pool() -> void:
+	"""Pre-allocate particle pool at setup to prevent frame-time spikes during death bursts."""
+	particle_pool.clear()
+	for i in range(particle_pool_size):
+		particle_pool.append({
+			"pos": Vector2.ZERO,
+			"vel": Vector2.ZERO,
+			"lifetime": 0.0,
+			"max_lifetime": 0.0,
+			"color": Color.WHITE,
+			"size": 1.0,
+			"active": false,
+		})
+	active_particle_count = 0
+
+func _claim_particle() -> Dictionary:
+	"""Claim an inactive particle from the pool. Returns null if pool exhausted."""
+	for p in particle_pool:
+		if not p["active"]:
+			p["active"] = true
+			active_particle_count += 1
+			return p
+	# Pool exhausted — skip particle (no crash, no OOM)
+	return null
 
 func _unhandled_input(event: InputEvent) -> void:
 	# [S17.2-004] Hidden hotkey (F3) to toggle the velocity overlay at runtime.
@@ -262,20 +291,21 @@ func _spawn_sparks(hit_pos: Vector2, weapon_class: String) -> void:
 			count = randi_range(3, 5)
 	
 	for _i in range(count):
+		var p: Dictionary = _claim_particle()
+		if p == null:
+			continue  # pool exhausted
 		var angle := randf() * TAU
 		var speed := randf_range(40.0, 80.0)
 		var vel := Vector2(cos(angle), sin(angle)) * speed
 		var lt := randf_range(lifetime_min, lifetime_max)
 		var sz := randf_range(size_min, size_max)
 		var col := col1.lerp(col2, randf())
-		particles.append({
-			"pos": hit_pos + arena_offset,
-			"vel": vel,
-			"lifetime": lt,
-			"max_lifetime": lt,
-			"color": col,
-			"size": sz,
-		})
+		p["pos"] = hit_pos + arena_offset
+		p["vel"] = vel
+		p["lifetime"] = lt
+		p["max_lifetime"] = lt
+		p["color"] = col
+		p["size"] = sz
 
 func _get_spark_class_for_source(source: BrottState) -> String:
 	if source == null:
@@ -376,7 +406,7 @@ func _on_death(brott: BrottState) -> void:
 	# Slow-mo
 	death_slow_mo_timer = 18.0  # 0.3s at 60fps
 	
-	# Debris particles
+	# Debris particles (pooled)
 	for _i in range(randi_range(4, 6)):
 		var angle := randf() * TAU
 		var speed := randf_range(100.0, 150.0)
@@ -392,19 +422,20 @@ func _on_death(brott: BrottState) -> void:
 			"color": [Color.ORANGE, Color.GRAY, Color.WHITE][randi() % 3],
 		})
 	
-	# Big particle burst
+	# Big particle burst (pooled)
 	for _i in range(randi_range(20, 30)):
+		var p: Dictionary = _claim_particle()
+		if p == null:
+			continue  # pool exhausted
 		var angle := randf() * TAU
 		var speed := randf_range(80.0, 150.0)
 		var col: Color = [Color.ORANGE, Color.GRAY, Color.WHITE][randi() % 3]
-		particles.append({
-			"pos": brott.position + arena_offset,
-			"vel": Vector2(cos(angle), sin(angle)) * speed,
-			"lifetime": randf_range(300.0, 600.0) / (1000.0 / 60.0),
-			"max_lifetime": randf_range(300.0, 600.0) / (1000.0 / 60.0),
-			"color": col,
-			"size": randf_range(2.0, 4.0),
-		})
+		p["pos"] = brott.position + arena_offset
+		p["vel"] = Vector2(cos(angle), sin(angle)) * speed
+		p["lifetime"] = randf_range(300.0, 600.0) / (1000.0 / 60.0)
+		p["max_lifetime"] = randf_range(300.0, 600.0) / (1000.0 / 60.0)
+		p["color"] = col
+		p["size"] = randf_range(2.0, 4.0)
 	
 	# Set death_timer for explosion sprite animation
 	brott.death_timer = 30.0
@@ -474,18 +505,16 @@ func tick_visuals() -> void:
 		_add_damage_text(acc["pos"], acc["total"], acc["is_crit"])
 		shotgun_accum.erase(tid)
 	
-	# Update particles
-	var p_remove: Array = []
-	for i in range(particles.size()):
-		var p = particles[i]
+	# Update particles (pooled)
+	for p in particle_pool:
+		if not p["active"]:
+			continue
 		p["pos"] += p["vel"] * (1.0 / 60.0)
 		p["vel"].y += 30.0 * (1.0 / 60.0)  # light gravity
 		p["lifetime"] -= 1.0
 		if p["lifetime"] <= 0:
-			p_remove.append(i)
-	p_remove.reverse()
-	for idx in p_remove:
-		particles.remove_at(idx)
+			p["active"] = false
+			active_particle_count -= 1
 	
 	# Update debris
 	var d_remove: Array = []
@@ -616,9 +645,12 @@ func _tick_charm_anims() -> void:
 		if b.chassis_type == ChassisData.ChassisType.BRAWLER:
 			if is_moving and was_still:
 				var puffs := CharmAnims.create_dust_puff(b.position)
-				for p in puffs:
-					p["pos"] += arena_offset
-					particles.append(p)
+				for puff in puffs:
+					var p: Dictionary = _claim_particle()
+					if p == null:
+						continue  # pool exhausted
+					puff["pos"] += arena_offset
+					p.merge(puff)
 
 		# Fortress: micro-shake on start/stop, gear particle on decel
 		if b.chassis_type == ChassisData.ChassisType.FORTRESS:
@@ -627,15 +659,19 @@ func _tick_charm_anims() -> void:
 				fortress_micro_shake = Vector2(randf_range(-0.5, 0.5), randf_range(-0.5, 0.5))
 				fortress_micro_shake_timer = 0.1
 			if cur_speed < prev_speed - 5.0 and cur_speed > 5.0:
-				# decelerating: gear-grinding particle
+				# decelerating: gear-grinding particle (pooled)
 				var gp := CharmAnims.create_gear_particle(b.position + arena_offset, cur_vel)
-				particles.append(gp)
+				var p: Dictionary = _claim_particle()
+				if p != null:
+					p.merge(gp)
 
-		# Combat flavor: smoke trail below 25% HP
+		# Combat flavor: smoke trail below 25% HP (pooled)
 		var hp_pct := b.hp / float(b.max_hp)
 		if hp_pct < 0.25 and hp_pct > 0.0 and frame_count % 4 == 0:
 			var sp := CharmAnims.create_smoke_particle(b.position + arena_offset)
-			particles.append(sp)
+			var p: Dictionary = _claim_particle()
+			if p != null:
+				p.merge(sp)
 
 		# Combat flavor: module activation ring
 		if b.module_ring_timer > 0:
@@ -662,14 +698,14 @@ func _tick_charm_anims() -> void:
 				for _i in range(5):
 					var angle := randf() * TAU
 					var speed := randf_range(20.0, 40.0)
-					particles.append({
-						"pos": b.position + arena_offset,
-						"vel": Vector2(cos(angle), sin(angle)) * speed,
-						"lifetime": 20.0,
-						"max_lifetime": 20.0,
-						"color": Color(1.0, 0.8, 0.2, 0.8),
-						"size": 1.5,
-					})
+					var p: Dictionary = _claim_particle()
+					if p != null:
+						p["pos"] = b.position + arena_offset
+						p["vel"] = Vector2(cos(angle), sin(angle)) * speed
+						p["lifetime"] = 20.0
+						p["max_lifetime"] = 20.0
+						p["color"] = Color(1.0, 0.8, 0.2, 0.8)
+						p["size"] = 1.5
 				continue
 			if b.team == sim.winner_team:
 				var hp_pct := b.hp / float(b.max_hp)
@@ -684,14 +720,14 @@ func _tick_charm_anims() -> void:
 				for _i in range(5):
 					var angle := randf() * TAU
 					var speed := randf_range(20.0, 40.0)
-					particles.append({
-						"pos": b.position + arena_offset,
-						"vel": Vector2(cos(angle), sin(angle)) * speed,
-						"lifetime": 20.0,
-						"max_lifetime": 20.0,
-						"color": Color(1.0, 0.8, 0.2, 0.8),
-						"size": 1.5,
-					})
+					var p: Dictionary = _claim_particle()
+					if p != null:
+						p["pos"] = b.position + arena_offset
+						p["vel"] = Vector2(cos(angle), sin(angle)) * speed
+						p["lifetime"] = 20.0
+						p["max_lifetime"] = 20.0
+						p["color"] = Color(1.0, 0.8, 0.2, 0.8)
+						p["size"] = 1.5
 
 func _draw() -> void:
 	if sim == null:
@@ -740,7 +776,9 @@ func _draw() -> void:
 		_draw_debug_velocity_overlay(draw_offset)
 	
 	# Particles (sparks)
-	for p in particles:
+	for p in particle_pool:
+		if not p["active"]:
+			continue
 		var alpha: float = clampf(p["lifetime"] / p["max_lifetime"], 0.0, 1.0)
 		var col: Color = p["color"]
 		col.a = alpha

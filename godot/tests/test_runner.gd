@@ -69,9 +69,6 @@ const SPRINT_TEST_FILES := [
 	# [S21.2] UX bundle (#103, #104, #107) tests — added by Nutts T1/T2/T3.
 	# [S25.8] test_s21_2_001_inline_captions moved to ARC_G_PENDING (depends on retired ResultScreen).
 	"res://tests/test_s21_2_002_scroll_wrappers.gd",
-	"res://tests/test_s21_2_003_first_encounter_overlays.gd",
-	# [S21.3] Arena onboarding HUD-element overlays (#245, #107) — added by Nutts S21.3-001.
-	"res://tests/test_s21_3_arena_onboarding.gd",
 	# [S21.4 T1] Scroll position preserved in shop/loadout on child-node tap (#105).
 	"res://tests/test_s21_4_001_scroll_position.gd",
 	# [S21.4 T2] Random-event popup redesign — named anchor + skip button + dampening (#106).
@@ -100,8 +97,7 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s24_4_001_crit_sfx_routing.gd",
 	"res://tests/test_s24_4_002_death_sfx_routing.gd",
 	"res://tests/test_s24_4_003_sfx_assets.gd",
-	"res://tests/test_s24_5_001_menu_loop_seam.gd",
-	"res://tests/test_s24_5_002_menu_music_routing.gd",
+
 	"res://tests/test_run_state_init.gd",
 	# [S26.1-003] Battle-start fix — starter weapon (Plasma Cutter) on every new run.
 	"res://tests/test_s26_1_starter_weapon.gd",

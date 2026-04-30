@@ -101,6 +101,22 @@ func _build_reward_ui() -> void:
 		cat_lbl.position = Vector2(card_xs[i], 280)
 		cat_lbl.size = Vector2(220, 24)
 		add_child(cat_lbl)
+		## Description label
+		var full_data: Dictionary = {}
+		match item["category"]:
+			"weapon": full_data = WeaponData.WEAPONS[item["type"]]
+			"armor":  full_data = ArmorData.ARMORS[item["type"]]
+			"module": full_data = ModuleData.MODULES[item["type"]]
+		var description: String = full_data.get("description", "")
+		var desc_lbl := Label.new()
+		desc_lbl.text = description
+		desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		desc_lbl.position = Vector2(card_xs[i], 310)
+		desc_lbl.size = Vector2(220, 60)
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc_lbl.add_theme_font_size_override("font_size", 12)
+		desc_lbl.modulate = Color(0.8, 0.8, 0.8, 1.0)
+		add_child(desc_lbl)
 
 func _is_equipped(item: Dictionary) -> bool:
 	match item["category"]:

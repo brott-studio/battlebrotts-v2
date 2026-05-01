@@ -339,6 +339,7 @@ func _start_roguelike_match() -> void:
 	## Boss arena is pre-set by _show_boss_arena(); preserve it.
 	if game_flow.current_screen != GameFlow.Screen.BOSS_ARENA:
 		game_flow.current_screen = GameFlow.Screen.ARENA
+	_save_last_screen()
 	in_arena = true
 	speed_multiplier = 1.0
 	tick_accumulator = 0.0

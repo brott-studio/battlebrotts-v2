@@ -1,5 +1,5 @@
-## test_s28_1_t1_hp_baseline.gd — verifies T1 baseline HP (Arc J #314 fix; updated M.4).
-## Sprint-28.1 SI1-002. M.4: HP 150→80 per sprint-m.4 rebalance.
+## test_s28_1_t1_hp_baseline.gd — verifies T1 baseline HP (Arc J #314 fix; updated M.4/M.4b).
+## Sprint-28.1 SI1-002. M.4: HP 150→80 per sprint-m.4 rebalance. M.4b: T2/T3/T4 HP reduced.
 extends SceneTree
 
 func _init() -> void:
@@ -15,8 +15,8 @@ func _init() -> void:
 		print("PASS: _baseline_hp_for_tier(1) == 80 (M.4: 150→80)")
 	pass_count += 1 - fail_count
 
-	# T2+ should be unchanged (120, 160, 200, 240)
-	var expected := {2: 120, 3: 160, 4: 200}
+	# T2+ updated in M.4b: 120→90, 160→130, 200→165 (≤1.3× T1 ramp spec)
+	var expected := {2: 90, 3: 130, 4: 165}
 	for tier in expected:
 		var prev_fail := fail_count
 		var hp := OpponentLoadouts._baseline_hp_for_tier(tier)
@@ -24,7 +24,7 @@ func _init() -> void:
 			print("FAIL: _baseline_hp_for_tier(%d) expected %d, got %d" % [tier, expected[tier], hp])
 			fail_count += 1
 		else:
-			print("PASS: _baseline_hp_for_tier(%d) == %d (unchanged)" % [tier, expected[tier]])
+			print("PASS: _baseline_hp_for_tier(%d) == %d (M.4b)" % [tier, expected[tier]])
 		pass_count += 1 - (fail_count - prev_fail)
 
 	print("test_s28_1_t1_hp_baseline: %d passed, %d failed" % [pass_count, fail_count])

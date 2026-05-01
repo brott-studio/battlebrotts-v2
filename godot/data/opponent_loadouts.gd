@@ -510,7 +510,7 @@ const TEMPLATES: Array[Dictionary] = [
 ## Tier 1: battles 1-3, Tier 2: 4-7, Tier 3: 8-11, Tier 4: 12-14, Tier 5: Boss.
 static func _baseline_hp_for_tier(tier: int) -> int:
 	match tier:
-		1: return 150  # M.2: +25% HP — T1 win rates 84-87% → target 40-70% range
+		1: return 80   # M.4: T1 HP retune 150→80 — restore tier ramp, target 85-90% T1 win-rate
 		2: return 120
 		3: return 160
 		4: return 200

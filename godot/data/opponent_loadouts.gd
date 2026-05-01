@@ -565,7 +565,7 @@ const ARCHETYPE_TEMPLATES: Array[Dictionary] = [
 		"id": "brawler_rush",
 		"display_name": "Brawler Rush",
 		"enemy_specs": [
-			{"chassis": 1, "weapons": [2], "armor": 0, "modules": [], "hp_pct": 0.75, "count": 1}
+			{"chassis": 1, "weapons": [2], "armor": 0, "modules": [], "hp_pct": 0.5, "count": 1}
 		]
 	},
 	{
@@ -658,7 +658,7 @@ static func compose_encounter(archetype_id: String, battle_index: int, run_state
 
 ## S25.6: Probability weights per tier. Weights are relative (don't need to sum to 100).
 const ARCHETYPE_WEIGHTS_BY_TIER: Dictionary = {
-	1: {"standard_duel": 45, "small_swarm": 15, "large_swarm": 10, "glass_cannon_blitz": 5, "brawler_rush": 25},  # M.2: standard_duel 60→45, brawler_rush 10→25 — reduce easy mirror duels; Shotgun burst harder for Scout/Brawler
+	1: {"standard_duel": 45, "small_swarm": 25, "large_swarm": 15, "glass_cannon_blitz": 5, "brawler_rush": 10},  # M.5: brawler_rush 25→10, small_swarm 15→25, large_swarm 10→15 — fix 80/20/20 split; brawler_rush was Scout-easy, swarms favor Brawler/Fortress area weapons
 	2: {"standard_duel": 30, "small_swarm": 30, "large_swarm": 20, "counter_build_elite": 10, "glass_cannon_blitz": 10},
 	3: {"standard_duel": 20, "small_swarm": 20, "large_swarm": 20, "miniboss_escorts": 20, "counter_build_elite": 15, "glass_cannon_blitz": 5},
 	4: {"standard_duel": 15, "small_swarm": 10, "large_swarm": 15, "miniboss_escorts": 25, "counter_build_elite": 25, "glass_cannon_blitz": 10},

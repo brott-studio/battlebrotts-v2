@@ -512,8 +512,8 @@ static func _baseline_hp_for_tier(tier: int) -> int:
 	match tier:
 		1: return 80   # M.4: T1 HP retune 150→80 — restore tier ramp, target 85-90% T1 win-rate
 		2: return 90   # M.4b: T2 120→90 — restore ramp (≤1.3×T1), target 87%+ per-battle win-rate
-		3: return 130  # M.4b: T3 160→130
-		4: return 165  # M.4b: T4 200→165
+		3: return 110  # M.4c: T3 130→110
+		4: return 140  # M.4c: T4 165→140
 		_: return 240  # Boss tier (unchanged — hard boss correct at 12+ items)
 
 ## Archetype template records. enemy_specs describe the enemy composition.

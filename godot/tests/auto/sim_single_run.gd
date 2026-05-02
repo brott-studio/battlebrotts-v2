@@ -1,7 +1,7 @@
 ## Arc I S(I).3 — Combat Sim Agent: single-run headless driver.
 ##
 ## Runs a full roguelike run (up to 15 battles) with random chassis + reward picks.
-## Always accepts loss (never uses retries). Outputs one JSON line to stdout.
+## Models GDD retry rules: player gets 3 retries per run, uses one on each loss, run ends on 4th loss. Success = completing all 15 battles (win or via retries) and beating the final boss. Outputs one JSON line to stdout.
 ##
 ## Usage:
 ##   godot --headless --path godot/ --script "res://tests/auto/sim_single_run.gd" -- --seed=12345
@@ -33,6 +33,7 @@ var _chosen_chassis: int = -1
 var _chassis_names := {0: "SCOUT", 1: "BRAWLER", 2: "FORTRESS"}
 var _reward_picks: Array = []
 var _battles_lost: int = 0
+var _retries_used: int = 0
 var _reward_pick_retries: int = 0
 var _cumulative_arena_ticks: int = 0
 var _last_arena_ticks_seen: int = 0
@@ -150,15 +151,25 @@ func _drive_flow_step() -> void:
 			_ticks_remaining = 60
 
 		SCREEN_RETRY_PROMPT:
-			# Always accept loss — confirmed pattern from test_run_end_flow.gd
 			_battles_lost += 1
-			if not game_main.has_method("_show_brott_down"):
-				_failures.append("RETRY_PROMPT: game_main missing _show_brott_down")
-				_flow_done = true
-				finish(1)
-				return
-			game_main.call("_show_brott_down")
-			_ticks_remaining = 30
+			var gf_inner: Object = game_main.get("game_flow")
+			var rs: Object = gf_inner.get("run_state") if gf_inner != null else null
+			var retries_left: int = rs.get("retry_count") if rs != null else 0
+			if retries_left > 0:
+				# Use a retry and restart the battle
+				rs.call("use_retry")
+				_retries_used += 1
+				game_main.call("_start_roguelike_match")
+				_ticks_remaining = 60
+			else:
+				# 4th loss — run is over
+				if not game_main.has_method("_show_brott_down"):
+					_failures.append("RETRY_PROMPT: game_main missing _show_brott_down")
+					_flow_done = true
+					finish(1)
+					return
+				game_main.call("_show_brott_down")
+				_ticks_remaining = 30
 
 		SCREEN_RUN_COMPLETE:
 			_capture_and_exit("win", 0)
@@ -218,6 +229,7 @@ func _capture_and_exit(terminal_state: String, exit_code: int) -> void:
 		"chassis_name":      _chassis_names.get(_chosen_chassis, "UNKNOWN"),
 		"battles_won":       battles_won,
 		"battles_lost":      _battles_lost,
+		"retries_used":      _retries_used,
 		"total_ticks":       _cumulative_arena_ticks,
 		"terminal_state":    terminal_state,
 		"reward_picks":      _reward_picks,

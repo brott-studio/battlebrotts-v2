@@ -9,12 +9,15 @@
 ## chassis-appropriate starter weapon when the array is empty:
 ##   - Brawler (chassis 1): Shotgun (WeaponData.WeaponType.SHOTGUN == 2)
 ##     [K.4: closes mobility gap vs kiting opponents at T1, #314]
-##   - Scout/Fortress (chassis 0/2): Plasma Cutter (WeaponData.WeaponType.PLASMA_CUTTER == 4)
+##   - Scout (chassis 0): Plasma Cutter (WeaponData.WeaponType.PLASMA_CUTTER == 4)
+##   - Fortress (chassis 2): Flak Cannon (WeaponData.WeaponType.FLAK_CANNON == 6)
+##     [M.2b: Plasma Cutter range 2.5 unplayable at 60 px/s vs 150HP T1]
 ## These assertions all FAIL on main @ 9aa417f and PASS post-fix.
 extends SceneTree
 
 const PLASMA_CUTTER := 4  # WeaponData.WeaponType.PLASMA_CUTTER
 const SHOTGUN := 2         # WeaponData.WeaponType.SHOTGUN  [K.4: Brawler T1 starter]
+const FLAK_CANNON := 6     # WeaponData.WeaponType.FLAK_CANNON  [M.2b: Fortress T1 starter]
 
 func _init() -> void:
 	var pass_count := 0
@@ -26,15 +29,21 @@ func _init() -> void:
 	assert(PLASMA_CUTTER in rs.equipped_weapons, "S26.1: Scout default starter weapon must be Plasma Cutter (4)")
 	pass_count += 2
 
-	# T2: Scout (0) and Fortress (2) start with Plasma Cutter; Brawler (1) starts with Shotgun.
-	# [K.4: per-chassis starter weapon assignment]
-	for chassis_type in [0, 2]:  # Scout, Fortress
-		var rs_c := RunState.new(chassis_type)
-		assert(rs_c.equipped_weapons.size() > 0, "S26.1: chassis %d must start with >=1 weapon" % chassis_type)
-		assert(PLASMA_CUTTER in rs_c.equipped_weapons, "S26.1: chassis %d starter must be Plasma Cutter" % chassis_type)
-		pass_count += 2
+	# T2a: Scout (0) starts with Plasma Cutter.
+	var rs_scout := RunState.new(0)
+	assert(rs_scout.equipped_weapons.size() > 0, "S26.1: Scout must start with >=1 weapon")
+	assert(PLASMA_CUTTER in rs_scout.equipped_weapons, "S26.1: Scout starter must be Plasma Cutter (4)")
+	pass_count += 2
 
-	var rs_brawler := RunState.new(1)  # Brawler
+	# T2b: Fortress (2) starts with Flak Cannon. [M.2b]
+	# Plasma Cutter range 2.5 was unplayable at 60 px/s vs 150HP T1 opponents.
+	var rs_fortress := RunState.new(2)
+	assert(rs_fortress.equipped_weapons.size() > 0, "M.2b: Fortress must start with >=1 weapon")
+	assert(FLAK_CANNON in rs_fortress.equipped_weapons, "M.2b: Fortress starter must be Flak Cannon (6)")
+	pass_count += 2
+
+	# T2c: Brawler (1) starts with Shotgun. [K.4]
+	var rs_brawler := RunState.new(1)
 	assert(rs_brawler.equipped_weapons.size() > 0, "K.4: Brawler must start with >=1 weapon")
 	assert(SHOTGUN in rs_brawler.equipped_weapons, "K.4: Brawler starter must be Shotgun (2) to close T1 mobility gap (#314)")
 	pass_count += 2

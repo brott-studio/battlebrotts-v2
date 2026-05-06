@@ -1161,6 +1161,9 @@ func _fire_weapons(b: BrottState) -> void:
 		
 		b.energy -= float(wd["energy_cost"])
 		var fire_rate: float = float(wd["fire_rate"]) * b.get_fire_rate_multiplier()
+		## Arc N: absolute fire-rate override from enemy spec (bypasses multiplier)
+		if b.fire_rate_override > 0.0:
+			fire_rate = b.fire_rate_override
 		b.weapon_cooldowns[i] = float(TICKS_PER_SEC) / fire_rate
 		
 		# Instrumentation: track shots fired

@@ -452,7 +452,8 @@ func tick_visuals() -> void:
 	if sim != null:
 		var mouse_arena: Vector2 = get_viewport().get_mouse_position() - arena_offset
 		for b_h: BrottState in sim.brotts:
-			if not b_h.alive:
+			## N.3 GAP-3: player (team 0) is never hoverable
+			if not b_h.alive or b_h.team == 0:
 				b_h.hovered = false
 				continue
 			b_h.hovered = (b_h.position - mouse_arena).length() <= BOT_RADIUS
@@ -465,7 +466,8 @@ func tick_visuals() -> void:
 		var player_b := _get_player_brott()
 		if player_b != null:
 			var dist: float = (player_b.position - _waypoint_pos).length()
-			if dist < 8.0:
+			## N.3 GAP-4: unified to 24px ARRIVE_RADIUS (was 8px, causing ghost diamond)
+			if dist < 24.0:
 				_waypoint_fade_t -= (1.0 / 60.0) / 0.4  # fade over 0.4s
 				if _waypoint_fade_t <= 0.0:
 					_waypoint_pos = Vector2.INF
@@ -1001,12 +1003,18 @@ func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 			draw_colored_polygon(pts, base_col)
 		ChassisData.ChassisType.BRAWLER:
 			var pts := PackedVector2Array()
+			var facing_rad_b: float = deg_to_rad(b.facing_angle)
 			for i in 5:
-				var angle: float = i * TAU / 5.0 - PI / 2.0
+				var angle: float = i * TAU / 5.0 - PI / 2.0 + facing_rad_b
 				pts.append(pos + Vector2(cos(angle), sin(angle)) * BOT_RADIUS)
 			draw_colored_polygon(pts, base_col)
 		ChassisData.ChassisType.FORTRESS:
-			draw_rect(Rect2(pos - Vector2(BOT_RADIUS, BOT_RADIUS), Vector2(BOT_RADIUS * 2, BOT_RADIUS * 2)), base_col)
+			var corners := PackedVector2Array()
+			var facing_rad_f: float = deg_to_rad(b.facing_angle)
+			for i in 4:
+				var angle: float = i * TAU / 4.0 + PI / 4.0 + facing_rad_f
+				corners.append(pos + Vector2(cos(angle), sin(angle)) * BOT_RADIUS)
+			draw_colored_polygon(corners, base_col)
 	
 	# S12.3: Draw weapon silhouettes on in-game sprite (24×24 scale)
 	_draw_ingame_weapons(b, pos)
@@ -1193,4 +1201,5 @@ func _draw_click_overlay(draw_offset: Vector2) -> void:
 				pulse_color = Color(1.0, 0.549, 0.0, pulse_alpha)
 			var pp: Vector2 = player.position + draw_offset
 			draw_arc(pp, BOT_RADIUS + 3.0, 0, TAU, 32, pulse_color, 2.0)
+
 

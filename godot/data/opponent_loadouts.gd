@@ -576,6 +576,27 @@ const ARCHETYPE_TEMPLATES: Array[Dictionary] = [
 			{"chassis": 2, "weapons": [1, 0], "armor": 3, "modules": [2, 3, 5], "hp_pct": 2.0, "count": 1}
 		]
 	},
+	## Arc N: first_battle_intro — battle index 0 always draws this archetype.
+	## NOT present in ARCHETYPE_WEIGHTS_BY_TIER — bypasses weighted schedule.
+	{
+		"id": "first_battle_intro",
+		"display_name": "First Battle",
+		"enemy_specs": [
+			{
+				"chassis": 0,               # Scout
+				"weapons": [4],              # Plasma Cutter
+				"armor": 0,
+				"modules": [],
+				"hp_pct": 1.0,              # ignored when target_hp present
+				"target_hp": 750,            # direct HP override
+				"speed_override": 50.0,      # px/s
+				"fire_rate_override": 0.4,   # shots/s
+				"stance": 0,                 # Aggressive
+				"count": 1,
+			}
+		],
+		"use_first_battle_ai": true,
+	},
 ]
 
 ## Counter-Build Elite variant selector — reads player's RunState loadout.
@@ -704,7 +725,11 @@ static func _weighted_draw(tier: int, last_archetype: String, rng: RandomNumberG
 ## Returns the archetype ID for a given battle slot.
 ## Run schedule is pre-generated on first call and cached on run_state.encounter_schedule.
 static func archetype_for(battle_index: int, run_state, rng: RandomNumberGenerator = null) -> String:
-	## Boss override FIRST — deterministic regardless of rng state (gate 3)
+	## Arc N: battle index 0 always draws first_battle_intro (bypasses weighted schedule)
+	if battle_index == 0:
+		return "first_battle_intro"
+
+	## Boss override — deterministic regardless of rng state (gate 3)
 	if battle_index >= 14:
 		return "boss"
 
@@ -813,15 +838,24 @@ static func get_archetype_enemies(archetype_id: String, tier: int, run_state) ->
 	var result: Array[Dictionary] = []
 	for spec in specs:
 		var count: int = spec.get("count", 1)
-		var hp: int = max(1, int(base_hp * float(spec["hp_pct"])))
+		## Arc N: target_hp overrides hp_pct when present (direct HP override)
+		var hp: int = int(spec["target_hp"]) if "target_hp" in spec else max(1, int(base_hp * float(spec.get("hp_pct", 1.0))))
 		for _i in range(count):
-			result.append({
+			var entry: Dictionary = {
 				"chassis": spec["chassis"],
 				"weapons": spec["weapons"].duplicate(),
 				"armor": spec["armor"],
 				"modules": spec["modules"].duplicate(),
 				"hp": hp,
-			})
+			}
+			## Arc N: forward override fields when present
+			if "speed_override" in spec:
+				entry["speed_override"] = float(spec["speed_override"])
+			if "fire_rate_override" in spec:
+				entry["fire_rate_override"] = float(spec["fire_rate_override"])
+			if "stance" in spec:
+				entry["stance"] = int(spec["stance"])
+			result.append(entry)
 	return result
 
 ## §4.1 — maps (league, index) to a difficulty tier.

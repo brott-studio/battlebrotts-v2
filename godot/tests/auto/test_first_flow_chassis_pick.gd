@@ -49,14 +49,14 @@ func _drive_flow_step() -> void:
 			var screen: int = gf.get("current_screen")
 			if screen != 7:  # GameFlow.Screen.RUN_START
 				_failures.append("Expected screen RUN_START(7), got %d" % screen)
-			# Click chassis 0
-			click_chassis(0)
+			# Click Start Run (Arc N entry path — defaults to Brawler, chassis 1)
+			click_start_run()
 			_ticks_remaining = 60  # settle into arena
 			_step += 1
 		2:
-			# Assert run active, chassis 0, in_arena
+			# Assert run active, chassis 1 (Brawler), in_arena
 			assert_state("run.active", true)
-			assert_state("run.equipped_chassis", 0)
+			assert_state("run.equipped_chassis", 1)
 			assert_state("arena.in_arena", true)
 			_ticks_remaining = 60  # let sim tick
 			_step += 1

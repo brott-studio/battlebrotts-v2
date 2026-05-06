@@ -66,6 +66,10 @@ var emp_disabled_timer: float = 0.0
 # Stance
 var stance: int = 0  # 0=aggressive, 1=defensive, 2=kiting, 3=ambush
 
+# Arc N: speed/fire-rate overrides (set from enemy_spec on enemy BrottStates)
+var speed_override: float = -1.0   ## -1 = disabled; >0 = absolute px/s override
+var fire_rate_override: float = -1.0  ## -1 = disabled; >0 = absolute shots/s override
+
 # S13.6: Per-match pellet modifier (additive, applied per-weapon at fire time).
 # Populated by GameState.build_brott() from _next_fight_pellet_mod and consumed
 # inside CombatSim._fire_weapon(); floor-clamped to 1 pellet per shot.
@@ -171,6 +175,9 @@ func setup() -> void:
 		module_active_timers.append(0.0)
 
 func get_effective_speed() -> float:
+	## Arc N: absolute speed override (from enemy spec; -1 = disabled)
+	if speed_override > 0.0:
+		return speed_override
 	var spd := base_speed
 	if afterburner_active:
 		spd *= 1.80

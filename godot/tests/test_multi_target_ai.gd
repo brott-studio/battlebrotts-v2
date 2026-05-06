@@ -123,10 +123,10 @@ func _init() -> void:
 		pass_count += 1
 
 	## ─── T8: archetype templates complete ─────────────────────────────
-	var expected_ids := ["standard_duel", "small_swarm", "large_swarm", "miniboss_escorts", "counter_build_elite", "glass_cannon_blitz", "boss", "brawler_rush"]
+	var expected_ids := ["standard_duel", "small_swarm", "large_swarm", "miniboss_escorts", "counter_build_elite", "glass_cannon_blitz", "boss", "brawler_rush", "first_battle_intro"]
 	var templates := OpponentLoadouts.ARCHETYPE_TEMPLATES
 	var t8_ok := true
-	if templates.size() != 8:
+	if templates.size() != 9:
 		t8_ok = false
 	else:
 		var actual_ids := []
@@ -137,7 +137,7 @@ func _init() -> void:
 				t8_ok = false
 				break
 	if not t8_ok:
-		push_error("T8 FAIL: ARCHETYPE_TEMPLATES should have 8 records with locked IDs (got size=%d)" % templates.size())
+		push_error("T8 FAIL: ARCHETYPE_TEMPLATES should have 9 records with locked IDs (got size=%d)" % templates.size())
 		fail_count += 1
 	else:
 		pass_count += 1

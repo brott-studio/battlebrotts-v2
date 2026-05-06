@@ -118,6 +118,30 @@ func click_chassis(index: int) -> void:
 		return
 	btn.emit_signal("pressed")
 
+# ─── Verb: click_start_run ───────────────────────────────────────────────────
+
+## Triggers the Arc N "Start Run" button on RunStartScreen.
+## Replaces click_chassis() for Arc N+ entry path.
+##
+## Signal path: StartRunBtn.pressed → RunStartScreen._on_start_run_pressed →
+##              start_run_requested.emit(default_chassis) →
+##              game_main._on_chassis_picked(default_chassis)
+func click_start_run() -> void:
+	var run_start := _find_run_start_screen()
+	if run_start == null:
+		_failures.append("click_start_run: RunStartScreen not found (current screen may not be RUN_START)")
+		return
+	var btn: Button = null
+	for child in run_start.get_children():
+		if child is Button and child.name == "StartRunBtn":
+			btn = child as Button
+			break
+	if btn == null:
+		push_error("AutoDriver.click_start_run: StartRunBtn not found")
+		_failures.append("click_start_run: StartRunBtn not found in RunStartScreen")
+		return
+	btn.emit_signal("pressed")
+
 # ─── Verb: click_reward ──────────────────────────────────────────────────────
 
 ## Click reward option at position `index` in the RewardPickScreen.
@@ -315,10 +339,10 @@ func _find_run_start_screen() -> Node:
 	var ui_scroll: Node = game_main.get("ui_scroll")
 	if ui_scroll != null:
 		for child in ui_scroll.get_children():
-			if child.get_class() == "RunStartScreen" or child is Control and child.has_method("_on_card_pressed"):
+			if child.get_class() == "RunStartScreen" or child is Control and child.has_method("_on_card_pressed") or child.has_method("_on_start_run_pressed"):
 				return child
 	var current_ui: Node = game_main.get("current_ui")
-	if current_ui != null and (current_ui.get_class() == "RunStartScreen" or current_ui.has_method("_on_card_pressed")):
+	if current_ui != null and (current_ui.get_class() == "RunStartScreen" or current_ui.has_method("_on_card_pressed") or current_ui.has_method("_on_start_run_pressed")):
 		return current_ui
 	return null
 
@@ -339,3 +363,4 @@ func _find_child_of_type(node: Node, class_name_str: String) -> Node:
 		if found != null:
 			return found
 	return null
+

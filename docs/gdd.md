@@ -754,6 +754,10 @@ BattleBrotts plays as a **15-battle roguelike run** rather than a persistent lea
 
 The roguelike loop replaces the league-era "build → teach → fight → analyze → iterate" loop documented in §2. BrottBrain teaching still happens — the BrottBrain editor surface is retained — but progression through tiers is now run-scoped, not account-scoped.
 
+> **Arc N note:** Player chassis is fixed to Brawler (`chassis_type=1`). `run_start_screen.gd`
+> shows a single "Start Run" button; chassis-select logic is preserved behind `#CUT:ArcN`
+> for Arc O restoration.
+
 ### 13.2 RunState
 
 A run is fully described by the `RunState` object (`godot/game/run_state.gd`), which is the **sole source of truth** for run-scoped data. Active fields:
@@ -848,6 +852,18 @@ Every run schedule is post-processed to guarantee at least one occurrence of eac
 - `miniboss_escorts` (default seed slot: battle index 11)
 
 If any required archetype is missing after the weighted draw, the schedule generator overwrites a tier-compatible later slot with the missing archetype to enforce the guarantee. *(Source: `_apply_run_guarantees()`, S25.6.)*
+
+#### Battle 0 override (`first_battle_intro`)
+
+**Battle 0 override (`first_battle_intro`):** Battle 1 (index 0) always draws the
+`first_battle_intro` archetype, bypassing the weighted schedule. Cannot be drawn for
+battles 2+. `archetype_for()` returns `"first_battle_intro"` unconditionally when
+`battle_index == 0`, before schedule lookup.
+
+Enemy spec: Scout chassis (0), Plasma Cutter (4), no armor, no modules.
+`target_hp`: 750 (direct override, bypasses `baseline_hp × hp_pct`).
+`speed_override`: 50 px/s. `fire_rate_override`: 0.4 shots/s.
+Default stance: Aggressive (0). `use_first_battle_ai`: true (enables strafe/retreat, wired in Arc N.2).
 
 ### 13.5 Run Flow
 

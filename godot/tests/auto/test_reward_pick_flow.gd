@@ -46,13 +46,14 @@ func _drive_flow_step() -> void:
 			var screen: int = gf.get("current_screen")
 			if screen != 7:
 				_failures.append("Expected RUN_START(7) after new game, got %d" % screen)
-			click_chassis(0)
+			# Click Start Run (Arc N entry path — defaults to Brawler, chassis 1)
+			click_start_run()
 			_ticks_remaining = 60
 			_step += 1
 
 		2:
 			assert_state("run.active", true)
-			assert_state("run.equipped_chassis", 0)
+			assert_state("run.equipped_chassis", 1)
 			assert_state("arena.in_arena", true)
 			assert_cmp("arena.tick_count", "gte", 1)
 			force_battle_end(0)

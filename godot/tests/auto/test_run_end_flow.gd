@@ -41,7 +41,8 @@ func _drive_flow_step() -> void:
 			var screen: int = gf.get("current_screen") if gf != null else -1
 			if screen != 7:
 				_failures.append("Expected RUN_START(7), got %d" % screen)
-			click_chassis(0)
+			# Click Start Run (Arc N entry path — defaults to Brawler, chassis 1)
+			click_start_run()
 			_ticks_remaining = 60
 			_step += 1
 

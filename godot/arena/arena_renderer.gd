@@ -448,6 +448,15 @@ func get_time_scale() -> float:
 func tick_visuals() -> void:
 	frame_count += 1
 
+	## Arc N.2: hover detection -- check mouse position against each bot hitbox
+	if sim != null:
+		var mouse_arena: Vector2 = get_viewport().get_mouse_position() - arena_offset
+		for b_h: BrottState in sim.brotts:
+			if not b_h.alive:
+				b_h.hovered = false
+				continue
+			b_h.hovered = (b_h.position - mouse_arena).length() <= BOT_RADIUS
+
 	# S25.2: Pulse accumulator + overlay state cleanup (waypoint fade on arrival,
 	# reticle dead-target poll). Runs even during hit-stop freeze so reticle
 	# clears promptly if a target dies during freeze.
@@ -1056,6 +1065,17 @@ func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 	draw_rect(Rect2(Vector2(bar_x, en_y), Vector2(HEALTH_BAR_WIDTH, ENERGY_BAR_HEIGHT)), COLOR_BAR_BG)
 	draw_rect(Rect2(Vector2(bar_x, en_y), Vector2(HEALTH_BAR_WIDTH * en_pct, ENERGY_BAR_HEIGHT)), COLOR_ENERGY)
 
+	## Arc N.2: aim telegraph arc -- orange sweep, grows from 0->360 as aim_telegraph_progress 0->1
+	if b.aim_telegraph_active and b.aim_telegraph_progress > 0.0:
+		var arc_alpha: float = 0.7 * b.aim_telegraph_progress
+		var arc_col := Color(1.0, 0.4, 0.1, arc_alpha)
+		var arc_end: float = -PI / 2.0 + b.aim_telegraph_progress * TAU
+		draw_arc(pos, BOT_RADIUS + 8.0, -PI / 2.0, arc_end, 32, arc_col, 3.0)
+
+	## Arc N.2: hover glow -- white ring when cursor over enemy
+	if b.hovered:
+		draw_arc(pos, BOT_RADIUS + 3.0, 0.0, TAU, 32, Color(1.0, 1.0, 1.0, 0.55), 2.0)
+
 func _draw_match_result(draw_offset: Vector2) -> void:
 	draw_rect(Rect2(draw_offset, Vector2(ARENA_PX, ARENA_PX)), Color(0, 0, 0, 0.6))
 	var text: String = "DRAW"
@@ -1173,3 +1193,4 @@ func _draw_click_overlay(draw_offset: Vector2) -> void:
 				pulse_color = Color(1.0, 0.549, 0.0, pulse_alpha)
 			var pp: Vector2 = player.position + draw_offset
 			draw_arc(pp, BOT_RADIUS + 3.0, 0, TAU, 32, pulse_color, 2.0)
+

@@ -339,10 +339,10 @@ func _find_run_start_screen() -> Node:
 	var ui_scroll: Node = game_main.get("ui_scroll")
 	if ui_scroll != null:
 		for child in ui_scroll.get_children():
-			if child.get_class() == "RunStartScreen" or child is Control and child.has_method("_on_card_pressed"):
+			if child.get_class() == "RunStartScreen" or child is Control and child.has_method("_on_card_pressed") or child.has_method("_on_start_run_pressed"):
 				return child
 	var current_ui: Node = game_main.get("current_ui")
-	if current_ui != null and (current_ui.get_class() == "RunStartScreen" or current_ui.has_method("_on_card_pressed")):
+	if current_ui != null and (current_ui.get_class() == "RunStartScreen" or current_ui.has_method("_on_card_pressed") or current_ui.has_method("_on_start_run_pressed")):
 		return current_ui
 	return null
 
@@ -363,3 +363,4 @@ func _find_child_of_type(node: Node, class_name_str: String) -> Node:
 		if found != null:
 			return found
 	return null
+

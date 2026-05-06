@@ -332,6 +332,9 @@ func assert_cmp(path: String, op: String, threshold) -> void:
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
 ## Find the RunStartScreen inside game_main's ui_scroll / current_ui hierarchy.
+## [CF-N1-5] N.2 review: dual-signal detection confirmed -- has_method("_on_card_pressed") OR
+## has_method("_on_start_run_pressed") matches either the legacy card-press path or the N.1
+## StartRunBtn path. get_class() check is the tertiary anchor. No single-method-only sites remain.
 func _find_run_start_screen() -> Node:
 	if game_main == null:
 		return null
@@ -363,4 +366,5 @@ func _find_child_of_type(node: Node, class_name_str: String) -> Node:
 		if found != null:
 			return found
 	return null
+
 

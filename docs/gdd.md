@@ -865,6 +865,41 @@ Enemy spec: Scout chassis (0), Plasma Cutter (4), no armor, no modules.
 `speed_override`: 50 px/s. `fire_rate_override`: 0.4 shots/s.
 Default stance: Aggressive (0). `use_first_battle_ai`: true (enables strafe/retreat, wired in Arc N.2).
 
+#### Arc N.2 — First Battle AI Implementation Notes (`use_first_battle_ai`)
+
+When `use_first_battle_ai` is `true` on a `BrottBrain`, the following canonical implementation
+contract applies (wired in Arc N.2; referenced by `_evaluate_first_battle()`):
+
+**`movement_override` string values:**
+
+| Value | Behaviour |
+|---|---|
+| `"first_battle_advance"` | Close toward enemy at full effective speed (target._pos_snapshot). |
+| `"first_battle_strafe"` | Lateral orbit at 30 px/s perpendicular to target, direction from `BrottBrain._strafe_direction`. |
+| `"first_battle_retreat"` | Additive diagonal vector: lateral 30 px/s + backward 25 px/s (~39 px/s resultant). NOT re-normalized. |
+
+**TCR bypass contract:**
+`_evaluate_first_battle()` sets `movement_override` on every tick and returns before
+the standard card-eval/TCR path runs. `combat_sim._move_brott()` dispatches on
+`movement_override` before the TCR `else:` branch, so TCR never runs for FBI bots.
+
+**Strafe state location:**
+Private strafe direction state (`_strafe_direction`, `_strafe_flip_timer`) lives on
+`BrottBrain`, not `BrottState`. This keeps render-layer state (`aim_telegraph_*`, `hovered`)
+on `BrottState` and simulation state on `BrottBrain` — consistent with existing architecture.
+
+**Combined retreat vector formula:**
+`lateral(30 px/s) + backward(25 px/s)` applied additively, NOT re-normalized.
+Resultant speed is ~39 px/s at 90° offset. The additive approach is intentional:
+it keeps the strafe component and the retreat component each readable at design time
+without requiring a normalization constant that would change both.
+
+**Aim telegraph:**
+`BrottState.aim_telegraph_active/progress` are driven by `combat_sim._fire_weapons()`
+using the weapon cooldown as a proxy (0.75s window before shot at 10 tick/s → 7.5 tick threshold).
+Guard: `b.brain != null and b.brain.use_first_battle_ai` — telegraph only fires for FBI enemies.
+Reset occurs at fire time and when cooldown > 7.5 ticks.
+
 ### 13.5 Run Flow
 
 ```
@@ -1051,3 +1086,4 @@ Sprint 13.7 wires real item grants/losses for BrottBrain tricks (unblocking the 
 *Source-of-truth section as of Arc I (S(I).1+). Documents the auto-driver concept that lets agents and CI exercise full user flows without a renderer.*
 
 BattleBrotts uses a three-pillar testing strategy. **Pillar 1** is a native GDScript **AutoDriver** harness that boots the main scene under `godot --headless --script`, ticks the scene tree, and exercises full user flows (menu → run start → chassis pick → arena → first tick) in ~10 seconds. It runs as a per-PR gate inside the existing `verify.yml` `godot-tests` job and is the fastest signal that a player-facing flow is broken end-to-end. **Pillar 2** (arc-close gate) is a `window.bb_test` JavaScript bridge driven by Playwright against the web export, used for renderer-dependent flows. **Pillar 3** is a combat-sim agent that runs N parallel matches nightly and aggregates balance stats. The AutoDriver exposes a tightly-scoped action API (≤6 verbs: `click_chassis`, `click_reward`, `tick(n)`, `get_arena_state`, `get_run_state`, `force_battle_end`) so agent-authored flows stay readable and the surface stays auditable.
+

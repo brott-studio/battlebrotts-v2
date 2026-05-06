@@ -70,6 +70,11 @@ var stance: int = 0  # 0=aggressive, 1=defensive, 2=kiting, 3=ambush
 var speed_override: float = -1.0   ## -1 = disabled; >0 = absolute px/s override
 var fire_rate_override: float = -1.0  ## -1 = disabled; >0 = absolute shots/s override
 
+## Arc N.2: aim telegraph state (per-BrottState; single-weapon assumption for Plasma Cutter, Arc N only)
+var aim_telegraph_progress: float = 0.0  ## 0.0→1.0 over 0.75s before each shot
+var aim_telegraph_active: bool = false    ## true while in the 0.75s telegraph window
+var hovered: bool = false                 ## set by arena_renderer on cursor-over; render-layer only
+
 # S13.6: Per-match pellet modifier (additive, applied per-weapon at fire time).
 # Populated by GameState.build_brott() from _next_fight_pellet_mod and consumed
 # inside CombatSim._fire_weapon(); floor-clamped to 1 pellet per shot.
@@ -219,3 +224,4 @@ func get_total_weight() -> int:
 	for mt in module_types:
 		w += ModuleData.get_module(mt)["weight"]
 	return w
+

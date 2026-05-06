@@ -237,23 +237,25 @@ func _evaluate_brain(b: BrottState) -> void:
 		var enemy: BrottState = b.target
 		var fired: bool = b.brain.evaluate(b, enemy, match_time_sec)
 		
-		## S25.4: Skip re-pick if brain already chose a valid living enemy target.
-		var brain_set_valid: bool = (b.target != null and is_instance_valid(b.target) and b.target.alive and b.target.team != b.team)
-		if not brain_set_valid:
-			## S25.3: Target override from player click-to-target.
-			## Runs BEFORE priority re-pick so the override isn't silently overwritten.
-			if b.brain.movement_override == "target_override":
-				var oid: int = b.brain._override_target_id
-				if oid >= 0 and oid < brotts.size() and brotts[oid].alive:
-					b.target = brotts[oid]
-				else:
-					# Override target dead — clear override, fall through to normal re-pick
-					b.brain.clear_target_override()
-					if b.brain.target_priority != "nearest":
-						b.target = _find_target_by_priority(b, b.brain.target_priority)
-				# Either way, skip normal priority re-pick this tick
-			elif b.brain.target_priority != "nearest":
-				b.target = _find_target_by_priority(b, b.brain.target_priority)
+		## N.3 GAP-1: Pin override target unconditionally — before brain_set_valid check
+		## so player click-to-target is never silently bypassed by brain's autonomous pick.
+		if b.brain.movement_override == "target_override":
+			var oid: int = b.brain._override_target_id
+			if oid >= 0 and oid < brotts.size() and brotts[oid].alive:
+				b.target = brotts[oid]
+			else:
+				## Override target dead — clear and fall through to priority repick
+				b.brain.clear_target_override()
+				if b.brain.target_priority != "nearest":
+					b.target = _find_target_by_priority(b, b.brain.target_priority)
+		else:
+			## S25.4: Skip re-pick only when brain already holds a valid target.
+			var brain_set_valid: bool = (b.target != null and
+				is_instance_valid(b.target) and b.target.alive
+				and b.target.team != b.team)
+			if not brain_set_valid:
+				if b.brain.target_priority != "nearest":
+					b.target = _find_target_by_priority(b, b.brain.target_priority)
 		
 		# Handle pending gadget activation
 		if b._pending_gadget != "":
@@ -530,7 +532,13 @@ func _move_brott(b: BrottState) -> void:
 		var to_waypoint: Vector2 = b.brain._override_move_pos - b.position
 		var dist_mo: float = to_waypoint.length()
 		const ARRIVE_RADIUS: float = 24.0  ## arrive and clear at 24px (< tile, feels responsive)
-		if dist_mo <= ARRIVE_RADIUS:
+		const MIN_TRAVEL_PX: float = 32.0  ## N.3 GAP-5: minimum travel to honour arrival
+		## N.3 GAP-5: seed initial distance on first tick of this override
+		if b.brain._override_move_initial_dist < 0.0:
+			b.brain._override_move_initial_dist = dist_mo
+		var _traveled: float = b.brain._override_move_initial_dist - dist_mo
+		## Only clear on arrival after meaningful travel (≥32px)
+		if dist_mo <= ARRIVE_RADIUS and _traveled >= MIN_TRAVEL_PX:
 			## Arrived — clear the override, resume autonomous
 			b.brain.clear_move_override()
 		elif dist_mo > spd_mo:
@@ -1537,4 +1545,5 @@ func _team_hp_pct(team: int) -> float:
 	if total_max == 0:
 		return 0.0
 	return total_hp / total_max
+
 

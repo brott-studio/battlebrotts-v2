@@ -555,6 +555,39 @@ func _move_brott(b: BrottState) -> void:
 				b.position = b.target.position
 		else:
 			b.accelerate_toward_speed(0.0, TICK_DELTA)
+	elif move_override == "first_battle_advance":
+		## Arc N.2: Close toward enemy at full effective speed
+		if b.target != null and b.target.alive:
+			b.accelerate_toward_speed(target_speed, TICK_DELTA)
+			var to_enemy: Vector2 = b.target._pos_snapshot - b.position
+			var step: float = b.current_speed * TICK_DELTA
+			if to_enemy.length() > step:
+				b.position += to_enemy.normalized() * step
+			else:
+				b.position = b.target._pos_snapshot
+		else:
+			b.accelerate_toward_speed(0.0, TICK_DELTA)
+	elif move_override == "first_battle_strafe":
+		## Arc N.2: Lateral orbit at 30 px/s perpendicular to target
+		if b.target != null and b.target.alive and b.brain != null:
+			b.accelerate_toward_speed(target_speed, TICK_DELTA)
+			var to_target_fb: Vector2 = b.target._pos_snapshot - b.position
+			var perp_fb: Vector2 = Vector2(-to_target_fb.y, to_target_fb.x).normalized()
+			b.position += perp_fb * 30.0 * float(b.brain._strafe_direction) * TICK_DELTA
+		else:
+			b.accelerate_toward_speed(0.0, TICK_DELTA)
+	elif move_override == "first_battle_retreat":
+		## Arc N.2: Additive diagonal: lateral 30 px/s + backward 25 px/s (~39 px/s). NOT re-normalized.
+		if b.target != null and b.target.alive and b.brain != null:
+			b.accelerate_toward_speed(target_speed, TICK_DELTA)
+			var to_target_fb: Vector2 = b.target._pos_snapshot - b.position
+			var perp_fb: Vector2 = Vector2(-to_target_fb.y, to_target_fb.x).normalized()
+			var lateral_fb: Vector2 = perp_fb * 30.0 * float(b.brain._strafe_direction)
+			var backward_fb: Vector2 = -to_target_fb.normalized() * 25.0
+			var move_vec_fb: Vector2 = lateral_fb + backward_fb
+			b.position += move_vec_fb * TICK_DELTA
+		else:
+			b.accelerate_toward_speed(0.0, TICK_DELTA)
 	else:
 		var to_target: Vector2 = b.target._pos_snapshot - b.position
 		var dist: float = to_target.length()
@@ -1142,6 +1175,15 @@ func _fire_weapons(b: BrottState) -> void:
 	for i in range(b.weapon_types.size()):
 		if b.weapon_cooldowns[i] > 0:
 			b.weapon_cooldowns[i] -= 1.0
+			## Arc N.2: aim telegraph countdown -- only for first_battle_ai enemies
+			if b.brain != null and b.brain.use_first_battle_ai:
+				var cd: float = b.weapon_cooldowns[i]
+				if cd <= 7.5:
+					b.aim_telegraph_active = true
+					b.aim_telegraph_progress = clampf((7.5 - cd) / 7.5, 0.0, 1.0)
+				else:
+					b.aim_telegraph_active = false
+					b.aim_telegraph_progress = 0.0
 			continue
 		
 		var wt: WeaponData.WeaponType = b.weapon_types[i]
@@ -1165,6 +1207,9 @@ func _fire_weapons(b: BrottState) -> void:
 		if b.fire_rate_override > 0.0:
 			fire_rate = b.fire_rate_override
 		b.weapon_cooldowns[i] = float(TICKS_PER_SEC) / fire_rate
+		## Arc N.2: reset telegraph on fire
+		b.aim_telegraph_active = false
+		b.aim_telegraph_progress = 0.0
 		
 		# Instrumentation: track shots fired
 		var wname: String = str(wd.get("name", str(wt)))
@@ -1492,3 +1537,4 @@ func _team_hp_pct(team: int) -> float:
 	if total_max == 0:
 		return 0.0
 	return total_hp / total_max
+

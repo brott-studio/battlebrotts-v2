@@ -303,6 +303,13 @@ func _start_roguelike_match() -> void:
 		if spec_hp > 0:
 			ebrott.max_hp = spec_hp
 			ebrott.hp = float(spec_hp)
+		## Arc N: apply speed/fire-rate/stance overrides from first_battle_intro spec
+		if "speed_override" in spec:
+			ebrott.speed_override = float(spec["speed_override"])
+		if "fire_rate_override" in spec:
+			ebrott.fire_rate_override = float(spec["fire_rate_override"])
+		if "stance" in spec:
+			ebrott.stance = int(spec["stance"])
 		ebrott.position = positions[i] if i < positions.size() else Vector2(12 * 32.0, 8 * 32.0)
 		## Brain per enemy
 		var chassis_t: int = spec.get("chassis", 0)

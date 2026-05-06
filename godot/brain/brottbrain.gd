@@ -86,6 +86,11 @@ var _default_stance: int = 0
 ## S25.9: Boss AI flag. When true, _evaluate_boss() runs instead of baseline.
 var is_boss: bool = false
 
+## Arc N.2: First Battle Intro AI
+var use_first_battle_ai: bool = false
+var _strafe_direction: int = 1    ## 1=CW, -1=CCW
+var _strafe_flip_timer: int = 0   ## ticks until next flip; resets to 15 on flip
+
 ## S25.9: Boss brain factory — returns a BrottBrain configured for CEO Brott.
 static func boss_ai() -> BrottBrain:
 	var brain := BrottBrain.new()
@@ -212,6 +217,10 @@ func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bo
 
 	movement_override = ""  # Reset each tick
 	
+	## Arc N.2: FBI path bypasses TCR entirely (movement_override set on every tick)
+	if use_first_battle_ai:
+		return _evaluate_first_battle(brott, enemy)
+	
 	## S25.2: Apply player click overrides before card evaluation.
 	## These take priority over card-driven behavior. The override sets state
 	## that S25.3 (baseline AI rewrite) reads to actually drive movement/targeting.
@@ -306,6 +315,30 @@ func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bo
 	
 	## --- Rule 3: Movement (advance/kite handled by stance via combat_sim) ---
 	movement_override = ""
+	return true
+
+func _evaluate_first_battle(brott: RefCounted, enemy: RefCounted) -> bool:
+	## Tick strafe flip timer -- flip direction every 15 ticks (1.5s)
+	if _strafe_flip_timer > 0:
+		_strafe_flip_timer -= 1
+	else:
+		_strafe_direction *= -1
+		_strafe_flip_timer = 15
+
+	if enemy == null or not enemy.alive:
+		movement_override = "first_battle_advance"
+		return true
+
+	var hp_pct: float = float(brott.hp) / float(brott.max_hp) if brott.max_hp > 0 else 1.0
+	var dist: float = brott.position.distance_to(enemy.position)
+
+	## Priority: retreat (<=50% HP) > strafe (within 96px) > advance
+	if hp_pct <= 0.5:
+		movement_override = "first_battle_retreat"
+	elif dist <= 96.0:
+		movement_override = "first_battle_strafe"
+	else:
+		movement_override = "first_battle_advance"
 	return true
 
 func _check_trigger(card: BehaviorCard, brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bool:
@@ -420,3 +453,4 @@ static func default_for_chassis(chassis_type: int) -> BrottBrain:
 			brain._default_stance = 0
 	brain.default_stance = brain._default_stance
 	return brain
+

@@ -74,6 +74,7 @@ var movement_override: String = ""
 ## Vector2.INF = no move override.
 var _override_target_id: int = -1
 var _override_move_pos: Vector2 = Vector2.INF
+var _override_move_initial_dist: float = -1.0  ## N.3 GAP-5: -1=unset; seed on first move_to_override tick
 
 ## S25.3: Hysteresis state for kite decision — persists across ticks to prevent
 ## stance flickering at the HP threshold boundary.
@@ -123,6 +124,7 @@ func set_move_override(pos: Vector2) -> void:
 ## S25.2: Clear move override (called when waypoint reached or player clicks enemy).
 func clear_move_override() -> void:
 	_override_move_pos = Vector2.INF
+	_override_move_initial_dist = -1.0  ## N.3 GAP-5: reset on clear
 
 ## S25.3: Check if a module (by name) is equipped, not on cooldown, and not active.
 ## Returns the slot index if ready, or -1 if not available.
@@ -453,4 +455,5 @@ static func default_for_chassis(chassis_type: int) -> BrottBrain:
 			brain._default_stance = 0
 	brain.default_stance = brain._default_stance
 	return brain
+
 

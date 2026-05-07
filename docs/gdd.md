@@ -943,6 +943,18 @@ During a battle, the BrottBrain drives the player's bot autonomously — BattleB
 
 Both overrides are **player-only** — enemy bots are not affected. Latest-wins semantics: only one of {waypoint, reticle} is active at a time. The reticle auto-clears when its target dies.
 
+#### Arc N.3 — Interaction Hint Spec (reliability contract + visual feedback)
+
+**GAP-1 fix (HIGH) — Click-to-target reliability:** The `_override_target_id` pin is now applied **unconditionally before** the `brain_set_valid` guard. Previously, if the brain already held a valid living target, the player's click-to-target override was silently bypassed. The fix ensures the player's clicked target always wins within the same tick, regardless of the brain's autonomous choice.
+
+**GAP-2 — Orientation feedback (Brawler + Fortress):** The Brawler (pentagon) and Fortress (square) chassis shapes now rotate using `facing_angle` in `_draw_brott()`. After a click-to-target, the polygon visually rotates toward the new target within ~0.25s (one turn-budget tick), giving tactile confirmation that the click registered.
+
+**GAP-3 — Hover glow enemy-only:** Player bots (team 0) are excluded from the `hovered` set in `tick_visuals()`. The orange hover glow only appears on enemy bots, preventing player-self-hover visual noise.
+
+**GAP-4 — Waypoint fade threshold unified to 24px:** The waypoint diamond fade trigger (`dist < 8.0`) was raised to `dist < 24.0` to match `_move_brott`'s `ARRIVE_RADIUS = 24.0`. The old 8px threshold caused a "ghost diamond" — the bot cleared its move override at 24px but the diamond lingered until the bot closed to 8px.
+
+**GAP-5 — Minimum distance persistence for click-to-move:** A `_override_move_initial_dist` field (seeded on first `move_to_override` tick) tracks total travel. The override now only clears on arrival (`dist ≤ ARRIVE_RADIUS`) **and** after meaningful travel (`≥ MIN_TRAVEL_PX = 32px`). This prevents the override from clearing immediately when the player clicks near their bot's current position.
+
 ### 13.8 CEO Brott (Battle 15)
 
 The boss encounter is fixed (`ARCHETYPE_TEMPLATES` `boss` entry) and runs at T5 baseline HP (240 × hp_pct 2.0 = 480 base HP):
@@ -1086,4 +1098,5 @@ Sprint 13.7 wires real item grants/losses for BrottBrain tricks (unblocking the 
 *Source-of-truth section as of Arc I (S(I).1+). Documents the auto-driver concept that lets agents and CI exercise full user flows without a renderer.*
 
 BattleBrotts uses a three-pillar testing strategy. **Pillar 1** is a native GDScript **AutoDriver** harness that boots the main scene under `godot --headless --script`, ticks the scene tree, and exercises full user flows (menu → run start → chassis pick → arena → first tick) in ~10 seconds. It runs as a per-PR gate inside the existing `verify.yml` `godot-tests` job and is the fastest signal that a player-facing flow is broken end-to-end. **Pillar 2** (arc-close gate) is a `window.bb_test` JavaScript bridge driven by Playwright against the web export, used for renderer-dependent flows. **Pillar 3** is a combat-sim agent that runs N parallel matches nightly and aggregates balance stats. The AutoDriver exposes a tightly-scoped action API (≤6 verbs: `click_chassis`, `click_reward`, `tick(n)`, `get_arena_state`, `get_run_state`, `force_battle_end`) so agent-authored flows stay readable and the surface stays auditable.
+
 

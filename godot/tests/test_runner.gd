@@ -136,6 +136,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s28_1_t1_weights.gd",
 	# [Arc J / sprint-28.2 SI2-003] Scrapyard variety — 200-run legacy pool + 200-run T1 archetype, ≥95% threshold (#295).
 	"res://tests/test_s28_2_scrapyard_variety.gd",
+	# [Arc O / SO.1-002] Click-to-move tick-suppression override — 7 conditions covering counter arm/decrement/expiry, latest-wins, clear, target independence, weapon_mode purity.
+	"res://tests/test_arc_o1_click_override.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

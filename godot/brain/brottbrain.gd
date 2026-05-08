@@ -75,6 +75,7 @@ var movement_override: String = ""
 var _override_target_id: int = -1
 var _override_move_pos: Vector2 = Vector2.INF
 var _override_move_initial_dist: float = -1.0  ## N.3 GAP-5: -1=unset; seed on first move_to_override tick
+var _override_ticks_remaining: int = 0  ## O.1: ticks left on click-to-move suppression
 
 ## S25.3: Hysteresis state for kite decision — persists across ticks to prevent
 ## stance flickering at the HP threshold boundary.
@@ -120,11 +121,13 @@ func clear_target_override() -> void:
 func set_move_override(pos: Vector2) -> void:
 	_override_move_pos = pos
 	_override_target_id = -1  # latest-wins: clear target override
+	_override_ticks_remaining = 25  ## O.1: arm 25-tick suppression window
 
 ## S25.2: Clear move override (called when waypoint reached or player clicks enemy).
 func clear_move_override() -> void:
 	_override_move_pos = Vector2.INF
 	_override_move_initial_dist = -1.0  ## N.3 GAP-5: reset on clear
+	_override_ticks_remaining = 0  ## O.1: clear suppression counter
 
 ## S25.3: Check if a module (by name) is equipped, not on cooldown, and not active.
 ## Returns the slot index if ready, or -1 if not available.
@@ -217,18 +220,26 @@ func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bo
 	if is_boss:
 		return _evaluate_boss(brott, enemy)
 
-	movement_override = ""  # Reset each tick
-	
 	## Arc N.2: FBI path bypasses TCR entirely (movement_override set on every tick)
 	if use_first_battle_ai:
+		movement_override = ""
 		return _evaluate_first_battle(brott, enemy)
-	
-	## S25.2: Apply player click overrides before card evaluation.
-	## These take priority over card-driven behavior. The override sets state
-	## that S25.3 (baseline AI rewrite) reads to actually drive movement/targeting.
-	if _override_move_pos != Vector2.INF:
+
+	## O.1: Tick-based suppression — check BEFORE resetting movement_override.
+	## Prevents combat AI from stomping a player click on the very next tick.
+	if _override_move_pos != Vector2.INF and _override_ticks_remaining > 0:
+		_override_ticks_remaining -= 1
 		movement_override = "move_to_override"
 		return true
+	elif _override_ticks_remaining <= 0 and _override_move_pos != Vector2.INF:
+		## Ticks expired — clean up override state
+		_override_move_pos = Vector2.INF
+		_override_move_initial_dist = -1.0
+
+	movement_override = ""  # Reset each tick (runs only when no active override)
+
+	## S25.2: Apply player click overrides before card evaluation.
+	## (Legacy guard kept for target override path below)
 	if _override_target_id != -1:
 		movement_override = "target_override"
 		return true

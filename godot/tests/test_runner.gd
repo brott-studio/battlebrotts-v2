@@ -138,6 +138,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_s28_2_scrapyard_variety.gd",
 	# [Arc O / SO.1-002] Click-to-move tick-suppression override — 7 conditions covering counter arm/decrement/expiry, latest-wins, clear, target independence, weapon_mode purity.
 	"res://tests/test_arc_o1_click_override.gd",
+	# [Arc O / SO.2-001–004] Brawler speed 120→60 px/s; enemy brawler_rush retains 120 px/s via speed_override.
+	"res://tests/test_arc_o2_brawler_speed.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

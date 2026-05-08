@@ -565,7 +565,7 @@ const ARCHETYPE_TEMPLATES: Array[Dictionary] = [
 		"id": "brawler_rush",
 		"display_name": "Brawler Rush",
 		"enemy_specs": [
-			{"chassis": 1, "weapons": [2], "armor": 0, "modules": [], "hp_pct": 0.5, "count": 1}
+			{"chassis": 1, "weapons": [2], "armor": 0, "modules": [], "hp_pct": 0.5, "speed_override": 120.0, "count": 1}  # O.2: speed_override retains enemy speed at 120 px/s despite chassis_data halving player Brawler to 60 px/s
 		]
 	},
 	{

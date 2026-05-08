@@ -129,7 +129,7 @@ func _test_o1_4_new_click_resets_counter() -> void:
 	_assert(player.brain._override_ticks_remaining == 15, "after 10 ticks: counter == 15")
 
 	## New click — counter resets to 25
-	player.brain.set_move_override(Vector2(350.0, 300.0))
+	player.brain.set_move_override(Vector2(9999.0, 9999.0))
 	_assert(player.brain._override_ticks_remaining == 25, "after second click: counter reset to 25")
 
 	## Run 5 more ticks — counter at 20 (not 10, because it was reset)

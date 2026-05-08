@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BattleBrotts v2 — Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; line-height: 1.6; padding: 1rem; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    h1 span { font-size: 0.9rem; color: #7d8590; font-weight: normal; margin-left: 0.5rem; }
+    h2 { font-size: 1.1rem; color: #58a6ff; margin: 1.5rem 0 0.5rem; border-bottom: 1px solid #21262d; padding-bottom: 0.25rem; }
+    .stats { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
+    .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.75rem 1rem; flex: 1; min-width: 120px; text-align: center; }
+    .stat .num { font-size: 1.5rem; font-weight: bold; color: #58a6ff; }
+    .stat .label { font-size: 0.75rem; color: #7d8590; text-transform: uppercase; }
+    .links { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.75rem 0; }
+    .links a { color: #58a6ff; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.4rem 0.8rem; text-decoration: none; font-size: 0.85rem; }
+    .links a:hover { border-color: #58a6ff; }
+    .commit { padding: 0.4rem 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; display: flex; gap: 0.5rem; }
+    .commit .sha { color: #58a6ff; font-family: monospace; min-width: 60px; }
+    .commit .msg { flex: 1; }
+    .commit .date { color: #7d8590; font-size: 0.75rem; white-space: nowrap; }
+    .sprint { margin-bottom: 1rem; }
+    .sprint h3 { font-size: 0.95rem; color: #e6edf3; }
+    .sprint ul { list-style: none; padding-left: 0; }
+    .sprint li { padding: 0.2rem 0; font-size: 0.85rem; }
+    .sprint li::before { content: "•"; color: #58a6ff; margin-right: 0.5rem; }
+    .empty { color: #7d8590; font-style: italic; font-size: 0.85rem; }
+    @media (max-width: 600px) { .stats { flex-direction: column; } .commit { flex-direction: column; gap: 0.1rem; } }
+  </style>
+</head>
+<body>
+  <h1>🤖⚔️ BattleBrotts v2 <span id="sprint-label"></span></h1>
+
+  <div class="links">
+    <a href="https://github.com/blor-inc/battlebrotts-v2">Repo</a>
+    <a href="https://github.com/blor-inc/battlebrotts-v2/blob/main/docs/gdd.md">GDD</a>
+    <a href="https://github.com/blor-inc/studio-framework">Framework</a>
+    <a href="https://github.com/blor-inc/studio-audits">Audit</a>
+    <a href="game/">Play</a>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="commit-count">—</div><div class="label">Commits</div></div>
+    <div class="stat"><div class="num" id="pr-count">—</div><div class="label">PRs Merged</div></div>
+    <div class="stat"><div class="num" id="test-count">—</div><div class="label">Tests</div></div>
+  </div>
+
+  <h2>Sprint Log</h2>
+  <div id="sprint-log"><p class="empty">Loading…</p></div>
+
+  <h2>Recent Activity</h2>
+  <div id="activity"><p class="empty">Loading…</p></div>
+
+  <p style="margin-top:2rem;color:#7d8590;font-size:0.7rem;text-align:center;">
+    Auto-generated from git history · Updated on merge to main
+  </p>
+
+  <script>
+    fetch('data.json')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('sprint-label').textContent = d.currentSprint || '';
+        document.getElementById('commit-count').textContent = d.commitCount ?? '—';
+        document.getElementById('pr-count').textContent = d.prCount ?? '—';
+        document.getElementById('test-count').textContent = d.testCount ?? '—';
+
+        // Sprint log
+        const logEl = document.getElementById('sprint-log');
+        if (d.sprints && d.sprints.length) {
+          logEl.innerHTML = d.sprints.map(s => `
+            <div class="sprint">
+              <h3>${s.name}</h3>
+              <ul>${s.prs.map(pr => `<li><a href="${pr.url}" style="color:#58a6ff;text-decoration:none;">#${pr.number}</a> ${pr.title}</li>`).join('')}</ul>
+            </div>
+          `).join('');
+        } else {
+          logEl.innerHTML = '<p class="empty">No sprints yet</p>';
+        }
+
+        // Activity
+        const actEl = document.getElementById('activity');
+        if (d.commits && d.commits.length) {
+          actEl.innerHTML = d.commits.map(c => `
+            <div class="commit">
+              <span class="sha">${c.sha.slice(0,7)}</span>
+              <span class="msg">${c.message}</span>
+              <span class="date">${new Date(c.date).toLocaleDateString()}</span>
+            </div>
+          `).join('');
+        } else {
+          actEl.innerHTML = '<p class="empty">No commits yet</p>';
+        }
+      })
+      .catch(() => {
+        document.getElementById('sprint-log').innerHTML = '<p class="empty">Failed to load data</p>';
+        document.getElementById('activity').innerHTML = '';
+      });
+  </script>
+</body>
+</html>

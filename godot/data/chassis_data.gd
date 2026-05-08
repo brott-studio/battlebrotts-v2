@@ -23,9 +23,9 @@ const CHASSIS := {
 	ChassisType.BRAWLER: {
 		"name": "Brawler",
 		"hp": 360,  # K.3: +22% HP buff to lift T1 battle win-rate ≥30% (was 295, #314)
-		"speed": 120.0,
-		"accel": 240.0,
-		"decel": 360.0,
+		"speed": 60.0,    # O.2: 120→60 px/s (too fast to follow visually)
+		"accel": 120.0,   # O.2: halved proportionally (was 240.0)
+		"decel": 180.0,   # O.2: halved proportionally (was 360.0)
 		"turn_speed": 240.0,
 		"weight_cap": 55,
 		"weapon_slots": 2,

@@ -50,8 +50,8 @@ func test_chassis_accel_decel_values() -> void:
 	_assert(scout["turn_speed"] == 360.0, "Scout turn_speed = 360")
 
 	var brawler := ChassisData.get_chassis(ChassisData.ChassisType.BRAWLER)
-	_assert(brawler["accel"] == 240.0, "Brawler accel = 240")
-	_assert(brawler["decel"] == 360.0, "Brawler decel = 360")
+	_assert(brawler["accel"] == 120.0, "Brawler accel = 120 (O.2: was 240.0)")
+	_assert(brawler["decel"] == 180.0, "Brawler decel = 180 (O.2: was 360.0)")
 	_assert(brawler["turn_speed"] == 240.0, "Brawler turn_speed = 240")
 
 	var fortress := ChassisData.get_chassis(ChassisData.ChassisType.FORTRESS)

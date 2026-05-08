@@ -337,7 +337,7 @@ func _run_data_tests() -> void:
 	
 	var brawler := ChassisData.get_chassis(ChassisData.ChassisType.BRAWLER)
 	assert_eq(brawler["hp"], 360, "Brawler HP = 360 (K.3 T1 balance fix, #314)")  # Updated for J.5 per-chassis T1 tuning (sprint-28.5)
-	assert_near(brawler["speed"], 120.0, 0.1, "Brawler speed = 120")
+	assert_near(brawler["speed"], 60.0, 0.1, "Brawler speed = 60 (O.2: was 120.0)")
 	assert_eq(brawler["weapon_slots"], 2, "Brawler weapon slots = 2")
 	assert_eq(brawler["module_slots"], 2, "Brawler module slots = 2")
 	

@@ -10,6 +10,8 @@
 ## Usage: godot --headless --path godot/ --script res://tests/test_arc_o3_death_freeze.gd
 extends SceneTree
 
+const ArenaRenderer = preload("res://arena/arena_renderer.gd")
+
 var pass_count := 0
 var fail_count := 0
 var test_count := 0
@@ -79,7 +81,7 @@ func _test_o3_1_single_death_freeze_timer() -> void:
 	_assert(renderer.death_freeze_timer == 6.0, "post-death: death_freeze_timer == 6.0")
 
 	# Call deferred _spawn_death_burst manually (call_deferred won't run in SceneTree headless _initialize)
-	renderer._spawn_death_burst(victim.position.duplicate())
+	renderer._spawn_death_burst(victim.position)
 
 	# Pool should have some active particles (20–30 range)
 	_assert(renderer.active_particle_count >= 20, "single burst: active_particle_count >= 20")
@@ -118,7 +120,7 @@ func _test_o3_3_five_death_burst_reset_and_cap() -> void:
 		sim._kill_brott(b)
 		deaths += 1
 		# Manually call _spawn_death_burst (call_deferred won't fire in headless SceneTree _initialize)
-		renderer._spawn_death_burst(b.position.duplicate())
+		renderer._spawn_death_burst(b.position)
 
 	_assert(renderer.active_particle_count <= 120,
 		"5-burst: active_particle_count (%d) ≤ 120" % renderer.active_particle_count)

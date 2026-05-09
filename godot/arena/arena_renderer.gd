@@ -24,6 +24,7 @@ const COLOR_HP_LOW := Color(0.9, 0.2, 0.1)
 const COLOR_ENERGY := Color(0.2, 0.7, 1.0)
 const COLOR_BAR_BG := Color(0.1, 0.1, 0.1, 0.8)
 const COLOR_EXPLOSION := Color(1.0, 0.6, 0.1)
+const DEATH_BURST_MAX := 120  # O.3: max active particles before death burst drains oldest
 const COLOR_DANGER_ZONE := Color(0.8, 0.1, 0.1, 0.35)
 const COLOR_DANGER_BORDER := Color(1.0, 0.15, 0.1, 0.8)
 
@@ -142,6 +143,17 @@ func _init_particle_pool() -> void:
 			"active": false,
 		})
 	active_particle_count = 0
+
+func _drain_oldest_particles(count: int) -> void:
+	## O.3: drain oldest active particles to make room for death burst
+	var freed := 0
+	for p in particle_pool:
+		if freed >= count:
+			break
+		if p["active"]:
+			p["active"] = false
+			active_particle_count -= 1
+			freed += 1
 
 func _claim_particle() -> Variant:
 	"""Claim an inactive particle from the pool. Returns null if pool exhausted."""
@@ -389,7 +401,7 @@ func _add_damage_text(hit_pos: Vector2, amount: float, is_crit: bool) -> void:
 
 func _on_death(brott: BrottState) -> void:
 	# Death explosion sequence
-	# Hit-stop: 100ms freeze
+	# Hit-stop: 100ms freeze — synchronous, feel-critical
 	death_freeze_timer = 6.0  # ~100ms at 60fps
 	
 	# Screen flash
@@ -406,23 +418,36 @@ func _on_death(brott: BrottState) -> void:
 	# Slow-mo
 	death_slow_mo_timer = 18.0  # 0.3s at 60fps
 	
-	# Debris particles (pooled)
-	for _i in range(randi_range(4, 6)):
-		var angle := randf() * TAU
-		var speed := randf_range(100.0, 150.0)
-		var rot_speed := randf_range(-5.0, 5.0)
-		death_debris.append({
-			"pos": brott.position + arena_offset,
-			"vel": Vector2(cos(angle), sin(angle)) * speed,
-			"rotation": randf() * TAU,
-			"rot_speed": rot_speed,
-			"lifetime": 48.0,  # 800ms
-			"max_lifetime": 48.0,
-			"size": 4.0,
-			"color": [Color.ORANGE, Color.GRAY, Color.WHITE][randi() % 3],
-		})
+	# Set death_timer for explosion sprite animation
+	brott.death_timer = 30.0
 	
-	# Big particle burst (pooled)
+	# O.3: Defer particle/debris burst to end-of-frame to prevent multi-death
+	# synchronous pileup. Pass .duplicate() to avoid position reference mutation.
+	call_deferred("_spawn_death_burst", brott.position.duplicate())
+
+func _spawn_death_burst(pos: Vector2) -> void:
+	# O.3 (2A): cap total active particles before burst
+	if active_particle_count >= DEATH_BURST_MAX:
+		_drain_oldest_particles(20)
+	
+	# Debris particles (4-6) — with unbounded-guard
+	for _i in range(randi_range(4, 6)):
+		if death_debris.size() < 30:  # O.3: debris unbounded guard
+			var angle := randf() * TAU
+			var speed := randf_range(100.0, 150.0)
+			var rot_speed := randf_range(-5.0, 5.0)
+			death_debris.append({
+				"pos": pos + arena_offset,
+				"vel": Vector2(cos(angle), sin(angle)) * speed,
+				"rotation": randf() * TAU,
+				"rot_speed": rot_speed,
+				"lifetime": 48.0,  # 800ms
+				"max_lifetime": 48.0,
+				"size": 4.0,
+				"color": [Color.ORANGE, Color.GRAY, Color.WHITE][randi() % 3],
+			})
+	
+	# Big particle burst (20-30)
 	for _i in range(randi_range(20, 30)):
 		var p: Dictionary = _claim_particle()
 		if p == null:
@@ -430,15 +455,12 @@ func _on_death(brott: BrottState) -> void:
 		var angle := randf() * TAU
 		var speed := randf_range(80.0, 150.0)
 		var col: Color = [Color.ORANGE, Color.GRAY, Color.WHITE][randi() % 3]
-		p["pos"] = brott.position + arena_offset
+		p["pos"] = pos + arena_offset
 		p["vel"] = Vector2(cos(angle), sin(angle)) * speed
 		p["lifetime"] = randf_range(300.0, 600.0) / (1000.0 / 60.0)
 		p["max_lifetime"] = randf_range(300.0, 600.0) / (1000.0 / 60.0)
 		p["color"] = col
 		p["size"] = randf_range(2.0, 4.0)
-	
-	# Set death_timer for explosion sprite animation
-	brott.death_timer = 30.0
 
 func get_time_scale() -> float:
 	if death_slow_mo_timer > 0:

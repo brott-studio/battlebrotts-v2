@@ -140,6 +140,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_arc_o1_click_override.gd",
 	# [Arc O / SO.2-001–004] Brawler speed 120→60 px/s; enemy brawler_rush retains 120 px/s via speed_override.
 	"res://tests/test_arc_o2_brawler_speed.gd",
+	# [Arc O / SO.3-001–007] Swarm death freeze fix — DEATH_BURST_MAX cap, _drain_oldest_particles, deferred burst.
+	"res://tests/test_arc_o3_death_freeze.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

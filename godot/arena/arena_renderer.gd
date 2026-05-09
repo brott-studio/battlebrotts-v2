@@ -423,7 +423,7 @@ func _on_death(brott: BrottState) -> void:
 	
 	# O.3: Defer particle/debris burst to end-of-frame to prevent multi-death
 	# synchronous pileup. Pass .duplicate() to avoid position reference mutation.
-	call_deferred("_spawn_death_burst", brott.position.duplicate())
+	call_deferred("_spawn_death_burst", brott.position)
 
 func _spawn_death_burst(pos: Vector2) -> void:
 	# O.3 (2A): cap total active particles before burst

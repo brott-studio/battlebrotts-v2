@@ -426,9 +426,9 @@ func _on_death(brott: BrottState) -> void:
 	call_deferred("_spawn_death_burst", brott.position)
 
 func _spawn_death_burst(pos: Vector2) -> void:
-	# O.3 (2A): cap total active particles before burst
-	if active_particle_count >= DEATH_BURST_MAX:
-		_drain_oldest_particles(20)
+	# O.3: cap check — drain to make room for a full burst (up to 30 particles)
+	if active_particle_count > DEATH_BURST_MAX - 30:
+		_drain_oldest_particles(active_particle_count - (DEATH_BURST_MAX - 30))
 	
 	# Debris particles (4-6) — with unbounded-guard
 	for _i in range(randi_range(4, 6)):

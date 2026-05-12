@@ -535,9 +535,16 @@ func _move_brott(b: BrottState) -> void:
 		var dist_mo: float = to_waypoint.length()
 		const ARRIVE_RADIUS: float = 24.0  ## arrive and clear at 24px (< tile, feels responsive)
 		const MIN_TRAVEL_PX: float = 32.0  ## N.3 GAP-5: minimum travel to honour arrival
-		## N.3 GAP-5: seed initial distance on first tick of this override
+		## N.3 GAP-5 / Arc R: seed initial distance on first tick of this override.
+		## Arc R: also reset b.velocity and reversal_damping_timer on entry so the
+		## smoothed-velocity angular cap cannot delay the bot's turn toward the
+		## waypoint. Without this, velocity inherited from combat AI (pointing toward
+		## the enemy) takes up to 7 ticks (0.7s) to rotate 180°, making click-to-move
+		## feel unresponsive even though movement_override was correctly set.
 		if b.brain._override_move_initial_dist < 0.0:
 			b.brain._override_move_initial_dist = dist_mo
+			b.velocity = Vector2.ZERO
+			b.reversal_damping_timer = 0
 		var _traveled: float = b.brain._override_move_initial_dist - dist_mo
 		## Only clear on arrival after meaningful travel (≥32px)
 		if dist_mo <= ARRIVE_RADIUS and _traveled >= MIN_TRAVEL_PX:

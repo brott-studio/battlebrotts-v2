@@ -145,6 +145,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_arc_q1_marker_priority.gd",
 	# [Arc Q / Q.2] Weapons fire during transit — _fire_weapons not gated on movement mode, verified with 3 conditions.
 	"res://tests/test_arc_q2_weapons_fire_during_transit.gd",
+	# [Arc R] Click-to-move wins over combat AI — velocity reset on override entry eliminates angular-cap delay.
+	"res://tests/test_arc_r_marker_priority_refix.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F

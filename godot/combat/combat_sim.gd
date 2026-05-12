@@ -527,7 +527,9 @@ func _move_brott(b: BrottState) -> void:
 				_apply_smoothed_displacement(b, _smooth_velocity(b, desired_vel_p, TICK_DELTA))
 	elif move_override == "move_to_override" and b.brain != null and b.brain._override_move_pos != Vector2.INF:
 		## S25.3: Navigate to player-clicked waypoint position.
-		b.accelerate_toward_speed(b.get_effective_speed(), TICK_DELTA)
+		## Arc Q.1: Use b.base_speed (chassis max speed) instead of get_effective_speed() so
+		## kite-state cannot reduce speed during a player move override.
+		b.accelerate_toward_speed(b.base_speed, TICK_DELTA)
 		var spd_mo: float = b.current_speed * TICK_DELTA
 		var to_waypoint: Vector2 = b.brain._override_move_pos - b.position
 		var dist_mo: float = to_waypoint.length()

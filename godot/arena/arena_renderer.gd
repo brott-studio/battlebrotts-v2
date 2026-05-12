@@ -1143,44 +1143,87 @@ func _draw_sudden_death_banner(draw_offset: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, center - Vector2(80, 0), "SUDDEN DEATH!", HORIZONTAL_ALIGNMENT_CENTER, 160, 24, col)
 
 ## S12.3: Draw simplified weapon silhouettes on in-game 24×24 bot sprites
+## Arc P.2 fix: rotate mount points to face target when alive.
+## When b.target is alive, aim_dir points toward target; mounts rotate
+## around bot center so both weapons point at the target (left/right of
+## the aim axis). Falls back to fixed left/right when no live target.
 func _draw_ingame_weapons(b: BrottState, pos: Vector2) -> void:
 	var weapon_col := Color(0.75, 0.75, 0.75, 0.85)
+
+	## Compute aim direction for mount rotation.
+	var aim_dir := Vector2(1.0, 0.0)  # default: fixed right
+	var has_target := b.target != null and is_instance_valid(b.target) and b.target.alive
+	if has_target:
+		var delta: Vector2 = b.target.position - b.position
+		if delta.length_squared() > 0.01:
+			aim_dir = delta.normalized()
+	else:
+		## Fall back to facing_angle for Brawler/Fortress chassis.
+		if b.chassis_type == ChassisData.ChassisType.BRAWLER or \
+				b.chassis_type == ChassisData.ChassisType.FORTRESS:
+			var rad: float = deg_to_rad(b.facing_angle)
+			aim_dir = Vector2(cos(rad), sin(rad))
+
+	## Perpendicular (side axis): right of aim_dir.
+	var perp := aim_dir.rotated(-PI / 2.0)
+
 	for i in range(b.weapon_types.size()):
 		if i >= 2:
 			break
 		var wt: WeaponData.WeaponType = b.weapon_types[i]
-		var side := 1.0 if i == 0 else -1.0  # right / left
-		var mount := pos + Vector2(BOT_RADIUS * side, 0)
-		
+		## slot 0 = right of aim axis (+perp), slot 1 = left (-perp)
+		var side_sign := 1.0 if i == 0 else -1.0
+		var mount := pos + perp * (BOT_RADIUS * side_sign)
+		## Barrel extension vectors along aim direction.
+		var fwd := aim_dir  # forward = toward target
+
 		match wt:
 			WeaponData.WeaponType.MINIGUN:
-				# Small barrel cluster
+				# Small barrel cluster — two parallel barrels offset along perp
 				for j in range(2):
-					draw_rect(Rect2(mount + Vector2(0, (j - 0.5) * 3 - 1), Vector2(5.0 * side, 2)), weapon_col)
+					var offset_perp := perp * ((j - 0.5) * 3.0 - 1.0)
+					_draw_rotated_rect(mount + offset_perp, fwd * 5.0, 2.0, weapon_col)
 			WeaponData.WeaponType.RAILGUN:
 				# Long thin barrel
-				draw_rect(Rect2(mount + Vector2(0, -1), Vector2(8.0 * side, 2)), weapon_col)
+				_draw_rotated_rect(mount - fwd * 0.5, fwd * 8.0, 2.0, weapon_col)
 			WeaponData.WeaponType.SHOTGUN:
 				# Wide short barrel
-				draw_rect(Rect2(mount + Vector2(0, -2), Vector2(4.0 * side, 4)), weapon_col)
+				_draw_rotated_rect(mount, fwd * 4.0, 4.0, weapon_col)
 			WeaponData.WeaponType.MISSILE_POD:
 				# Small pod cluster (2 tubes)
-				draw_rect(Rect2(mount + Vector2(0, -2), Vector2(3.0 * side, 2)), weapon_col)
-				draw_rect(Rect2(mount + Vector2(0, 1), Vector2(3.0 * side, 2)), weapon_col)
+				_draw_rotated_rect(mount + perp * (-1.5), fwd * 3.0, 2.0, weapon_col)
+				_draw_rotated_rect(mount + perp * 1.5, fwd * 3.0, 2.0, weapon_col)
 			WeaponData.WeaponType.PLASMA_CUTTER:
-				# Small blade
+				# Small blade — triangle pointing forward
 				var pts := PackedVector2Array([
 					mount,
-					mount + Vector2(6.0 * side, -1.5),
-					mount + Vector2(6.0 * side, 1.5),
+					mount + fwd * 6.0 + perp * (-1.5),
+					mount + fwd * 6.0 + perp * 1.5,
 				])
 				draw_colored_polygon(pts, Color(0.7, 0.3, 0.8, 0.85))
 			WeaponData.WeaponType.ARC_EMITTER:
-				# Small coil dot
-				draw_circle(mount + Vector2(3.0 * side, 0), 2.5, Color(0.3, 0.5, 1.0, 0.85))
+				# Small coil dot at barrel tip
+				draw_circle(mount + fwd * 3.0, 2.5, Color(0.3, 0.5, 1.0, 0.85))
 			WeaponData.WeaponType.FLAK_CANNON:
 				# Wide short barrel
-				draw_rect(Rect2(mount + Vector2(0, -2.5), Vector2(3.0 * side, 5)), weapon_col)
+				_draw_rotated_rect(mount, fwd * 3.0, 5.0, weapon_col)
+
+## Arc P.2 helper: draw a rotated barrel rect.
+## origin = mount point, dir_vec = barrel direction * length, thickness = perpendicular width.
+func _draw_rotated_rect(origin: Vector2, dir_vec: Vector2, thickness: float, col: Color) -> void:
+	var perp_axis: Vector2
+	if dir_vec.length_squared() < 0.001:
+		perp_axis = Vector2(0.0, 1.0)
+	else:
+		perp_axis = dir_vec.normalized().rotated(PI / 2.0)
+	var half_t := perp_axis * (thickness * 0.5)
+	var pts := PackedVector2Array([
+		origin - half_t,
+		origin + dir_vec - half_t,
+		origin + dir_vec + half_t,
+		origin + half_t,
+	])
+	draw_colored_polygon(pts, col)
 
 # ─────────────────────────────────────────────────────────────
 # S25.2: Click overlay rendering — waypoint diamond, reticle ring, player pulse.

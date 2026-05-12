@@ -233,6 +233,10 @@ func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bo
 	if _override_move_pos != Vector2.INF:
 		if _override_ticks_remaining > 0:
 			_override_ticks_remaining -= 1
+		## Arc Q.1: Suppress kite state during override so it doesn't bleed into
+		## movement speed calculations on this or subsequent ticks.
+		_kiting = false
+		brott.stance = _default_stance
 		movement_override = "move_to_override"
 		return true
 

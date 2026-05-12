@@ -1,11 +1,11 @@
-## Sprint 17.1-003 — Visible-by-default tooltips + energy legend
+## Sprint 17.1-003 — Visible-by-default tooltips
 ## Usage: godot --headless --script tests/test_sprint17_1_visible_tooltips.gd
 ## Design: docs/design/s17.1-003-visible-tooltips.md
 ## Covers (per design §7):
 ##   AC-1 — Loadout row renders name + inline summary without hover
 ##   AC-2 — Row height is 64 px (±2 px padding)
 ##   AC-3 — Shop card shows inline description label
-##   AC-4 — Energy legend label exists in HUD with correct anchor copy
+##   AC-4 — (removed: energy legend display removed in Arc S)
 ##   AC-5 — Hover tooltip path preserved (btn.tooltip_text)
 ##   AC-6 — Sacred-path diff guard is enforced at CI/PR level (manual note)
 extends SceneTree
@@ -78,7 +78,6 @@ func _run_all() -> void:
 	_test_ac1_loadout_inline_summary_no_hover()
 	_test_ac2_row_height_64px()
 	_test_ac3_shop_card_inline_description()
-	_test_ac4_energy_legend_copy()
 	_test_ac5_hover_tooltip_preserved()
 	_test_ac6_empty_description_fallback()
 	_test_ac7_equipped_tooltip_prefix()
@@ -166,33 +165,6 @@ func _find_first_card(node: Node) -> Button:
 	return null
 
 # --- AC-4: Energy legend exists with expected anchor copy ---
-# Load main.tscn, instance its root, and verify the EnergyLegend label is
-# created by _ready() inside UI CanvasLayer. Anchor-text assertion (resilient
-# to minor tweaks): must contain "Energy" and at least one of the key terms.
-func _test_ac4_energy_legend_copy() -> void:
-	print("AC-4: HUD energy legend renders with anchor copy")
-	var scene: PackedScene = load("res://main.tscn")
-	assert_true(scene != null, "main.tscn loadable")
-	if scene == null:
-		return
-	var root_node: Node = scene.instantiate()
-	get_root().add_child(root_node)
-	# _ready runs on add_child; give a frame so queue_free/ordering settles.
-	await process_frame
-	var ui := root_node.get_node_or_null("UI") as CanvasLayer
-	assert_true(ui != null, "UI CanvasLayer exists")
-	var legend := ui.get_node_or_null("EnergyLegend") as Label if ui else null
-	assert_true(legend != null, "EnergyLegend label exists under UI")
-	if legend != null:
-		assert_true(legend.visible, "EnergyLegend visible")
-		var t := legend.text
-		assert_in("Energy", t, "legend mentions 'Energy'")
-		var has_anchor: bool = ("blue bar" in t) or ("weapons" in t) or ("regenerates" in t)
-		assert_true(has_anchor, "legend contains one of {blue bar, weapons, regenerates} (got '%s')" % t)
-	root_node.queue_free()
-	# Allow queue_free to process before test exits.
-	await process_frame
-
 # --- AC-5: Hover tooltip still works (regression guard) ---
 func _test_ac5_hover_tooltip_preserved() -> void:
 	print("AC-5: Button.tooltip_text preserved as hover fallback")

@@ -8,7 +8,6 @@ const BOT_RADIUS := 12.0
 const PILLAR_RADIUS := 16.0
 const HEALTH_BAR_WIDTH := 28.0
 const HEALTH_BAR_HEIGHT := 4.0
-const ENERGY_BAR_HEIGHT := 3.0
 
 const COLOR_FLOOR := Color(0.15, 0.15, 0.18)
 const COLOR_GRID := Color(0.22, 0.22, 0.26)
@@ -21,7 +20,6 @@ const COLOR_MISSILE := Color(1.0, 0.5, 0.1)
 const COLOR_HP_HIGH := Color(0.2, 0.8, 0.2)
 const COLOR_HP_MID := Color(0.9, 0.8, 0.1)
 const COLOR_HP_LOW := Color(0.9, 0.2, 0.1)
-const COLOR_ENERGY := Color(0.2, 0.7, 1.0)
 const COLOR_BAR_BG := Color(0.1, 0.1, 0.1, 0.8)
 const COLOR_EXPLOSION := Color(1.0, 0.6, 0.1)
 const DEATH_BURST_MAX := 120  # O.3: max active particles before death burst drains oldest
@@ -1089,11 +1087,6 @@ func _draw_brott(b: BrottState, draw_offset: Vector2) -> void:
 	draw_rect(Rect2(Vector2(bar_x, bar_y), Vector2(HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT)), COLOR_BAR_BG)
 	draw_rect(Rect2(Vector2(bar_x, bar_y), Vector2(HEALTH_BAR_WIDTH * hp_pct, HEALTH_BAR_HEIGHT)), hp_col)
 	
-	# Energy bar
-	var en_y: float = bar_y + HEALTH_BAR_HEIGHT + 1
-	var en_pct: float = clampf(b.energy / 100.0, 0.0, 1.0)
-	draw_rect(Rect2(Vector2(bar_x, en_y), Vector2(HEALTH_BAR_WIDTH, ENERGY_BAR_HEIGHT)), COLOR_BAR_BG)
-	draw_rect(Rect2(Vector2(bar_x, en_y), Vector2(HEALTH_BAR_WIDTH * en_pct, ENERGY_BAR_HEIGHT)), COLOR_ENERGY)
 
 	## Arc N.2: aim telegraph arc -- orange sweep, grows from 0->360 as aim_telegraph_progress 0->1
 	if b.aim_telegraph_active and b.aim_telegraph_progress > 0.0:

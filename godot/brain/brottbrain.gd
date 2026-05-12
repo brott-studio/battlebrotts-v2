@@ -225,16 +225,16 @@ func evaluate(brott: RefCounted, enemy: RefCounted, match_time_sec: float) -> bo
 		movement_override = ""
 		return _evaluate_first_battle(brott, enemy)
 
-	## O.1: Tick-based suppression — check BEFORE resetting movement_override.
+	## O.1 / Arc P.1: Tick-based suppression — check BEFORE resetting movement_override.
 	## Prevents combat AI from stomping a player click on the very next tick.
-	if _override_move_pos != Vector2.INF and _override_ticks_remaining > 0:
-		_override_ticks_remaining -= 1
+	## P.1 fix: ticks only suppress combat-AI stomping; they no longer auto-clear the
+	## override. Override persists until arrival (combat_sim.gd ARRIVE_RADIUS check) or
+	## renderer fade. Ticks decrement to 0 and clamp there — no cleanup branch.
+	if _override_move_pos != Vector2.INF:
+		if _override_ticks_remaining > 0:
+			_override_ticks_remaining -= 1
 		movement_override = "move_to_override"
 		return true
-	elif _override_ticks_remaining <= 0 and _override_move_pos != Vector2.INF:
-		## Ticks expired — clean up override state
-		_override_move_pos = Vector2.INF
-		_override_move_initial_dist = -1.0
 
 	movement_override = ""  # Reset each tick (runs only when no active override)
 

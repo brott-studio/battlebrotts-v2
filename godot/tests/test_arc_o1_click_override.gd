@@ -90,29 +90,31 @@ func _test_o1_2_evaluate_decrements_counter() -> void:
 	_assert(player.brain._override_ticks_remaining == 20, "after 5 total ticks: _override_ticks_remaining == 20")
 	_assert(player.brain.movement_override == "move_to_override", "movement_override == 'move_to_override' after 5 ticks")
 
-## ── O1-3: after 25 ticks override expires ────────────────────────────────────
+## ── O1-3: after 25 ticks counter clamps at 0, override persists (P.1 fix) ────
 func _test_o1_3_override_expires_after_25_ticks() -> void:
-	print("--- O1-3: override expires after 25 ticks ---")
+	print("--- O1-3: after 25 ticks counter == 0, override persists (Arc P.1 fix) ---")
 	var parts := _make_sim_with_player_and_enemy()
 	var sim: CombatSim = parts[0]
 	var player: BrottState = parts[1]
 
 	## Place waypoint far enough that movement alone won't clear it
-	var waypoint := Vector2(800.0, 256.0)
+	var waypoint := Vector2(9000.0, 256.0)
 	player.brain.set_move_override(waypoint)
 
 	## Run exactly 25 ticks
 	for _i in range(25):
 		sim.simulate_tick()
 
-	## After 25 ticks: counter reaches 0 on last tick, then the elif branch fires on the NEXT tick
-	## to clear state. Verify at this point: ticks_remaining should be 0.
+	## Arc P.1: ticks reach 0 and clamp. Override must still be live — not auto-cleared.
 	_assert(player.brain._override_ticks_remaining == 0, "after 25 ticks: _override_ticks_remaining == 0")
+	_assert(player.brain._override_move_pos != Vector2.INF, "after 25 ticks: _override_move_pos still set (P.1: no auto-clear)")
+	_assert(player.brain.movement_override == "move_to_override", "after 25 ticks: movement_override still 'move_to_override'")
 
-	## Run 1 more tick to trigger the expiry cleanup branch
-	sim.simulate_tick()
-	_assert(player.brain._override_move_pos == Vector2.INF, "after expiry cleanup tick: _override_move_pos == INF")
-	_assert(player.brain._override_ticks_remaining == 0, "after expiry: _override_ticks_remaining == 0")
+	## Run 5 more ticks — should still be live
+	for _i in range(5):
+		sim.simulate_tick()
+	_assert(player.brain._override_move_pos != Vector2.INF, "after 30 ticks: override still live")
+	_assert(player.brain._override_ticks_remaining == 0, "after 30 ticks: counter stays at 0 (clamped)")
 
 ## ── O1-4: new click while override active resets counter to 25 (latest-wins) ─
 func _test_o1_4_new_click_resets_counter() -> void:

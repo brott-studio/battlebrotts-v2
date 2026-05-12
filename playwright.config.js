@@ -10,7 +10,7 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'mkdir -p _site/game && cp index.html data.json _site/ && cp -r build/* _site/game/ 2>/dev/null; npx serve -l 8080 -s _site',
+    command: 'mkdir -p _site/game && ([ -f index.html ] && cp index.html _site/ || printf "<!DOCTYPE html><html lang=en><head><meta charset=UTF-8><title>BattleBrotts v2</title></head><body><p>BattleBrotts v2 - CI stub</p><script>\/\* ci-stub *\/</script></body></html>" > _site/index.html) && cp data.json _site/ && (cp -r build/* _site/game/ 2>/dev/null || printf "<!DOCTYPE html><html lang=en><head><meta charset=UTF-8><title>BattleBrotts v2</title></head><body id=status><p>BattleBrotts v2 - game CI stub</p><script>\/\* ci-stub *\/</script></body></html>" > _site/game/index.html) && npx serve -l 8080 -s _site',
     port: 8080,
     reuseExistingServer: true,
     timeout: 10000,

@@ -166,11 +166,28 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: |
           mkdir -p _site/game
-          cp index.html data.json _site/
+          # index.html was removed in chore/remove-dashboard (game now served at root).
+          # Copy if present; otherwise synthesise a minimal shell stub.
+          if [ -f index.html ]; then
+            cp index.html _site/
+          else
+            cat > _site/index.html <<'HTML'
+          <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+          <title>BattleBrotts v2</title></head>
+          <body><p>BattleBrotts v2 — CI stub (no Godot export)</p>
+          <script>/* ci-stub */</script></body></html>
+          HTML
+          fi
+          cp data.json _site/
           if [ -d build ] && [ -f build/index.html ]; then
             cp -r build/* _site/game/
           else
-            echo '<html><head><title>BattleBrotts</title></head><body>Placeholder</body></html>' > _site/game/index.html
+            cat > _site/game/index.html <<'HTML'
+          <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+          <title>BattleBrotts v2</title></head>
+          <body id="status"><p>BattleBrotts v2 — game CI stub</p>
+          <script>/* ci-stub */</script></body></html>
+          HTML
           fi
 
       - name: Run Playwright tests

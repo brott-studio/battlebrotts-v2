@@ -166,7 +166,14 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: |
           mkdir -p _site/game
-          cp index.html data.json _site/
+          # index.html was removed in chore/remove-dashboard (serves game at root).
+          # Copy it only if it exists; otherwise synthesise a minimal stub.
+          if [ -f index.html ]; then
+            cp index.html _site/
+          else
+            echo '<html><head><title>BattleBrotts</title></head><body>Loading…</body></html>' > _site/index.html
+          fi
+          cp data.json _site/
           if [ -d build ] && [ -f build/index.html ]; then
             cp -r build/* _site/game/
           else

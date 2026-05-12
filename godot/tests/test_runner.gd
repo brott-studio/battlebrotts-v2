@@ -144,6 +144,8 @@ const SPRINT_TEST_FILES := [
 	"res://tests/test_arc_o3_death_freeze.gd",
 	# [Arc Q / Q.1] Full marker priority — kite state suppressed during move override, base_speed used for transit.
 	"res://tests/test_arc_q1_marker_priority.gd",
+	# [Arc Q / Q.2] Weapons fire during transit — _fire_weapons not gated on movement mode, verified with 3 conditions.
+	"res://tests/test_arc_q2_weapons_fire_during_transit.gd",
 ]
 
 # [S25.1] Arc-G-pending test files: these reference APIs removed in Arc F
